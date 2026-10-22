@@ -238,4 +238,81 @@ export const api = {
       }),
     removeMember: (userId: string) => request<any>(`/workspaces/members/${userId}`, { method: "DELETE" }),
   },
+
+  // Developer Platform: API Keys
+  apiKeys: {
+    list: () => request<any[]>("/api-keys"),
+    create: (body: { name: string; scopes: string[]; expiresInDays?: number }) =>
+      request<{ key: any; secret: string }>("/api-keys", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    rotate: (id: string) =>
+      request<{ key: any; secret: string }>(`/api-keys/${id}/rotate`, {
+        method: "POST",
+      }),
+    revoke: (id: string) =>
+      request<{ success: boolean }>(`/api-keys/${id}`, {
+        method: "DELETE",
+      }),
+  },
+
+  // Developer Platform: Outbound Webhooks
+  webhooks: {
+    list: () => request<any[]>("/outbound-webhooks"),
+    create: (body: { name: string; url: string; events: string[] }) =>
+      request<{ webhook: any; secret: string }>("/outbound-webhooks", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    get: (id: string) => request<any>(`/outbound-webhooks/${id}`),
+    update: (id: string, body: { name?: string; url?: string; events?: string[]; active?: boolean }) =>
+      request<any>(`/outbound-webhooks/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/outbound-webhooks/${id}`, {
+        method: "DELETE",
+      }),
+    rotateSecret: (id: string) =>
+      request<{ secret: string }>(`/outbound-webhooks/${id}/rotate-secret`, {
+        method: "POST",
+      }),
+    getDeliveries: (id: string, limit = 20) =>
+      request<any[]>(`/outbound-webhooks/${id}/deliveries?limit=${limit}`),
+    retryDelivery: (deliveryId: string) =>
+      request<any>(`/outbound-webhooks/deliveries/${deliveryId}/retry`, {
+        method: "POST",
+      }),
+    sendTestPing: (id: string) =>
+      request<any>(`/outbound-webhooks/${id}/test`, {
+        method: "POST",
+      }),
+  },
+
+  // Developer Platform: Custom Integrations
+  customIntegrations: {
+    list: () => request<any[]>("/custom-integrations"),
+    create: (body: { key: string; name: string; description?: string; definition?: any }) =>
+      request<any>("/custom-integrations", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    get: (id: string) => request<any>(`/custom-integrations/${id}`),
+    updateDraft: (id: string, definition: any) =>
+      request<any>(`/custom-integrations/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(definition),
+      }),
+    publish: (id: string) =>
+      request<any>(`/custom-integrations/${id}/publish`, {
+        method: "POST",
+      }),
+    testAction: (id: string, body: { actionId: string; sampleInput?: any }) =>
+      request<any>(`/custom-integrations/${id}/test`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+  },
 };

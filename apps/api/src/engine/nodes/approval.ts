@@ -1,3 +1,4 @@
+import { outboundWebhookService } from "../../services/outboundWebhooks.js";
 import { NodeHandler, StepExecutionContext, NodeExecutionResult } from "../types.js";
 import { prisma, WorkspaceRole } from "@flowforge/database";
 import { interpolateString } from "../mapping/resolver.js";
@@ -86,6 +87,13 @@ export const approvalHandler: NodeHandler<ApprovalNodeConfig> = {
     };
 
     // Create pending approval record
+    outboundWebhookService.emitEvent(workflow.workspaceId, "approval.requested", {
+      approvalId: ctx.executionId,
+      workflowId: ctx.workflowId,
+      executionId: ctx.executionId,
+      title,
+    }).catch(() => {});
+
     const approval = await prisma.workflowApproval.create({
       data: {
         workspaceId,

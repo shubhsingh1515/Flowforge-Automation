@@ -21,14 +21,20 @@ import {
   Mail,
   RefreshCw,
   Plus,
+  Key,
+  Webhook,
+  Code2,
 } from "lucide-react";
+import { ApiKeysTab } from "../../components/developer/ApiKeysTab";
+import { OutboundWebhooksTab } from "../../components/developer/OutboundWebhooksTab";
+import { CustomIntegrationsTab } from "../../components/developer/CustomIntegrationsTab";
 import { cn } from "../../lib/utils";
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<"profile" | "workspace" | "members" | "billing" | "security">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "workspace" | "members" | "billing" | "security" | "api-keys" | "webhooks" | "custom-integrations">("profile");
 
   const [name, setName] = useState(user?.name || "");
   const [workspaceName, setWorkspaceName] = useState(user?.workspaceName || "");
@@ -234,6 +240,48 @@ export default function SettingsPage() {
         >
           <Shield className="h-4 w-4" />
           <span>Security & Sessions</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveTab("api-keys"); setActionError(null); }}
+          data-testid="tab-api-keys"
+          className={cn(
+            "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
+            activeTab === "api-keys"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          )}
+        >
+          <Key className="h-4 w-4" />
+          <span>API Keys</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveTab("webhooks"); setActionError(null); }}
+          data-testid="tab-webhooks"
+          className={cn(
+            "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
+            activeTab === "webhooks"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          )}
+        >
+          <Webhook className="h-4 w-4" />
+          <span>Webhooks</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveTab("custom-integrations"); setActionError(null); }}
+          data-testid="tab-custom-integrations"
+          className={cn(
+            "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
+            activeTab === "custom-integrations"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          )}
+        >
+          <Code2 className="h-4 w-4" />
+          <span>Custom Integrations</span>
         </button>
       </div>
 
@@ -760,6 +808,15 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      {/* 6. Developer Platform: API Keys Tab */}
+      {activeTab === "api-keys" && <ApiKeysTab />}
+
+      {/* 7. Developer Platform: Outbound Webhooks Tab */}
+      {activeTab === "webhooks" && <OutboundWebhooksTab />}
+
+      {/* 8. Developer Platform: Custom Integrations Tab */}
+      {activeTab === "custom-integrations" && <CustomIntegrationsTab />}
     </AppShell>
   );
 }

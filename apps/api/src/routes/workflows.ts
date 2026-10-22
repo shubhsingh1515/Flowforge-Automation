@@ -5,7 +5,8 @@ import {
   UpdateWorkflowSchema,
   validateWorkflowGraph,
 } from "@flowforge/shared";
-import { authenticateRequest } from "../plugins/auth.js";
+import { authenticateRequest, requireScope } from "../plugins/auth.js";
+import { outboundWebhookService } from "../services/outboundWebhooks.js";
 import { entitlementService } from "../services/entitlements.js";
 import { templateService } from "../services/templates.js";
 import { workflowVersioningService } from "../services/workflowVersioning.js";
@@ -24,7 +25,7 @@ export async function workflowRoutes(server: FastifyInstance) {
         limit: z.coerce.number().default(20),
       }),
     },
-    preHandler: [authenticateRequest],
+    preHandler: [requireScope("workflows:read")],
     handler: async (request) => {
       const { workspaceId } = request.authUser!;
       const query = request.query as {
@@ -110,7 +111,7 @@ export async function workflowRoutes(server: FastifyInstance) {
       summary: "Create a new workflow",
       body: CreateWorkflowSchema,
     },
-    preHandler: [authenticateRequest],
+    preHandler: [requireScope("workflows:write")],
     handler: async (request, reply) => {
       const { workspaceId } = request.authUser!;
       const data = CreateWorkflowSchema.parse(request.body);
@@ -163,6 +164,13 @@ export async function workflowRoutes(server: FastifyInstance) {
         },
       });
 
+      // Emit outbound webhook event
+      await outboundWebhookService.emitEvent(workspaceId, "workflow.created", {
+        workflowId: workflow.id,
+        name: workflow.name,
+        status: workflow.status,
+      }).catch(() => {});
+
       return reply.status(201).send({
         workflow: {
           id: workflow.id,
@@ -188,7 +196,7 @@ export async function workflowRoutes(server: FastifyInstance) {
       summary: "Get workflow details and latest graph definition",
       params: z.object({ id: z.string() }),
     },
-    preHandler: [authenticateRequest],
+    preHandler: [requireScope("workflows:read")],
     handler: async (request, reply) => {
       const { workspaceId } = request.authUser!;
       const { id } = request.params as { id: string };
@@ -253,7 +261,7 @@ export async function workflowRoutes(server: FastifyInstance) {
       params: z.object({ id: z.string() }),
       body: UpdateWorkflowSchema,
     },
-    preHandler: [authenticateRequest],
+    preHandler: [requireScope("workflows:write")],
     handler: async (request, reply) => {
       const { workspaceId } = request.authUser!;
       const { id } = request.params as { id: string };
@@ -416,7 +424,7 @@ export async function workflowRoutes(server: FastifyInstance) {
       summary: "Delete a workflow and all associated versions/executions",
       params: z.object({ id: z.string() }),
     },
-    preHandler: [authenticateRequest],
+    preHandler: [requireScope("workflows:write")],
     handler: async (request, reply) => {
       const { workspaceId } = request.authUser!;
       const { id } = request.params as { id: string };
@@ -448,7 +456,7 @@ export async function workflowRoutes(server: FastifyInstance) {
       summary: "Duplicate an existing workflow",
       params: z.object({ id: z.string() }),
     },
-    preHandler: [authenticateRequest],
+    preHandler: [requireScope("workflows:write")],
     handler: async (request, reply) => {
       const { workspaceId } = request.authUser!;
       const { id } = request.params as { id: string };
@@ -523,7 +531,7 @@ export async function workflowRoutes(server: FastifyInstance) {
         edges: z.array(z.any()),
       }),
     },
-    preHandler: [authenticateRequest],
+    preHandler: [requireScope("workflows:read")],
     handler: async (request) => {
       const { nodes, edges } = request.body as { nodes: any[]; edges: any[] };
       const validation = validateWorkflowGraph(nodes, edges);
@@ -538,7 +546,7 @@ export async function workflowRoutes(server: FastifyInstance) {
       summary: "Validate, activate, and register trigger hooks for a workflow",
       params: z.object({ id: z.string() }),
     },
-    preHandler: [authenticateRequest],
+    preHandler: [requireScope("workflows:write")],
     handler: async (request, reply) => {
       const { workspaceId } = request.authUser!;
       const { id } = request.params as { id: string };
@@ -637,7 +645,7 @@ export async function workflowRoutes(server: FastifyInstance) {
       summary: "Pause an active workflow",
       params: z.object({ id: z.string() }),
     },
-    preHandler: [authenticateRequest],
+    preHandler: [requireScope("workflows:write")],
     handler: async (request, reply) => {
       const { workspaceId } = request.authUser!;
       const { id } = request.params as { id: string };
@@ -684,7 +692,7 @@ export async function workflowRoutes(server: FastifyInstance) {
         triggerPayload: z.any().optional(),
       }).optional(),
     },
-    preHandler: [authenticateRequest],
+    preHandler: [requireScope("workflows:write")],
     handler: async (request, reply) => {
       const { workspaceId } = request.authUser!;
       const { id } = request.params as { id: string };
@@ -752,7 +760,7 @@ export async function workflowRoutes(server: FastifyInstance) {
         config: z.any().default({}),
       }),
     },
-    preHandler: [authenticateRequest],
+    preHandler: [requireScope("workflows:write")],
     handler: async (request, reply) => {
       const { sampleInput, config: transformConfig } = request.body as {
         sampleInput: any;
@@ -785,7 +793,7 @@ export async function workflowRoutes(server: FastifyInstance) {
       summary: "Get immutable version history snapshots for a workflow",
       params: z.object({ id: z.string() }),
     },
-    preHandler: [authenticateRequest],
+    preHandler: [requireScope("workflows:write")],
     handler: async (request, reply) => {
       const { workspaceId } = request.authUser!;
       const { id } = request.params as { id: string };
@@ -806,7 +814,7 @@ export async function workflowRoutes(server: FastifyInstance) {
       summary: "Get a specific historical workflow version snapshot",
       params: z.object({ id: z.string(), version: z.coerce.number() }),
     },
-    preHandler: [authenticateRequest],
+    preHandler: [requireScope("workflows:write")],
     handler: async (request, reply) => {
       const { workspaceId } = request.authUser!;
       const { id, version } = request.params as { id: string; version: number };
@@ -831,7 +839,7 @@ export async function workflowRoutes(server: FastifyInstance) {
         to: z.coerce.number(),
       }),
     },
-    preHandler: [authenticateRequest],
+    preHandler: [requireScope("workflows:write")],
     handler: async (request, reply) => {
       const { workspaceId } = request.authUser!;
       const { id } = request.params as { id: string };
@@ -853,7 +861,7 @@ export async function workflowRoutes(server: FastifyInstance) {
       summary: "Safely restore a previous workflow version as a new sequential version without destroying history",
       params: z.object({ id: z.string(), version: z.coerce.number() }),
     },
-    preHandler: [authenticateRequest],
+    preHandler: [requireScope("workflows:write")],
     handler: async (request, reply) => {
       const { workspaceId, userId } = request.authUser!;
       const { id, version } = request.params as { id: string; version: number };
@@ -874,7 +882,7 @@ export async function workflowRoutes(server: FastifyInstance) {
       summary: "Export sanitized portable workflow definition (JSON)",
       params: z.object({ id: z.string() }),
     },
-    preHandler: [authenticateRequest],
+    preHandler: [requireScope("workflows:write")],
     handler: async (request, reply) => {
       const { workspaceId } = request.authUser!;
       const { id } = request.params as { id: string };
@@ -896,7 +904,7 @@ export async function workflowRoutes(server: FastifyInstance) {
       summary: "Import validated workflow JSON definition into active workspace",
       body: z.any(),
     },
-    preHandler: [authenticateRequest],
+    preHandler: [requireScope("workflows:write")],
     handler: async (request, reply) => {
       const { workspaceId, userId } = request.authUser!;
       const body = request.body;

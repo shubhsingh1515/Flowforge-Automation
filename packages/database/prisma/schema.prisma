@@ -106,8 +106,12 @@ model Workspace {
   subscription      WorkspaceSubscription?
   usageRecords      UsageRecord[]
   invitations       WorkspaceInvitation[]
-  templates         WorkflowTemplate[]
-  onboarding        WorkspaceOnboarding?
+  templates          WorkflowTemplate[]
+  onboarding         WorkspaceOnboarding?
+  apiKeys            ApiKey[]
+  outboundWebhooks   OutboundWebhook[]
+  customIntegrations CustomIntegration[]
+  auditLogs          WorkspaceAuditLog[]
 
   @@map("workspaces")
 }
@@ -471,4 +475,122 @@ model WorkspaceOnboarding {
   workspace            Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@map("workspace_onboarding")
+}
+
+
+model ApiKey {
+  id          String    @id @default(uuid())
+  name        String
+  keyPrefix   String
+  keyHash     String    @unique
+  workspaceId String
+  createdById String
+  scopes      String[]  @default([])
+  expiresAt   DateTime?
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([keyPrefix])
+  @@map("api_keys")
+}
+
+model OutboundWebhook {
+  id          String   @id @default(uuid())
+  workspaceId String
+  name        String
+  url         String
+  secret      String
+  events      String[] @default([])
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace  Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@index([workspaceId, active])
+  @@map("outbound_webhooks")
+}
+
+model WebhookDelivery {
+  id           String    @id @default(uuid())
+  webhookId    String
+  workspaceId  String
+  eventId      String
+  eventType    String
+  payload      Json
+  status       String    @default("PENDING")
+  statusCode   Int?
+  responseBody String?
+  errorMessage String?
+  attempt      Int       @default(1)
+  maxAttempts  Int       @default(3)
+  durationMs   Int?
+  nextRetryAt  DateTime?
+  deliveredAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  webhook OutboundWebhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId, status])
+  @@index([workspaceId, createdAt])
+  @@index([eventId])
+  @@map("webhook_deliveries")
+}
+
+model CustomIntegration {
+  id             String   @id @default(uuid())
+  workspaceId    String
+  key            String
+  name           String
+  description    String?
+  category       String   @default("Custom")
+  status         String   @default("DRAFT")
+  currentVersion Int      @default(1)
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  workspace Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  versions  CustomIntegrationVersion[]
+
+  @@unique([workspaceId, key])
+  @@index([workspaceId])
+  @@map("custom_integrations")
+}
+
+model CustomIntegrationVersion {
+  id            String   @id @default(uuid())
+  integrationId String
+  version       Int      @default(1)
+  definition    Json     @default("{}")
+  status        String   @default("DRAFT")
+  createdAt     DateTime @default(now())
+
+  integration CustomIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@unique([integrationId, version])
+  @@map("custom_integration_versions")
+}
+
+model WorkspaceAuditLog {
+  id          String   @id @default(uuid())
+  workspaceId String
+  actorId     String
+  actorType   String   @default("USER")
+  action      String
+  targetType  String
+  targetId    String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@map("workspace_audit_logs")
 }

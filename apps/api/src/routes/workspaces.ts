@@ -12,7 +12,7 @@ export async function workspaceRoutes(server: FastifyInstance) {
     },
     preHandler: [authenticateRequest],
     handler: async (request, reply) => {
-      const { workspaceId, workspaceRole } = request.authUser!;
+      const { workspaceId, workspaceRole, isApiKey } = request.authUser!;
 
       const workspace = await prisma.workspace.findUnique({
         where: { id: workspaceId },
@@ -39,12 +39,15 @@ export async function workspaceRoutes(server: FastifyInstance) {
           userRole: workspaceRole,
           membersCount: workspace.memberships.length,
           createdAt: workspace.createdAt,
-          members: workspace.memberships.map((m) => ({
-            id: m.user.id,
-            name: m.user.name,
-            email: m.user.email,
-            role: m.role,
-          })),
+          // Do not leak member emails/names to programmatic API keys
+          members: isApiKey
+            ? undefined
+            : workspace.memberships.map((m) => ({
+                id: m.user.id,
+                name: m.user.name,
+                email: m.user.email,
+                role: m.role,
+              })),
         },
       };
     },
@@ -59,45 +62,68 @@ export async function workspaceRoutes(server: FastifyInstance) {
     },
     preHandler: [authenticateRequest],
     handler: async (request, reply) => {
-      const { workspaceId, workspaceRole } = request.authUser!;
+      const { workspaceId, workspaceRole, isApiKey } = request.authUser!;
 
-      if (workspaceRole !== "OWNER" && workspaceRole !== "ADMIN") {
+      if (isApiKey || (workspaceRole !== "OWNER" && workspaceRole !== "ADMIN")) {
         return reply.status(403).send({
           error: "Forbidden",
           message: "Only workspace owners or admins can modify workspace settings.",
         });
       }
 
-      const { name } = UpdateWorkspaceSchema.parse(request.body);
+      const body = UpdateWorkspaceSchema.parse(request.body);
 
       const updated = await prisma.workspace.update({
         where: { id: workspaceId },
-        data: { name },
+        data: { name: body.name },
       });
 
-      return { workspace: { id: updated.id, name: updated.name } };
+      return {
+        workspace: {
+          id: updated.id,
+          name: updated.name,
+          slug: updated.slug,
+          updatedAt: updated.updatedAt,
+        },
+      };
     },
   });
 
-  // 3. Update user profile
-  server.patch("/workspaces/profile", {
+  // 3. Update current user profile
+  server.patch("/users/me", {
     schema: {
       tags: ["Workspace & Settings"],
-      summary: "Update user profile information",
+      summary: "Update current authenticated user profile",
       body: UpdateProfileSchema,
     },
     preHandler: [authenticateRequest],
-    handler: async (request) => {
-      const { id } = request.authUser!;
-      const data = UpdateProfileSchema.parse(request.body);
+    handler: async (request, reply) => {
+      const { id: userId, isApiKey } = request.authUser!;
+      if (isApiKey) {
+        return reply.status(403).send({
+          error: "Forbidden",
+          message: "API keys cannot modify user profiles.",
+        });
+      }
+
+      const body = UpdateProfileSchema.parse(request.body);
 
       const updated = await prisma.user.update({
-        where: { id },
-        data,
-        select: { id: true, name: true, email: true, updatedAt: true },
+        where: { id: userId },
+        data: {
+          name: body.name,
+          avatarUrl: body.avatarUrl,
+        },
       });
 
-      return { user: updated };
+      return {
+        user: {
+          id: updated.id,
+          name: updated.name,
+          email: updated.email,
+          avatarUrl: updated.avatarUrl,
+        },
+      };
     },
   });
 }

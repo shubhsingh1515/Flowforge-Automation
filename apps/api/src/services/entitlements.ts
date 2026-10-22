@@ -195,6 +195,72 @@ export class EntitlementService {
   }
 
   /**
+   * Checks whether the workspace can create another active API key under its current plan.
+   */
+  async checkApiKeyQuota(workspaceId: string): Promise<QuotaCheckResult> {
+    const { plan } = await this.getEffectivePlan(workspaceId);
+    const activeCount = await prisma.apiKey.count({
+      where: { workspaceId, revokedAt: null },
+    });
+
+    const limit = plan.maxApiKeys ?? 2;
+    const remaining = Math.max(0, limit - activeCount);
+    const allowed = activeCount < limit;
+
+    return {
+      allowed,
+      current: activeCount,
+      limit,
+      remaining,
+      reason: allowed ? undefined : `API key limit of ${limit} reached for plan ${plan.name}. Please upgrade to create more keys.`,
+    };
+  }
+
+  /**
+   * Checks whether the workspace can register another outbound webhook endpoint under its plan.
+   */
+  async checkOutboundWebhookQuota(workspaceId: string): Promise<QuotaCheckResult> {
+    const { plan } = await this.getEffectivePlan(workspaceId);
+    const count = await prisma.outboundWebhook.count({
+      where: { workspaceId },
+    });
+
+    const limit = plan.maxOutboundWebhooks ?? 2;
+    const remaining = Math.max(0, limit - count);
+    const allowed = count < limit;
+
+    return {
+      allowed,
+      current: count,
+      limit,
+      remaining,
+      reason: allowed ? undefined : `Outbound webhook limit of ${limit} reached for plan ${plan.name}. Please upgrade to register more endpoints.`,
+    };
+  }
+
+  /**
+   * Checks whether the workspace can create another custom integration under its plan.
+   */
+  async checkCustomIntegrationQuota(workspaceId: string): Promise<QuotaCheckResult> {
+    const { plan } = await this.getEffectivePlan(workspaceId);
+    const count = await prisma.customIntegration.count({
+      where: { workspaceId },
+    });
+
+    const limit = plan.maxCustomIntegrations ?? 1;
+    const remaining = Math.max(0, limit - count);
+    const allowed = count < limit;
+
+    return {
+      allowed,
+      current: count,
+      limit,
+      remaining,
+      reason: allowed ? undefined : `Custom integration limit of ${limit} reached for plan ${plan.name}. Please upgrade to build more custom integrations.`,
+    };
+  }
+
+  /**
    * Checks whether a plan-gated feature is enabled for the workspace.
    */
   async canUseFeature(workspaceId: string, feature: keyof PlanFeatures): Promise<{ allowed: boolean; reason?: string }> {

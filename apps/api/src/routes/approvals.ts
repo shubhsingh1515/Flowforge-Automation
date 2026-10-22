@@ -1,3 +1,4 @@
+import { outboundWebhookService } from "../services/outboundWebhooks.js";
 import { FastifyInstance } from "fastify";
 import { prisma, ExecutionStatus } from "@flowforge/database";
 import { authenticateRequest } from "../plugins/auth.js";
@@ -205,6 +206,13 @@ export async function approvalRoutes(server: FastifyInstance) {
           });
         }
       }
+
+      outboundWebhookService.emitEvent(workspaceId, "approval.decided", {
+        approvalId: approval.id,
+        workflowId: approval.workflowId,
+        executionId: approval.executionId,
+        decision,
+      }).catch(() => {});
 
       // Update approval record atomically
       const updatedApproval = await prisma.workflowApproval.update({

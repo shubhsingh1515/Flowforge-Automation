@@ -1,3 +1,4 @@
+import { outboundWebhookService } from "../services/outboundWebhooks.js";
 import { prisma, ExecutionStatus } from "@flowforge/database";
 import { config } from "../config.js";
 import { workflowExecutionsTotal, workflowExecutionDuration } from "../metrics.js";
@@ -523,6 +524,11 @@ async function executeWorkflowInternal(
 
   // Finalize Workflow Execution as SUCCESS
   const totalDuration = Date.now() - startTime;
+  outboundWebhookService.emitEvent(workflow.workspaceId, "execution.succeeded", {
+    executionId: options.executionId,
+    workflowId: options.workflowId,
+    durationMs: totalDuration,
+  }).catch(() => {});
   await prisma.workflowExecution.update({
     where: { id: options.executionId },
     data: {

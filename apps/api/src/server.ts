@@ -9,6 +9,7 @@ import swaggerUi from "@fastify/swagger-ui";
 import {
   serializerCompiler,
   validatorCompiler,
+  jsonSchemaTransform,
 } from "fastify-type-provider-zod";
 import { ZodError } from "zod";
 import { config } from "./config.js";
@@ -26,7 +27,11 @@ import { oauthRoutes } from "./routes/oauth.js";
 import { approvalRoutes } from "./routes/approvals.js";
 import { billingRoutes } from "./routes/billing.js";
 import { onboardingRoutes } from "./routes/onboarding.js";
+import { apiKeyRoutes } from "./routes/apiKeys.js";
+import { outboundWebhookRoutes } from "./routes/outboundWebhooks.js";
+import { customIntegrationRoutes } from "./routes/customIntegrations.js";
 import { startWorker, stopWorker } from "./worker/worker.js";
+import { startOutboundWebhookWorker, stopOutboundWebhookWorker } from "./worker/outboundWebhookWorker.js";
 import { workflowScheduler } from "./worker/scheduler.js";
 import { httpRequestDuration, httpRequestsTotal } from "./metrics.js";
 import { APP_CONFIG } from "@flowforge/shared";
@@ -187,10 +192,16 @@ export async function buildServer(options: BuildServerOptions = {}) {
             scheme: "bearer",
             bearerFormat: "JWT",
           },
+          apiKeyAuth: {
+            type: "apiKey",
+            in: "header",
+            name: "X-API-Key",
+          },
         },
       },
-      security: [{ bearerAuth: [] }],
+      security: [{ bearerAuth: [] }, { apiKeyAuth: [] }],
     },
+    transform: jsonSchemaTransform,
   });
 
   await server.register(swaggerUi, {
@@ -218,6 +229,9 @@ export async function buildServer(options: BuildServerOptions = {}) {
       await api.register(approvalRoutes);
       await api.register(billingRoutes);
       await api.register(onboardingRoutes);
+      await api.register(apiKeyRoutes);
+      await api.register(outboundWebhookRoutes);
+      await api.register(customIntegrationRoutes);
     },
     { prefix: config.apiPrefix }
   );
@@ -225,6 +239,7 @@ export async function buildServer(options: BuildServerOptions = {}) {
   // Background Worker & Scheduler startup if enabled
   if (options.enableWorker !== false) {
     startWorker();
+    startOutboundWebhookWorker();
     workflowScheduler.syncSchedulesOnStartup().catch((err) => {
       server.log.warn({ msg: "Schedule sync failed on startup", error: err.message });
     });
@@ -233,6 +248,7 @@ export async function buildServer(options: BuildServerOptions = {}) {
   // Graceful shutdown
   server.addHook("onClose", async () => {
     await stopWorker();
+    await stopOutboundWebhookWorker();
   });
 
   return server;
@@ -246,6 +262,7 @@ async function main() {
     try {
       await server.close();
       await stopWorker();
+      await stopOutboundWebhookWorker();
       console.log("FlowForge API shutdown complete.");
       process.exit(0);
     } catch (err) {

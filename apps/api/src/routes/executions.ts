@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { prisma, ExecutionStatus } from "@flowforge/database";
-import { authenticateRequest } from "../plugins/auth.js";
+import { authenticateRequest, requireScope } from "../plugins/auth.js";
+import { outboundWebhookService } from "../services/outboundWebhooks.js";
 import { z } from "zod";
 
 export async function executionRoutes(server: FastifyInstance) {
@@ -16,7 +17,7 @@ export async function executionRoutes(server: FastifyInstance) {
         limit: z.coerce.number().default(20),
       }),
     },
-    preHandler: [authenticateRequest],
+    preHandler: [requireScope("executions:read")],
     handler: async (request) => {
       const { workspaceId } = request.authUser!;
       const query = request.query as {
@@ -202,6 +203,13 @@ export async function executionRoutes(server: FastifyInstance) {
         attempt: nextAttempt,
       });
 
+      // Emit outbound webhook event
+      outboundWebhookService.emitEvent(existing.workflow.workspaceId, "execution.started", {
+        executionId: newExecution.id,
+        workflowId: newExecution.workflowId,
+        attempt: nextAttempt,
+      }).catch(() => {});
+
       return reply.status(202).send({
         status: "queued",
         executionId: newExecution.id,
@@ -221,7 +229,7 @@ export async function executionRoutes(server: FastifyInstance) {
         reason: z.string().max(200).optional(),
       }).optional(),
     },
-    preHandler: [authenticateRequest],
+    preHandler: [requireScope("executions:cancel")],
     handler: async (request, reply) => {
       const { workspaceId, id: userId } = request.authUser!;
       const { id } = request.params as { id: string };
@@ -269,6 +277,13 @@ export async function executionRoutes(server: FastifyInstance) {
         where: { executionId: execution.id, status: "PENDING" },
         data: { status: "CANCELLED" },
       });
+
+      // Emit outbound webhook event
+      outboundWebhookService.emitEvent(workspaceId, "execution.cancelled", {
+        executionId: execution.id,
+        workflowId: execution.workflowId,
+        reason,
+      }).catch(() => {});
 
       return {
         success: true,

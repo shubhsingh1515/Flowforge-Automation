@@ -385,4 +385,86 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     await expect(page.locator('button:has-text("Cancel")')).toBeVisible();
     await page.click('button:has-text("Cancel")');
   });
+
+  test("19. Phase 8 Developer Platform: API Keys Tab and Generation Modal", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/settings");
+    await page.waitForLoadState("networkidle");
+
+    // Click API Keys Tab
+    const tab = page.locator('[data-testid="tab-api-keys"]');
+    await expect(tab).toBeVisible({ timeout: 10000 });
+    await tab.click();
+
+    // Verify Tab Header
+    await expect(page.locator("text=Workspace API Keys")).toBeVisible();
+    await expect(page.locator('a:has-text("OpenAPI Docs")')).toBeVisible();
+
+    // Open Create Key Modal
+    const createBtn = page.locator('[data-testid="create-api-key-btn"]');
+    await expect(createBtn).toBeVisible();
+    await createBtn.click();
+
+    // Verify Modal
+    await expect(page.locator("text=Create Workspace API Key")).toBeVisible();
+    await expect(page.locator('input[placeholder="e.g. CI/CD Deployment Runner"]')).toBeVisible();
+    await expect(page.locator("text=Permitted Scopes")).toBeVisible();
+
+    // Close Modal
+    await page.click('button:has-text("Cancel")');
+  });
+
+  test("20. Phase 8 Developer Platform: Outbound Webhooks Tab and Registration Modal", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/settings");
+    await page.waitForLoadState("networkidle");
+
+    // Click Webhooks Tab
+    const tab = page.locator('[data-testid="tab-webhooks"]');
+    await expect(tab).toBeVisible({ timeout: 10000 });
+    await tab.click();
+
+    // Verify Tab Header
+    await expect(page.locator("text=Outbound Event Webhooks")).toBeVisible();
+
+    // Open Register Webhook Modal
+    const regBtn = page.locator('[data-testid="register-webhook-btn"]');
+    await expect(regBtn).toBeVisible();
+    await regBtn.click();
+
+    // Verify Modal
+    await expect(page.locator("text=Register Outbound Webhook")).toBeVisible();
+    await expect(page.locator('input[placeholder="https://api.yourcompany.com/webhooks/flowforge"]')).toBeVisible();
+    await expect(page.locator("text=Triggering Events")).toBeVisible();
+
+    // Close Modal
+    await page.click('button:has-text("Cancel")');
+  });
+
+  test("21. Phase 8 Developer Platform: Custom Integrations Tab and Builder", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/settings");
+    await page.waitForLoadState("networkidle");
+
+    // Click Custom Integrations Tab
+    const tab = page.locator('[data-testid="tab-custom-integrations"]');
+    await expect(tab).toBeVisible({ timeout: 10000 });
+    await tab.click();
+
+    // Verify Tab Header
+    await expect(page.locator("text=Custom Declarative Integrations")).toBeVisible();
+
+    // Open Create Custom Integration Modal
+    const newBtn = page.locator('[data-testid="create-custom-integration-btn"]');
+    await expect(newBtn).toBeVisible();
+    await newBtn.click();
+
+    // Verify Modal
+    await expect(page.locator("text=Create Custom Integration")).toBeVisible();
+    await expect(page.locator('input[placeholder="e.g. acme-billing"]')).toBeVisible();
+    await expect(page.locator('input[placeholder="e.g. Acme Internal Billing"]')).toBeVisible();
+
+    // Close Modal
+    await page.click('button:has-text("Cancel")');
+  });
 });

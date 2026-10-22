@@ -11,6 +11,7 @@ import { joinHandler } from "./nodes/join.js";
 import { approvalHandler } from "./nodes/approval.js";
 import { workflowEndHandler } from "./nodes/end.js";
 import { integrationRegistry } from "../integrations/registry.js";
+import { createCustomIntegrationNodeHandler } from "./nodes/customIntegration.js";
 
 export class NodeRegistry {
   private handlers = new Map<string, NodeHandler>();
@@ -37,6 +38,10 @@ export class NodeRegistry {
     if (integrationKey) {
       if (integrationKey === "http-request") {
         return this.handlers.get("HTTP_REQUEST") || this.handlers.get(nodeType);
+      }
+      if (integrationKey.startsWith("custom:")) {
+        const customKey = integrationKey.replace("custom:", "");
+        return createCustomIntegrationNodeHandler(customKey);
       }
       const provider = integrationRegistry.getProvider(integrationKey);
       if (provider) {
