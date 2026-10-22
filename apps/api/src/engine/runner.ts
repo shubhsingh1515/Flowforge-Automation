@@ -1,4 +1,6 @@
 import { prisma, ExecutionStatus } from "@flowforge/database";
+import { config } from "../config.js";
+import { workflowExecutionsTotal, workflowExecutionDuration } from "../metrics.js";
 import { defaultRegistry } from "./registry.js";
 import { ExecutionContext } from "./mapping/resolver.js";
 import { ExecutionErrorCategory } from "./types.js";
@@ -22,7 +24,7 @@ export interface WorkflowRunResult {
   durationMs: number;
 }
 
-export async function runWorkflowExecution(
+async function executeWorkflowInternal(
   options: WorkflowRunOptions
 ): Promise<WorkflowRunResult> {
   const startTime = Date.now();
@@ -208,6 +210,55 @@ export async function runWorkflowExecution(
       };
     }
 
+    // Phase 5: Resource limits & execution caps
+    const maxDurationMs = (config.maxExecutionDurationSeconds || 300) * 1000;
+    if (Date.now() - startTime > maxDurationMs) {
+      const errorMsg = `Workflow execution exceeded maximum allowable duration of ${config.maxExecutionDurationSeconds}s`;
+      await prisma.workflowExecution.update({
+        where: { id: options.executionId },
+        data: {
+          status: ExecutionStatus.FAILED,
+          finishedAt: new Date(),
+          durationMs: Date.now() - startTime,
+          errorSummary: errorMsg,
+          errorCategory: "TIMEOUT",
+          executionTrace: executionTrace as any,
+        },
+      });
+      return {
+        executionId: options.executionId,
+        status: "FAILED",
+        stepsExecuted: stepsExecutedCount,
+        errorSummary: errorMsg,
+        errorCategory: "TIMEOUT",
+        durationMs: Date.now() - startTime,
+      };
+    }
+
+    const maxSteps = config.maxWorkflowSteps || 500;
+    if (stepsExecutedCount >= maxSteps) {
+      const errorMsg = `Workflow execution exceeded maximum allowable steps limit of ${maxSteps}`;
+      await prisma.workflowExecution.update({
+        where: { id: options.executionId },
+        data: {
+          status: ExecutionStatus.FAILED,
+          finishedAt: new Date(),
+          durationMs: Date.now() - startTime,
+          errorSummary: errorMsg,
+          errorCategory: "RESOURCE_LIMIT_EXCEEDED",
+          executionTrace: executionTrace as any,
+        },
+      });
+      return {
+        executionId: options.executionId,
+        status: "FAILED",
+        stepsExecuted: stepsExecutedCount,
+        errorSummary: errorMsg,
+        errorCategory: "RESOURCE_LIMIT_EXCEEDED",
+        durationMs: Date.now() - startTime,
+      };
+    }
+
     const currentNodeId = queue.shift()!;
     if (visited.has(currentNodeId) && currentNodeId !== options.resumeNodeId) continue;
     if (skippedNodes.has(currentNodeId)) continue;
@@ -350,7 +401,7 @@ export async function runWorkflowExecution(
             activeBranches: Object.fromEntries(activeBranches),
             executionTrace,
             pausedNodeId: currentNodeId,
-          },
+          } as any,
         },
       });
 
@@ -400,7 +451,7 @@ export async function runWorkflowExecution(
           errorSummary: summary,
           errorCategory: result.errorCategory || "INTERNAL_ERROR",
           executionTrace: executionTrace as any,
-          executionState: { context, visited: Array.from(visited) },
+          executionState: { context, visited: Array.from(visited) } as any,
         },
       });
 
@@ -445,7 +496,7 @@ export async function runWorkflowExecution(
       finishedAt: new Date(),
       durationMs: totalDuration,
       executionTrace: executionTrace as any,
-      executionState: { context, visited: Array.from(visited) },
+      executionState: { context, visited: Array.from(visited) } as any,
     },
   });
 
@@ -455,4 +506,20 @@ export async function runWorkflowExecution(
     stepsExecuted: stepsExecutedCount,
     durationMs: totalDuration,
   };
+}
+
+export async function runWorkflowExecution(
+  options: WorkflowRunOptions
+): Promise<WorkflowRunResult> {
+  const result = await executeWorkflowInternal(options);
+  try {
+    workflowExecutionsTotal.inc({
+      status: result.status,
+      error_category: result.errorCategory || "none",
+    });
+    workflowExecutionDuration.observe({ status: result.status }, result.durationMs / 1000);
+  } catch (_e) {
+    // Non-blocking metrics failure
+  }
+  return result;
 }

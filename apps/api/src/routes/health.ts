@@ -2,9 +2,48 @@ import { FastifyInstance } from "fastify";
 import { prisma } from "@flowforge/database";
 import { z } from "zod";
 import { getQueueHealth } from "../worker/queue.js";
+import { registry } from "../metrics.js";
 
 export async function healthRoutes(server: FastifyInstance) {
+  server.get("/health", {
+    config: { rateLimit: false },
+    schema: {
+      tags: ["System"],
+      summary: "Aggregated health check",
+      description: "Returns aggregated health status of API, database, and Redis/BullMQ worker.",
+    },
+    handler: async (_req, reply) => {
+      let dbStatus = "connected";
+      let isDbHealthy = true;
+      try {
+        await prisma.$queryRaw`SELECT 1`;
+      } catch (err: any) {
+        dbStatus = "disconnected";
+        isDbHealthy = false;
+      }
+
+      const queueHealth = await getQueueHealth();
+      const isHealthy = isDbHealthy && queueHealth.status !== "unhealthy";
+
+      const response = {
+        status: isHealthy ? "healthy" : "unhealthy",
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+        components: {
+          database: { status: dbStatus },
+          worker: queueHealth,
+        },
+      };
+
+      if (!isHealthy) {
+        return reply.status(503).send(response);
+      }
+      return response;
+    },
+  });
+
   server.get("/health/live", {
+    config: { rateLimit: false },
     schema: {
       tags: ["System"],
       summary: "Liveness probe",
@@ -27,6 +66,7 @@ export async function healthRoutes(server: FastifyInstance) {
   });
 
   server.get("/health/ready", {
+    config: { rateLimit: false },
     schema: {
       tags: ["System"],
       summary: "Readiness probe",
@@ -63,26 +103,28 @@ export async function healthRoutes(server: FastifyInstance) {
   });
 
   server.get("/health/worker", {
+    config: { rateLimit: false },
     schema: {
       tags: ["System"],
       summary: "Execution Worker and Queue health check",
       description: "Returns Redis and BullMQ queue status and metrics.",
-      response: {
-        200: z.object({
-          status: z.string(),
-          redisStatus: z.string(),
-          metrics: z.object({
-            waiting: z.number(),
-            active: z.number(),
-            completed: z.number(),
-            failed: z.number(),
-          }),
-        }),
-      },
     },
     handler: async () => {
       const health = await getQueueHealth();
       return health;
+    },
+  });
+
+  server.get("/metrics", {
+    config: { rateLimit: false },
+    schema: {
+      tags: ["System"],
+      summary: "Prometheus Metrics Endpoint",
+      description: "Exposes application and runtime metrics in Prometheus text exposition format.",
+    },
+    handler: async (_req, reply) => {
+      reply.header("Content-Type", registry.contentType);
+      return reply.send(await registry.metrics());
     },
   });
 }

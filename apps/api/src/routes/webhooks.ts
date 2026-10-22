@@ -17,6 +17,12 @@ function verifyHmacSignature(rawBody: string, secret: string, signatureHeader?: 
 export async function webhookRoutes(server: FastifyInstance) {
   // Webhook ingestion endpoint
   server.post("/webhooks/:slug", {
+    config: {
+      rateLimit: {
+        max: 120,
+        timeWindow: "1 minute",
+      },
+    },
     schema: {
       tags: ["Webhooks"],
       summary: "Ingest incoming external webhook event for an active workflow",

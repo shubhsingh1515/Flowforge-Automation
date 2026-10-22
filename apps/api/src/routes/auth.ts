@@ -3,10 +3,17 @@ import { prisma } from "@flowforge/database";
 import { RegisterSchema, LoginSchema } from "@flowforge/shared";
 import { hashPassword, verifyPassword } from "../utils/auth.js";
 import { authenticateRequest } from "../plugins/auth.js";
+import { config } from "../config.js";
 
 export async function authRoutes(server: FastifyInstance) {
   // Register
   server.post("/auth/register", {
+    config: {
+      rateLimit: {
+        max: config.nodeEnv === "production" ? 15 : 1000,
+        timeWindow: "1 minute",
+      },
+    },
     schema: {
       tags: ["Authentication"],
       summary: "Register a new user account",
@@ -82,6 +89,12 @@ export async function authRoutes(server: FastifyInstance) {
 
   // Login
   server.post("/auth/login", {
+    config: {
+      rateLimit: {
+        max: config.nodeEnv === "production" ? 15 : 1000,
+        timeWindow: "1 minute",
+      },
+    },
     schema: {
       tags: ["Authentication"],
       summary: "Sign in with email and password",

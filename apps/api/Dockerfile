@@ -1,0 +1,59 @@
+# Multi-stage Dockerfile for FlowForge Automation API
+FROM node:20-alpine AS base
+WORKDIR /app
+RUN apk add --no-cache libc6-compat openssl
+ENV NODE_ENV=production
+
+# 1. Dependencies Stage
+FROM base AS deps
+WORKDIR /app
+COPY package*.json ./
+COPY packages/shared/package*.json ./packages/shared/
+COPY packages/database/package*.json ./packages/database/
+COPY packages/database/prisma ./packages/database/prisma/
+COPY apps/api/package*.json ./apps/api/
+
+RUN npm ci --include=dev
+
+# Generate Prisma Client
+RUN npm run --workspace=@flowforge/database generate
+
+# 2. Builder Stage
+FROM deps AS builder
+WORKDIR /app
+COPY packages/shared ./packages/shared/
+COPY packages/database ./packages/database/
+COPY apps/api ./apps/api/
+
+RUN npm run --workspace=@flowforge/shared build
+RUN npm run --workspace=@flowforge/api build
+
+# 3. Production Runner Stage
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=4000
+ENV HOST=0.0.0.0
+
+# Run as non-root user for security hardening
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 flowforge
+
+COPY --from=deps --chown=flowforge:nodejs /app/node_modules ./node_modules
+COPY --from=deps --chown=flowforge:nodejs /app/packages/database/node_modules ./packages/database/node_modules
+COPY --from=deps --chown=flowforge:nodejs /app/packages/database/prisma ./packages/database/prisma
+COPY --from=builder --chown=flowforge:nodejs /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder --chown=flowforge:nodejs /app/packages/shared/package.json ./packages/shared/package.json
+COPY --from=builder --chown=flowforge:nodejs /app/packages/database/package.json ./packages/database/package.json
+COPY --from=builder --chown=flowforge:nodejs /app/apps/api/dist ./apps/api/dist
+COPY --from=builder --chown=flowforge:nodejs /app/apps/api/package.json ./apps/api/package.json
+
+USER flowforge
+
+EXPOSE 4000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:4000/api/v1/health/live || exit 1
+
+CMD ["node", "apps/api/dist/server.js"]

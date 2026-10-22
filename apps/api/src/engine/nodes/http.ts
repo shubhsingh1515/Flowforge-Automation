@@ -24,6 +24,9 @@ function redactHeaders(headers: Record<string, any>): Record<string, string> {
   return clean;
 }
 
+const MAX_REDIRECTS = 5;
+const MAX_RESPONSE_BYTES = 10 * 1024 * 1024; // 10MB safety limit
+
 export const httpRequestHandler: NodeHandler = {
   type: "HTTP_REQUEST",
   validateConfig(config) {
@@ -52,7 +55,7 @@ export const httpRequestHandler: NodeHandler = {
     const resolvedBody = rawBody !== undefined ? resolveDeep(rawBody, ctx.context) : undefined;
     const timeoutMs = parseInt(ctx.config?.timeoutMs || "15000", 10);
 
-    // 1. SSRF Validation
+    // 1. Initial SSRF Validation
     try {
       await validateUrlForSsrf(resolvedUrlString);
     } catch (err: any) {
@@ -92,19 +95,81 @@ export const httpRequestHandler: NodeHandler = {
     }
 
     try {
-      const response = await fetch(resolvedUrlString, {
-        method,
-        headers: reqHeaders,
-        body: reqBodyStr,
-        signal: controller.signal,
-        redirect: "follow",
-      });
+      let currentUrl = resolvedUrlString;
+      let redirectCount = 0;
+      let response: Response;
+
+      // Safe redirect evaluation loop with manual redirection to prevent SSRF bypass
+      while (true) {
+        response = await fetch(currentUrl, {
+          method,
+          headers: reqHeaders,
+          body: reqBodyStr,
+          signal: controller.signal,
+          redirect: "manual",
+        });
+
+        // Handle HTTP Redirects
+        if ([301, 302, 303, 307, 308].includes(response.status)) {
+          redirectCount++;
+          if (redirectCount > MAX_REDIRECTS) {
+            clearTimeout(timer);
+            return {
+              status: "FAILED",
+              errorCategory: "NETWORK_ERROR",
+              errorMessage: `Exceeded maximum redirect limit of ${MAX_REDIRECTS} hops.`,
+            };
+          }
+
+          const locationHeader = response.headers.get("location");
+          if (!locationHeader) {
+            break;
+          }
+
+          let nextUrl: string;
+          try {
+            nextUrl = new URL(locationHeader, currentUrl).toString();
+          } catch {
+            clearTimeout(timer);
+            return {
+              status: "FAILED",
+              errorCategory: "INVALID_CONFIG",
+              errorMessage: `Invalid redirect location header: "${locationHeader}"`,
+            };
+          }
+
+          // Strict SSRF validation on the redirect target BEFORE dispatching next request
+          try {
+            await validateUrlForSsrf(nextUrl);
+          } catch (err: any) {
+            clearTimeout(timer);
+            return {
+              status: "FAILED",
+              errorCategory: "SSRF_VIOLATION",
+              errorMessage: `SSRF Violation on redirect destination: ${err.message}`,
+            };
+          }
+
+          currentUrl = nextUrl;
+          if (response.status === 303) {
+            reqBodyStr = undefined;
+          }
+          continue;
+        }
+
+        break;
+      }
 
       clearTimeout(timer);
 
-      // Verify redirect target if URL changed
-      if (response.url !== resolvedUrlString) {
-        await validateUrlForSsrf(response.url);
+      // Check Content-Length limit
+      const contentLength = response.headers.get("content-length");
+      if (contentLength && parseInt(contentLength, 10) > MAX_RESPONSE_BYTES) {
+        return {
+          status: "FAILED",
+          errorCategory: "INVALID_INPUT",
+          errorMessage: `HTTP response payload exceeds maximum allowed size of ${MAX_RESPONSE_BYTES / (1024 * 1024)}MB.`,
+        };
       }
 
       // Parse response body
@@ -131,7 +196,7 @@ export const httpRequestHandler: NodeHandler = {
         statusText: response.statusText,
         headers: redactHeaders(resHeadersRecord),
         body: responseBody,
-        url: response.url,
+        url: currentUrl,
       };
 
       if (response.ok) {

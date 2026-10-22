@@ -2,6 +2,8 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
 import jwt from "@fastify/jwt";
+import helmet from "@fastify/helmet";
+import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import {
@@ -24,6 +26,7 @@ import { oauthRoutes } from "./routes/oauth.js";
 import { approvalRoutes } from "./routes/approvals.js";
 import { startWorker, stopWorker } from "./worker/worker.js";
 import { workflowScheduler } from "./worker/scheduler.js";
+import { httpRequestDuration, httpRequestsTotal } from "./metrics.js";
 import { APP_CONFIG } from "@flowforge/shared";
 
 export interface BuildServerOptions {
@@ -32,11 +35,48 @@ export interface BuildServerOptions {
 
 export async function buildServer(options: BuildServerOptions = {}) {
   const server = Fastify({
-    logger: config.nodeEnv === "development" ? { level: "info" } : { level: "warn" },
+    logger: {
+      level: config.nodeEnv === "development" ? "info" : "warn",
+      redact: [
+        "req.headers.authorization",
+        "req.headers.cookie",
+        "res.headers['set-cookie']",
+        "password",
+        "token",
+        "secret",
+        "credentials",
+        "apiKey",
+      ],
+    },
+    bodyLimit: 10 * 1024 * 1024, // 10MB payload limit
   });
 
   server.setValidatorCompiler(validatorCompiler);
   server.setSerializerCompiler(serializerCompiler);
+
+  // Security Headers (Helmet)
+  await server.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", config.frontendUrl],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+  });
+
+  // Rate Limiting
+  await server.register(rateLimit, {
+    max: 300,
+    timeWindow: "1 minute",
+    allowList: (req) => {
+      const url = req.url || "";
+      return url.startsWith(`${config.apiPrefix}/health`) || url === `${config.apiPrefix}/metrics`;
+    },
+  });
 
   // Global Error Handler
   server.setErrorHandler((error, _request, reply) => {
@@ -68,15 +108,47 @@ export async function buildServer(options: BuildServerOptions = {}) {
     });
   });
 
+  // Observability: Metrics collection hooks
+  server.addHook("onRequest", async (req) => {
+    (req as any)._startTime = process.hrtime();
+  });
+
+  server.addHook("onResponse", async (req, reply) => {
+    const startTime = (req as any)._startTime;
+    if (startTime) {
+      const diff = process.hrtime(startTime);
+      const durationSeconds = diff[0] + diff[1] / 1e9;
+      const route = req.routeOptions?.url || req.url;
+      httpRequestDuration.observe(
+        { method: req.method, route, status_code: reply.statusCode.toString() },
+        durationSeconds
+      );
+      httpRequestsTotal.inc({
+        method: req.method,
+        route,
+        status_code: reply.statusCode.toString(),
+      });
+    }
+  });
+
   // CORS
   await server.register(cors, {
     origin: (origin, cb) => {
-      // Allow localhost or same-origin
-      if (!origin || origin.startsWith("http://localhost")) {
+      if (config.nodeEnv !== "production") {
+        if (!origin || origin.startsWith("http://localhost") || origin.startsWith("http://127.0.0.1")) {
+          cb(null, true);
+          return;
+        }
+      }
+      if (origin === config.frontendUrl || origin === config.corsOrigin) {
         cb(null, true);
         return;
       }
-      cb(null, true);
+      if (!origin) {
+        cb(null, true);
+        return;
+      }
+      cb(new Error("CORS origin not allowed"), false);
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -97,7 +169,7 @@ export async function buildServer(options: BuildServerOptions = {}) {
     openapi: {
       info: {
         title: `${APP_CONFIG.name} REST API`,
-        description: `${APP_CONFIG.tagline} - Phase 1 Foundation API Specification`,
+        description: `${APP_CONFIG.tagline} - Production API Specification`,
         version: APP_CONFIG.version,
       },
       servers: [
@@ -164,10 +236,28 @@ export async function buildServer(options: BuildServerOptions = {}) {
 
 async function main() {
   const server = await buildServer({ enableWorker: true });
+
+  const shutdown = async (signal: string) => {
+    console.log(`Received ${signal}. Shutting down server gracefully...`);
+    try {
+      await server.close();
+      await stopWorker();
+      console.log("FlowForge API shutdown complete.");
+      process.exit(0);
+    } catch (err) {
+      console.error("Error during graceful shutdown:", err);
+      process.exit(1);
+    }
+  };
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
+
   try {
     await server.listen({ port: config.port, host: config.host });
     console.log(`🚀 ${APP_CONFIG.name} API running at http://${config.host}:${config.port}${config.apiPrefix}`);
     console.log(`📖 OpenAPI documentation available at http://localhost:${config.port}${config.apiPrefix}/docs`);
+    console.log(`📊 Metrics available at http://localhost:${config.port}${config.apiPrefix}/metrics`);
   } catch (err) {
     server.log.error(err);
     process.exit(1);

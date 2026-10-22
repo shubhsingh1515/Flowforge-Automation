@@ -32,6 +32,7 @@ export interface TransformPipelineStep {
 export interface TransformNodeConfig {
   mode?: TransformMode;
   template?: any;
+  payload?: any;
   mapping?: Record<string, string>;
   fieldRules?: TransformFieldRule[];
   pipeline?: TransformPipelineStep[];

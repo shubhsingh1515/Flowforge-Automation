@@ -10,6 +10,7 @@ export type ExecutionErrorCategory =
   | "TIMEOUT"
   | "NETWORK_ERROR"
   | "EXTERNAL_API_ERROR"
+  | "RESOURCE_LIMIT_EXCEEDED"
   | "INTERNAL_ERROR";
 
 export interface NodeExecutionResult<T = any> {

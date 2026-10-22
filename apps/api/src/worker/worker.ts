@@ -3,6 +3,14 @@ import { QUEUE_NAME, redisConnection, WorkflowJobData } from "./queue.js";
 import { runWorkflowExecution } from "../engine/runner.js";
 import { prisma, ExecutionStatus } from "@flowforge/database";
 
+const NON_RETRYABLE_ERROR_CATEGORIES = new Set([
+  "INVALID_CONFIG",
+  "INVALID_INPUT",
+  "SSRF_VIOLATION",
+  "AUTH_FAILURE",
+  "RESOURCE_LIMIT_EXCEEDED",
+]);
+
 let workerInstance: Worker<WorkflowJobData> | null = null;
 
 export function createWorkflowWorker(concurrency = 5): Worker<WorkflowJobData> {
@@ -63,6 +71,20 @@ export function createWorkflowWorker(concurrency = 5): Worker<WorkflowJobData> {
       });
 
       if (result.status === "FAILED") {
+        if (result.errorCategory && NON_RETRYABLE_ERROR_CATEGORIES.has(result.errorCategory)) {
+          console.log(
+            JSON.stringify({
+              level: "warn",
+              msg: "Workflow execution failed with permanent error, skipping retry",
+              jobId: job.id,
+              executionId,
+              errorCategory: result.errorCategory,
+              errorSummary: result.errorSummary,
+              timestamp: new Date().toISOString(),
+            })
+          );
+          return result;
+        }
         throw new Error(result.errorSummary || "Workflow execution failed");
       }
 
