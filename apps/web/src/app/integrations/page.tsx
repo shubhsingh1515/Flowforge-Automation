@@ -25,6 +25,7 @@ import {
   Inbox,
   Gamepad2,
   Send,
+  Link as LinkIcon,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -196,13 +197,13 @@ export default function IntegrationsPage() {
                       className={cn(
                         "rounded-full px-2 py-0.5 text-[10px] font-semibold",
                         activeIntegration.status === "AVAILABLE"
-                          ? "bg-emerald-50 text-emerald-700"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
                           : "bg-slate-100 text-slate-500"
                       )}
                     >
                       {activeIntegration.status === "AVAILABLE"
                         ? "Available in Canvas"
-                        : "Planned for Phase 2 Engine"}
+                        : "Planned Connector"}
                     </span>
                   </div>
                 </div>
@@ -249,7 +250,7 @@ export default function IntegrationsPage() {
                   <div className="space-y-1.5">
                     {activeIntegration.metadata.actions.map((a: any) => (
                       <div
-                        key={a.name}
+                        key={a.name || a.id}
                         className="rounded-lg bg-slate-50 border border-slate-200/60 p-2.5 text-xs"
                       >
                         <p className="font-semibold text-slate-900">{a.name}</p>
@@ -270,13 +271,31 @@ export default function IntegrationsPage() {
                   {activeIntegration.metadata?.authRequirements?.instructions ||
                     "This connector does not require persistent external credentials."}
                 </p>
+                {activeIntegration.metadata?.authRequirements?.scopes?.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {activeIntegration.metadata.authRequirements.scopes.map((s: string) => (
+                      <span key={s} className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-mono text-slate-600">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-3">
+              {activeIntegration.authType === "OAUTH2" ? (
+                <a
+                  href="/connections"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 shadow-2xs"
+                >
+                  <LinkIcon className="h-3.5 w-3.5" />
+                  <span>Manage Connections</span>
+                </a>
+              ) : <div />}
               <button
                 onClick={() => setActiveIntegration(null)}
-                className="rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+                className="rounded-lg bg-slate-100 px-4 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200"
               >
                 Close
               </button>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   X,
   Trash2,
@@ -11,9 +12,18 @@ import {
   Terminal,
   Globe,
   Clock,
-  Code2,
+  MessageSquare,
+  FileSpreadsheet,
+  Inbox,
+  HardDrive,
+  Link as LinkIcon,
+  Plus,
+  Lock,
+  ExternalLink,
+  AlertCircle,
 } from "lucide-react";
 import { Node } from "@xyflow/react";
+import { api } from "../../lib/api";
 
 interface NodeConfigPanelProps {
   selectedNode: Node | null;
@@ -34,20 +44,32 @@ export function NodeConfigPanel({
 }: NodeConfigPanelProps) {
   if (!selectedNode) return null;
 
+  const queryClient = useQueryClient();
   const { data } = selectedNode;
   const nodeType = (data.nodeType as string) || "ACTION";
+  const integrationKey = data.integrationKey as string | undefined;
 
   const [label, setLabel] = useState((data.label as string) || "");
   const [description, setDescription] = useState((data.description as string) || "");
   const [config, setConfig] = useState<Record<string, any>>((data.config as any) || {});
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedCurl, setCopiedCurl] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
 
   useEffect(() => {
     setLabel((data.label as string) || "");
     setDescription((data.description as string) || "");
     setConfig((data.config as any) || {});
   }, [selectedNode.id, data]);
+
+  // Query connected accounts for this integration if applicable
+  const { data: connectionsData, refetch: refetchConnections } = useQuery({
+    queryKey: ["connections", integrationKey],
+    queryFn: () => (integrationKey ? api.connections.list({ integrationKey }) : null),
+    enabled: Boolean(integrationKey),
+  });
+
+  const connections = connectionsData?.data || [];
 
   const handleSave = (newConfig?: Record<string, any>) => {
     onUpdateNode(selectedNode.id, {
@@ -66,12 +88,38 @@ export function NodeConfigPanel({
     handleSave(updated);
   };
 
+  // Quick connect simulation / initiation
+  const handleQuickConnect = async () => {
+    if (!integrationKey) return;
+    setIsConnecting(true);
+    try {
+      // Use dev connect in local environment or request authorization URL
+      const res = await api.oauth.devConnect(integrationKey);
+      if (res.connection?.id) {
+        handleConfigChange("connectedAccountId", res.connection.id);
+        await refetchConnections();
+      }
+    } catch {
+      // Try standard oauth authorize endpoint
+      try {
+        const authRes = await api.oauth.getAuthorizationUrl(integrationKey);
+        if (authRes.authorizationUrl) {
+          window.open(authRes.authorizationUrl, "_blank");
+        }
+      } catch (err: any) {
+        alert(err?.message || "Failed to initiate OAuth authorization.");
+      }
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
   const isScheduleTrigger =
     label.toLowerCase().includes("schedule") || Boolean(config.cronExpression);
   const isWebhookTrigger =
     nodeType === "TRIGGER" && !isScheduleTrigger;
 
-  // Construct Webhook URL
+  // Webhook URL generator
   const webhookUrl =
     typeof window !== "undefined"
       ? `${window.location.protocol}//${window.location.hostname}:4000/api/v1/webhooks/${webhookSlug || "your_webhook_slug"}`
@@ -97,7 +145,7 @@ export function NodeConfigPanel({
   };
 
   return (
-    <div className="w-88 border-l border-slate-200 bg-white flex flex-col h-full shadow-lg z-20">
+    <div className="w-92 border-l border-slate-200 bg-white flex flex-col h-full shadow-lg z-20">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-100 p-4">
         <div className="flex items-center gap-2">
@@ -117,12 +165,19 @@ export function NodeConfigPanel({
 
       {/* Body Form */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
-        {/* Node Type Badge */}
-        <div>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Type
-          </span>
-          <p className="font-semibold text-slate-800">{nodeType}</p>
+        {/* Node Type & Integration Badge */}
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Type
+            </span>
+            <p className="font-semibold text-slate-800">{nodeType}</p>
+          </div>
+          {integrationKey && (
+            <span className="rounded-full bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 text-[10px] font-bold text-indigo-700 uppercase">
+              {integrationKey}
+            </span>
+          )}
         </div>
 
         {/* Title */}
@@ -150,12 +205,257 @@ export function NodeConfigPanel({
           />
         </div>
 
-        {/* Dynamic Fields by Node Type */}
+        {/* Third-Party Account Connection Selector */}
+        {integrationKey && (
+          <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="font-bold text-slate-800 flex items-center gap-1.5">
+                <Lock className="h-3.5 w-3.5 text-indigo-600" />
+                <span>Connected Account</span>
+              </label>
+              <button
+                type="button"
+                onClick={handleQuickConnect}
+                disabled={isConnecting}
+                className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1"
+              >
+                <Plus className="h-3 w-3" />
+                <span>{isConnecting ? "Connecting..." : "+ Add New"}</span>
+              </button>
+            </div>
+
+            {connections.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-indigo-200 bg-white p-3 text-center">
+                <p className="text-[11px] text-slate-600 mb-2">
+                  No {integrationKey} accounts connected in this workspace yet.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleQuickConnect}
+                  disabled={isConnecting}
+                  data-testid="connect-account-btn"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-indigo-700 transition-colors"
+                >
+                  <LinkIcon className="h-3 w-3" />
+                  <span>Connect {integrationKey.toUpperCase()} (OAuth 2.0)</span>
+                </button>
+              </div>
+            ) : (
+              <div>
+                <select
+                  value={config.connectedAccountId || ""}
+                  onChange={(e) => handleConfigChange("connectedAccountId", e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800"
+                >
+                  <option value="">-- Select Authorized Account --</option>
+                  {connections.map((c: any) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.status})
+                    </option>
+                  ))}
+                </select>
+                {!config.connectedAccountId && (
+                  <p className="mt-1 text-[10px] text-amber-600">
+                    Please select an account to authorize this step.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Dynamic Fields by Integration / Node Type */}
         <div className="border-t border-slate-100 pt-3 space-y-3">
           <h4 className="font-bold text-slate-900">Step Parameters</h4>
 
+          {/* SLACK CONFIGURATION */}
+          {integrationKey === "slack" && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-slate-600 font-medium">Channel ID or Name</label>
+                <input
+                  type="text"
+                  value={config.channel || "general"}
+                  onChange={(e) => handleConfigChange("channel", e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
+                  placeholder="e.g. C01234567 or general"
+                />
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Target public channel, private group, or conversation ID.
+                </p>
+              </div>
+              <div>
+                <label className="block text-slate-600 font-medium">Message Text</label>
+                <textarea
+                  rows={4}
+                  value={config.text || ""}
+                  onChange={(e) => handleConfigChange("text", e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-mono"
+                  placeholder="🎉 New Customer Lead!\nName: {{trigger.body.name}}\nEmail: {{trigger.body.email}}"
+                />
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Supports Slack markdown and safe variables: <code>&#123;&#123;trigger.body.field&#125;&#125;</code>
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* GOOGLE SHEETS CONFIGURATION */}
+          {integrationKey === "google-sheets" && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-slate-600 font-medium">Spreadsheet ID</label>
+                <input
+                  type="text"
+                  value={config.spreadsheetId || ""}
+                  onChange={(e) => handleConfigChange("spreadsheetId", e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-mono"
+                  placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+                />
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Found in your Google Spreadsheet URL between <code>/d/</code> and <code>/edit</code>.
+                </p>
+              </div>
+              <div>
+                <label className="block text-slate-600 font-medium">Worksheet & Range</label>
+                <input
+                  type="text"
+                  value={config.range || "Sheet1!A:Z"}
+                  onChange={(e) => handleConfigChange("range", e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-mono"
+                  placeholder="Sheet1!A:Z"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-600 font-medium">Row Values (JSON Array)</label>
+                <textarea
+                  rows={3}
+                  value={
+                    typeof config.values === "object"
+                      ? JSON.stringify(config.values)
+                      : config.values || ""
+                  }
+                  onChange={(e) => {
+                    try {
+                      handleConfigChange("values", JSON.parse(e.target.value));
+                    } catch {
+                      handleConfigChange("values", e.target.value);
+                    }
+                  }}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-mono"
+                  placeholder='["{{trigger.body.name}}", "{{trigger.body.email}}", 250]'
+                />
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Values will be appended as cells in the next available sheet row.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* GMAIL CONFIGURATION */}
+          {integrationKey === "gmail" && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-slate-600 font-medium">Recipient Email</label>
+                <input
+                  type="text"
+                  value={config.to || ""}
+                  onChange={(e) => handleConfigChange("to", e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-mono"
+                  placeholder="alex@example.com or {{trigger.body.email}}"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-600 font-medium">Subject Line</label>
+                <input
+                  type="text"
+                  value={config.subject || ""}
+                  onChange={(e) => handleConfigChange("subject", e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
+                  placeholder="FlowForge Automation Alert"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-600 font-medium">Message Body</label>
+                <textarea
+                  rows={4}
+                  value={config.body || ""}
+                  onChange={(e) => handleConfigChange("body", e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-mono"
+                  placeholder="Hi {{trigger.body.name}},\n\nYour execution completed successfully."
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="gmail-isHtml"
+                  checked={Boolean(config.isHtml)}
+                  onChange={(e) => handleConfigChange("isHtml", e.target.checked)}
+                  className="rounded border-slate-300 text-indigo-600"
+                />
+                <label htmlFor="gmail-isHtml" className="text-slate-700">
+                  Format body as HTML
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* GOOGLE DRIVE CONFIGURATION */}
+          {integrationKey === "google-drive" && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-slate-600 font-medium">Operation</label>
+                <select
+                  value={config.operationId || "list_files"}
+                  onChange={(e) => handleConfigChange("operationId", e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs"
+                >
+                  <option value="list_files">List / Search Files</option>
+                  <option value="get_file_metadata">Get File Metadata</option>
+                </select>
+              </div>
+
+              {config.operationId === "get_file_metadata" ? (
+                <div>
+                  <label className="block text-slate-600 font-medium">Drive File ID</label>
+                  <input
+                    type="text"
+                    value={config.fileId || ""}
+                    onChange={(e) => handleConfigChange("fileId", e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-mono"
+                    placeholder="1AbCdEfGhIjKlMnOpQrStUvWxYz"
+                  />
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-slate-600 font-medium">Search Query Filter</label>
+                    <input
+                      type="text"
+                      value={config.query || "trashed = false"}
+                      onChange={(e) => handleConfigChange("query", e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-mono"
+                      placeholder="name contains 'Invoice' and trashed = false"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-medium">Max Results (1-100)</label>
+                    <input
+                      type="number"
+                      value={config.pageSize || 10}
+                      onChange={(e) => handleConfigChange("pageSize", Number(e.target.value))}
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
+                      min={1}
+                      max={100}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           {/* Webhook Trigger Configuration */}
-          {isWebhookTrigger && (
+          {isWebhookTrigger && !integrationKey && (
             <div className="space-y-3">
               <div>
                 <label className="block text-slate-600 font-medium">Public Webhook URL</label>
@@ -218,7 +518,7 @@ export function NodeConfigPanel({
           )}
 
           {/* Schedule Trigger Configuration */}
-          {isScheduleTrigger && (
+          {isScheduleTrigger && !integrationKey && (
             <div className="space-y-3">
               <div className="flex items-center gap-1.5 text-indigo-600 font-semibold">
                 <Clock className="h-4 w-4" />
@@ -282,7 +582,7 @@ export function NodeConfigPanel({
                   placeholder="https://api.example.com/v1/resource"
                 />
                 <p className="mt-1 text-[10px] text-slate-500">
-                  Supports template tokens, e.g. <code>https://api.example.com/users/&#123;&#123;trigger.body.id&#125;&#125;</code>
+                  Supports template tokens: <code>https://api.example.com/users/&#123;&#123;trigger.body.id&#125;&#125;</code>
                 </p>
               </div>
               <div>
@@ -359,7 +659,7 @@ export function NodeConfigPanel({
           )}
 
           {/* Transform Action Node */}
-          {nodeType === "ACTION" && (
+          {nodeType === "ACTION" && !integrationKey && (
             <div className="space-y-3">
               <div>
                 <label className="block text-slate-600">Action Type</label>

@@ -165,9 +165,11 @@ model ConnectedAccount {
   workspaceId    String
   integrationKey String
   name           String
-  credentials    Json      @default("{}")
-  status         String    @default("ACTIVE")
+  credentials    Json      @default("{}") // AES-256-GCM encrypted tokens & secrets
+  metadata       Json      @default("{}") // Identity metadata (account email, team name, user id)
+  status         String    @default("ACTIVE") // ACTIVE, EXPIRED, REVOKED, ERROR
   scopes         String[]  @default([])
+  expiresAt      DateTime?
   lastVerifiedAt DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -177,6 +179,23 @@ model ConnectedAccount {
   @@index([workspaceId])
   @@index([workspaceId, integrationKey])
   @@map("connected_accounts")
+}
+
+model OAuthAuthorizationState {
+  id           String   @id @default(uuid())
+  state        String   @unique
+  provider     String
+  workspaceId  String
+  userId       String
+  codeVerifier String?
+  redirectUri  String?
+  metadata     Json?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([state])
+  @@index([workspaceId])
+  @@map("oauth_authorization_states")
 }
 
 model WebhookEventReceipt {

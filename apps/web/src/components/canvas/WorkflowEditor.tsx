@@ -113,7 +113,13 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
   );
 
   // Add node from library
-  const handleAddNode = (type: NodeType, label: string, desc: string) => {
+  const handleAddNode = (
+    type: NodeType,
+    label: string,
+    desc: string,
+    integrationKey?: string,
+    initialConfig?: any
+  ) => {
     const id = `node_${Date.now()}`;
     const newNode: Node = {
       id,
@@ -126,7 +132,8 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
         label,
         description: desc,
         nodeType: type,
-        config: {},
+        integrationKey: integrationKey || undefined,
+        config: initialConfig || {},
         isValid: true,
         status: "configured",
       },

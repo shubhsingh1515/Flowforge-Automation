@@ -20,6 +20,7 @@ import { executionRoutes } from "./routes/executions.js";
 import { templateRoutes } from "./routes/templates.js";
 import { workspaceRoutes } from "./routes/workspaces.js";
 import { webhookRoutes } from "./routes/webhooks.js";
+import { oauthRoutes } from "./routes/oauth.js";
 import { startWorker, stopWorker } from "./worker/worker.js";
 import { workflowScheduler } from "./worker/scheduler.js";
 import { APP_CONFIG } from "@flowforge/shared";
@@ -138,6 +139,7 @@ export async function buildServer(options: BuildServerOptions = {}) {
       await api.register(templateRoutes);
       await api.register(workspaceRoutes);
       await api.register(webhookRoutes);
+      await api.register(oauthRoutes);
     },
     { prefix: config.apiPrefix }
   );

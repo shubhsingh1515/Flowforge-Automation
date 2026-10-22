@@ -97,9 +97,24 @@ export const api = {
 
   // Connections
   connections: {
-    list: () => request<{ data: any[] }>("/connections"),
+    list: (params?: { integrationKey?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.integrationKey) q.set("integrationKey", params.integrationKey);
+      return request<{ data: any[] }>(`/connections?${q.toString()}`);
+    },
     connect: (body: any) => request<any>("/connections", { method: "POST", body: JSON.stringify(body) }),
+    refresh: (id: string) => request<any>(`/connections/${id}/refresh`, { method: "POST" }),
     disconnect: (id: string) => request<any>(`/connections/${id}`, { method: "DELETE" }),
+  },
+
+  // OAuth
+  oauth: {
+    getAuthorizationUrl: (provider: string) => request<{ authorizationUrl: string; state: string }>(`/oauth/${provider}/authorize`),
+    devConnect: (provider: string, name?: string) =>
+      request<{ connection: any }>("/oauth/dev-connect", {
+        method: "POST",
+        body: JSON.stringify({ provider, name }),
+      }),
   },
 
   // Executions

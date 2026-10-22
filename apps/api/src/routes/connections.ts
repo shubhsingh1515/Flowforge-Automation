@@ -2,6 +2,8 @@ import { FastifyInstance } from "fastify";
 import { prisma } from "@flowforge/database";
 import { ConnectAccountSchema } from "@flowforge/shared";
 import { authenticateRequest } from "../plugins/auth.js";
+import { encryptCredentials } from "../security/encryption.js";
+import { tokenManager } from "../integrations/token-manager.js";
 import { z } from "zod";
 
 export async function connectionRoutes(server: FastifyInstance) {
@@ -10,13 +12,22 @@ export async function connectionRoutes(server: FastifyInstance) {
     schema: {
       tags: ["Connections"],
       summary: "List connected accounts for current workspace",
+      querystring: z.object({
+        integrationKey: z.string().optional(),
+      }),
     },
     preHandler: [authenticateRequest],
     handler: async (request) => {
       const { workspaceId } = request.authUser!;
+      const { integrationKey } = request.query as { integrationKey?: string };
+
+      const where: any = { workspaceId };
+      if (integrationKey) {
+        where.integrationKey = integrationKey;
+      }
 
       const connections = await prisma.connectedAccount.findMany({
-        where: { workspaceId },
+        where,
         orderBy: { createdAt: "desc" },
       });
 
@@ -28,6 +39,8 @@ export async function connectionRoutes(server: FastifyInstance) {
         name: c.name,
         status: c.status,
         scopes: c.scopes,
+        metadata: c.metadata,
+        expiresAt: c.expiresAt,
         lastVerifiedAt: c.lastVerifiedAt,
         createdAt: c.createdAt,
       }));
@@ -36,7 +49,7 @@ export async function connectionRoutes(server: FastifyInstance) {
     },
   });
 
-  // 2. Connect account
+  // 2. Connect account (Manual API Key / Secret)
   server.post("/connections", {
     schema: {
       tags: ["Connections"],
@@ -60,13 +73,15 @@ export async function connectionRoutes(server: FastifyInstance) {
         });
       }
 
+      // Encrypt credentials at rest
+      const encrypted = encryptCredentials(data.credentials);
+
       const connection = await prisma.connectedAccount.create({
         data: {
           workspaceId,
           integrationKey: data.integrationKey,
           name: data.name,
-          // Store encrypted/safe credentials (mocked encryption for Phase 1)
-          credentials: data.credentials,
+          credentials: encrypted as any,
           status: "ACTIVE",
           lastVerifiedAt: new Date(),
         },
@@ -86,7 +101,35 @@ export async function connectionRoutes(server: FastifyInstance) {
     },
   });
 
-  // 3. Disconnect connection
+  // 3. Reconnect / Refresh connection
+  server.post("/connections/:id/refresh", {
+    schema: {
+      tags: ["Connections"],
+      summary: "Force refresh an authorized connection token",
+      params: z.object({ id: z.string() }),
+    },
+    preHandler: [authenticateRequest],
+    handler: async (request, reply) => {
+      const { workspaceId } = request.authUser!;
+      const { id } = request.params as { id: string };
+
+      try {
+        const credentials = await tokenManager.getValidCredentials(workspaceId, id);
+        return {
+          success: true,
+          message: "Token refreshed and verified successfully.",
+          verifiedAt: new Date().toISOString(),
+        };
+      } catch (err: any) {
+        return reply.status(400).send({
+          error: "Refresh Failed",
+          message: err.message,
+        });
+      }
+    },
+  });
+
+  // 4. Disconnect connection
   server.delete("/connections/:id", {
     schema: {
       tags: ["Connections"],

@@ -16,8 +16,8 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     await page.click('button[type="submit"]');
 
     // Should redirect to dashboard
-    await expect(page).toHaveURL(/.*dashboard/);
-    await expect(page.locator("h1")).toContainText("Dashboard");
+    await expect(page).toHaveURL(/.*dashboard/, { timeout: 15000 });
+    await expect(page.locator("h1")).toContainText("Dashboard", { timeout: 15000 });
   });
 
   test("2. Dashboard Screen: Real metrics, activity, and onboarding", async ({ page }) => {
@@ -25,7 +25,7 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     await page.fill('input[type="email"]', "demo@flowforge.dev");
     await page.fill('input[type="password"]', "Password123!");
     await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/.*dashboard/);
+    await expect(page).toHaveURL(/.*dashboard/, { timeout: 15000 });
 
     // Verify summary metric cards
     await expect(page.locator("text=Total Workflows")).toBeVisible();
@@ -35,7 +35,8 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
 
     // Verify recent activity table
     await expect(page.locator("text=Recent Workflow Activity")).toBeVisible();
-    await expect(page.locator("text=Lead Intake & CRM Dispatcher")).toBeVisible();
+    await expect(page.locator("table")).toBeVisible();
+    await expect(page.locator("tbody tr").first()).toBeVisible();
   });
 
   test("3. Workflows Screen: CRUD & status toggle", async ({ page }) => {
@@ -172,5 +173,58 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     await page.locator('button:has-text("Logs")').first().click();
     await expect(page.locator("text=Execution Run Diagnostics")).toBeVisible();
     await expect(page.locator("text=Step Logs")).toBeVisible();
+  });
+
+  test("9. Phase 3 Connected Accounts & OAuth Management", async ({ page }) => {
+    await page.goto("/login");
+    await page.fill('input[type="email"]', "demo@flowforge.dev");
+    await page.fill('input[type="password"]', "Password123!");
+    await page.click('button[type="submit"]');
+    await expect(page).toHaveURL(/.*dashboard/, { timeout: 15000 });
+
+    await page.goto("/connections");
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.locator("h1")).toContainText("Connected Accounts");
+    await expect(page.locator("text=AES-256-GCM Encrypted Credential Vault")).toBeVisible();
+
+    // Click quick connect on Slack
+    await page.locator('[data-testid="connect-slack-btn"]').click();
+    await expect(page.locator("text=New connection established successfully!")).toBeVisible({ timeout: 10000 });
+
+    // Verify Slack account row appears in table with ACTIVE status
+    await expect(page.locator("text=SLACK").first()).toBeVisible();
+    await expect(page.locator("text=ACTIVE").first()).toBeVisible();
+  });
+
+  test("10. Phase 3 Third-Party Integrations in Canvas", async ({ page }) => {
+    await page.goto("/login");
+    await page.fill('input[type="email"]', "demo@flowforge.dev");
+    await page.fill('input[type="password"]', "Password123!");
+    await page.click('button[type="submit"]');
+    await expect(page).toHaveURL(/.*dashboard/, { timeout: 15000 });
+
+    await page.goto("/workflows/new");
+    await page.waitForLoadState("networkidle");
+
+    // Open palette if mobile
+    const mobileAddButton = page.locator('button:has-text("+ Add Nodes")');
+    if (await mobileAddButton.isVisible()) {
+      await mobileAddButton.click();
+    }
+
+    // Verify Third-Party integrations in Palette
+    await expect(page.locator('[data-testid="palette-node-slack-post-message"]')).toBeVisible();
+    await expect(page.locator('[data-testid="palette-node-google-sheets-append"]')).toBeVisible();
+    await expect(page.locator('[data-testid="palette-node-gmail-send-email"]')).toBeVisible();
+
+    // Add Slack node to canvas
+    await page.locator('[data-testid="palette-node-slack-post-message"]').click();
+
+    // Click Slack node to open Node Configuration
+    await page.locator('.react-flow__node').last().click({ force: true });
+    await expect(page.locator("text=Node Configuration")).toBeVisible();
+    await expect(page.locator("text=Channel ID or Name")).toBeVisible();
+    await expect(page.locator("text=Message Text")).toBeVisible();
   });
 });

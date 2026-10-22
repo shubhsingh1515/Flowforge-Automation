@@ -5,6 +5,7 @@ import { httpRequestHandler } from "./nodes/http.js";
 import { conditionHandler } from "./nodes/condition.js";
 import { transformHandler } from "./nodes/transform.js";
 import { workflowEndHandler } from "./nodes/end.js";
+import { integrationRegistry } from "../integrations/registry.js";
 
 export class NodeRegistry {
   private handlers = new Map<string, NodeHandler>();
@@ -22,8 +23,14 @@ export class NodeRegistry {
   }
 
   getHandler(nodeType: NodeType, integrationKey?: string): NodeHandler | undefined {
-    if (integrationKey === "http-request") {
-      return this.handlers.get("HTTP_REQUEST") || this.handlers.get(nodeType);
+    if (integrationKey) {
+      if (integrationKey === "http-request") {
+        return this.handlers.get("HTTP_REQUEST") || this.handlers.get(nodeType);
+      }
+      const provider = integrationRegistry.getProvider(integrationKey);
+      if (provider) {
+        return integrationRegistry.createNodeHandler(integrationKey);
+      }
     }
     return this.handlers.get(nodeType);
   }
