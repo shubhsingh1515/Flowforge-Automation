@@ -21,6 +21,18 @@ import {
   Lock,
   ExternalLink,
   AlertCircle,
+  Play,
+  Filter,
+  Sparkles,
+  RotateCw,
+  Split,
+  GitMerge,
+  GitBranch,
+  ShieldCheck,
+  Code,
+  Layers,
+  ArrowRight,
+  Info,
 } from "lucide-react";
 import { Node } from "@xyflow/react";
 import { api } from "../../lib/api";
@@ -55,6 +67,35 @@ export function NodeConfigPanel({
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedCurl, setCopiedCurl] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+
+  // Phase 4 Live Transform Preview State
+  const [previewSample, setPreviewSample] = useState(
+    JSON.stringify({ trigger: { body: { amount: 150, discount: 20, lead: { name: "Alice Smith", active: true } } } }, null, 2)
+  );
+  const [previewResult, setPreviewResult] = useState<any>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+
+  const handleTestTransform = async () => {
+    setIsPreviewing(true);
+    setPreviewError(null);
+    try {
+      let sampleData = {};
+      try {
+        sampleData = JSON.parse(previewSample);
+      } catch (e: any) {
+        setPreviewError("Sample input must be valid JSON: " + e.message);
+        setIsPreviewing(false);
+        return;
+      }
+      const res = await api.workflows.previewTransform(sampleData, config);
+      setPreviewResult(res.preview);
+    } catch (err: any) {
+      setPreviewError(err?.message || "Failed to preview transformation");
+    } finally {
+      setIsPreviewing(false);
+    }
+  };
 
   useEffect(() => {
     setLabel((data.label as string) || "");
@@ -616,70 +657,145 @@ export function NodeConfigPanel({
           {nodeType === "CONDITION" && (
             <div className="space-y-3">
               <div>
-                <label className="block text-slate-600">Payload Key / Variable</label>
+                <label className="block text-slate-600 font-medium">Payload Key / Expression</label>
                 <input
                   type="text"
                   value={config.field || "trigger.body.status"}
                   onChange={(e) => handleConfigChange("field", e.target.value)}
                   className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-mono"
-                  placeholder="trigger.body.status"
+                  placeholder="trigger.body.status or {{trigger.body.amount}}"
                 />
               </div>
               <div>
-                <label className="block text-slate-600">Evaluation Operator</label>
+                <label className="block text-slate-600 font-medium">Operator</label>
                 <select
                   value={config.operator || "equals"}
+                  onChange={(e) => handleConfigChange("operator", e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium"
+                >
+                  <optgroup label="Equality & Numeric">
+                    <option value="equals">Equals (==)</option>
+                    <option value="not_equals">Does Not Equal (!=)</option>
+                    <option value="greater_than">Greater Than (&gt;)</option>
+                    <option value="greater_than_or_equal">Greater Than or Equal (&gt;=)</option>
+                    <option value="less_than">Less Than (&lt;)</option>
+                    <option value="less_than_or_equal">Less Than or Equal (&lt;=)</option>
+                  </optgroup>
+                  <optgroup label="String & Pattern">
+                    <option value="contains">Contains String</option>
+                    <option value="not_contains">Does Not Contain</option>
+                    <option value="starts_with">Starts With</option>
+                    <option value="ends_with">Ends With</option>
+                    <option value="matches_regex">Matches Regex (Safe Pattern)</option>
+                    <option value="in_list">In Comma-separated List / Array</option>
+                    <option value="not_in_list">Not In List</option>
+                  </optgroup>
+                  <optgroup label="Existence & State">
+                    <option value="is_empty">Is Empty (string/array/obj)</option>
+                    <option value="is_not_empty">Is Not Empty</option>
+                    <option value="exists">Field Exists</option>
+                    <option value="not_exists">Field Missing / Undefined</option>
+                    <option value="is_true">Is Boolean True</option>
+                    <option value="is_false">Is Boolean False</option>
+                    <option value="is_null">Is Null / Undefined</option>
+                    <option value="is_not_null">Is Not Null</option>
+                  </optgroup>
+                </select>
+              </div>
+              {!["is_empty", "is_not_empty", "exists", "not_exists", "is_true", "is_false", "is_null", "is_not_null"].includes(config.operator) && (
+                <div>
+                  <label className="block text-slate-600 font-medium">Comparison Value</label>
+                  <input
+                    type="text"
+                    value={config.value ?? ""}
+                    onChange={(e) => handleConfigChange("value", e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-mono"
+                    placeholder="e.g. success, 200, active, or /^[a-z]+$/i"
+                  />
+                </div>
+              )}
+              <div className="rounded-lg bg-amber-50/70 border border-amber-200/60 p-2.5 text-[11px] text-amber-800 space-y-1">
+                <p className="font-semibold flex items-center gap-1">
+                  <GitBranch className="h-3.5 w-3.5 text-amber-600" />
+                  <span>Dual Output Branching</span>
+                </p>
+                <p className="text-[10px] text-amber-700">
+                  Connect the <span className="font-bold text-emerald-700">True</span> handle for matching conditions, or the <span className="font-bold text-rose-700">False</span> handle for alternative execution paths.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Array Filter Node */}
+          {nodeType === "FILTER" && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-slate-600 font-medium">Input Array Expression</label>
+                <input
+                  type="text"
+                  value={config.inputArray || "trigger.body.items"}
+                  onChange={(e) => handleConfigChange("inputArray", e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-mono"
+                  placeholder="{{trigger.body.items}} or trigger.body.items"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-600 font-medium">Item Field to Test</label>
+                <input
+                  type="text"
+                  value={config.field || "price"}
+                  onChange={(e) => handleConfigChange("field", e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-mono"
+                  placeholder="price or status or user.active"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-600 font-medium">Filter Operator</label>
+                <select
+                  value={config.operator || "greater_than"}
                   onChange={(e) => handleConfigChange("operator", e.target.value)}
                   className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs"
                 >
                   <option value="equals">Equals (==)</option>
                   <option value="not_equals">Does Not Equal (!=)</option>
+                  <option value="greater_than">Greater Than (&gt;)</option>
+                  <option value="greater_than_or_equal">Greater Than or Equal (&gt;=)</option>
+                  <option value="less_than">Less Than (&lt;)</option>
+                  <option value="less_than_or_equal">Less Than or Equal (&lt;=)</option>
                   <option value="contains">Contains String</option>
                   <option value="not_contains">Does Not Contain</option>
-                  <option value="greater_than">Greater Than (&gt;)</option>
-                  <option value="less_than">Less Than (&lt;)</option>
-                  <option value="is_null">Is Null / Undefined</option>
-                  <option value="is_not_null">Is Not Null</option>
+                  <option value="is_not_empty">Is Not Empty</option>
+                  <option value="is_true">Is True</option>
                 </select>
               </div>
               <div>
-                <label className="block text-slate-600">Comparison Value</label>
+                <label className="block text-slate-600 font-medium">Filter Value</label>
                 <input
                   type="text"
-                  value={config.value ?? ""}
+                  value={config.value ?? "100"}
                   onChange={(e) => handleConfigChange("value", e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
-                  placeholder="e.g. success, 200, active"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-mono"
+                  placeholder="e.g. 100, active, true"
                 />
               </div>
-              <p className="text-[10px] text-slate-500">
-                Connect the <span className="font-semibold text-emerald-600">true</span> branch handle for matching values, or the <span className="font-semibold text-rose-600">false</span> branch handle for non-matching.
-              </p>
+              <div className="rounded-lg bg-emerald-50 border border-emerald-200/60 p-2.5 text-[10px] text-emerald-800">
+                <span className="font-semibold block mb-0.5">Filter Output Structure:</span>
+                Generates <code className="font-mono bg-emerald-100/60 px-1 py-0.5 rounded">matches</code> and <code className="font-mono bg-emerald-100/60 px-1 py-0.5 rounded">rejected</code> lists along with <code className="font-mono bg-emerald-100/60 px-1 py-0.5 rounded">totalMatched</code>.
+              </div>
             </div>
           )}
 
-          {/* Transform Action Node */}
-          {nodeType === "ACTION" && !integrationKey && (
+          {/* Data Transformation Node */}
+          {(nodeType === "TRANSFORM" || (nodeType === "ACTION" && !integrationKey)) && (
             <div className="space-y-3">
               <div>
-                <label className="block text-slate-600">Action Type</label>
-                <select
-                  value={config.actionType || "transform"}
-                  onChange={(e) => handleConfigChange("actionType", e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs"
-                >
-                  <option value="transform">Data Transformation</option>
-                  <option value="log">Log Payload</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-slate-600">Transformation Template (JSON)</label>
+                <label className="block text-slate-600 font-medium">Transformation Template (JSON)</label>
                 <textarea
                   rows={4}
                   value={
                     typeof config.template === "object"
                       ? JSON.stringify(config.template, null, 2)
-                      : config.template || ""
+                      : config.template || '{\n  "fullName": "{{trigger.body.lead.name}}",\n  "total": {{trigger.body.amount}},\n  "processedAt": "{{trigger.timestamp}}"\n}'
                   }
                   onChange={(e) => {
                     try {
@@ -690,8 +806,201 @@ export function NodeConfigPanel({
                     }
                   }}
                   className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-mono"
-                  placeholder='{"recipient": "{{trigger.body.email}}", "summary": "Alert"}'
+                  placeholder='{"key": "{{trigger.body.field}}"}'
                 />
+              </div>
+
+              {/* Live Preview Panel */}
+              <div className="rounded-xl border border-purple-200 bg-purple-50/30 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-purple-900 flex items-center gap-1">
+                    <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                    <span>Live Transform Preview</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleTestTransform}
+                    disabled={isPreviewing}
+                    className="inline-flex items-center gap-1 rounded bg-purple-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-purple-700 disabled:opacity-50 transition-colors shadow-2xs"
+                  >
+                    <Play className="h-2.5 w-2.5" />
+                    <span>{isPreviewing ? "Running..." : "Test Transform"}</span>
+                  </button>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-600">Sample Input JSON</label>
+                  <textarea
+                    rows={3}
+                    value={previewSample}
+                    onChange={(e) => setPreviewSample(e.target.value)}
+                    className="mt-0.5 w-full rounded border border-purple-200 bg-white px-2 py-1 text-[10px] font-mono text-slate-800"
+                  />
+                </div>
+                {previewError && (
+                  <div className="rounded bg-rose-50 border border-rose-200 p-2 text-[10px] text-rose-700">
+                    {previewError}
+                  </div>
+                )}
+                {previewResult !== null && (
+                  <div>
+                    <label className="block text-[10px] font-semibold text-emerald-800">Preview Output</label>
+                    <pre className="mt-0.5 max-h-28 overflow-y-auto rounded border border-emerald-200 bg-emerald-50/50 p-2 text-[10px] font-mono text-emerald-950">
+                      {JSON.stringify(previewResult, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* For Each Loop Node */}
+          {nodeType === "LOOP" && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-slate-600 font-medium">Array Expression to Iterate</label>
+                <input
+                  type="text"
+                  value={config.arrayExpression || config.inputArray || "trigger.body.items"}
+                  onChange={(e) => {
+                    handleConfigChange("arrayExpression", e.target.value);
+                    handleConfigChange("inputArray", e.target.value);
+                  }}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-mono"
+                  placeholder="{{trigger.body.items}} or trigger.body.items"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-600 font-medium">Max Iterations (Safety Limit 1-200)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={200}
+                  value={config.maxIterations || 50}
+                  onChange={(e) => handleConfigChange("maxIterations", Number(e.target.value))}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-mono"
+                />
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Bounded loop processing prevents infinite execution cycles.
+                </p>
+              </div>
+              <div>
+                <label className="block text-slate-600 font-medium">Error Policy</label>
+                <select
+                  value={config.errorPolicy || "STOP_ON_ERROR"}
+                  onChange={(e) => handleConfigChange("errorPolicy", e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs"
+                >
+                  <option value="STOP_ON_ERROR">Stop on First Error (Fail execution)</option>
+                  <option value="CONTINUE_AND_COLLECT">Continue &amp; Collect Errors (Fault-tolerant)</option>
+                </select>
+              </div>
+              <div className="rounded-lg bg-orange-50 border border-orange-200/60 p-2.5 text-[10px] text-orange-800 space-y-1">
+                <span className="font-semibold block">Loop Iteration Context:</span>
+                Downstream nodes can reference <code className="font-mono bg-orange-100 px-1 py-0.5 rounded">{"{{loop.item}}"}</code>, <code className="font-mono bg-orange-100 px-1 py-0.5 rounded">{"{{loop.index}}"}</code>, and <code className="font-mono bg-orange-100 px-1 py-0.5 rounded">{"{{loop.length}}"}</code>.
+              </div>
+            </div>
+          )}
+
+          {/* Fork Node */}
+          {nodeType === "FORK" && (
+            <div className="space-y-3">
+              <div className="rounded-lg bg-sky-50 border border-sky-200/60 p-3 text-[11px] text-sky-900 space-y-1.5">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <Split className="h-4 w-4 text-sky-600" />
+                  <span>Parallel Execution Fork</span>
+                </div>
+                <p className="text-[10px] text-sky-700 leading-relaxed">
+                  Connect multiple outgoing edges from this node to execute parallel branches concurrently.
+                  Combine downstream branches later using a <strong>Join</strong> node.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Join Node */}
+          {nodeType === "JOIN" && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-slate-600 font-medium">Synchronization Policy</label>
+                <select
+                  value={config.joinPolicy || "WAIT_ALL"}
+                  onChange={(e) => handleConfigChange("joinPolicy", e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium"
+                >
+                  <option value="WAIT_ALL">Wait for All Active Branches (WAIT_ALL)</option>
+                  <option value="WAIT_ANY">Proceed on First Completed Branch (WAIT_ANY)</option>
+                </select>
+              </div>
+              <div className="rounded-lg bg-teal-50 border border-teal-200/60 p-2.5 text-[10px] text-teal-800 space-y-1">
+                <span className="font-semibold block flex items-center gap-1">
+                  <GitMerge className="h-3.5 w-3.5 text-teal-600" />
+                  <span>Deadlock-Free Convergence:</span>
+                </span>
+                <p className="text-[10px] text-teal-700 leading-relaxed">
+                  Gathers results from upstream branches into <code className="font-mono bg-teal-100 px-1 py-0.5 rounded">{"{{steps.<id>.output.branches}}"}</code>.
+                  Branches conditionally skipped upstream are automatically marked resolved so execution never deadlocks.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Approval Node */}
+          {nodeType === "APPROVAL" && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-slate-600 font-medium">Approval Title</label>
+                <input
+                  type="text"
+                  value={config.title || "Approve Step: {{trigger.body.id}}"}
+                  onChange={(e) => handleConfigChange("title", e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-mono"
+                  placeholder="Approve Invoice: {{trigger.body.invoiceNumber}}"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-600 font-medium">Description / Context</label>
+                <textarea
+                  rows={2}
+                  value={config.description || "Review and approve workflow progression."}
+                  onChange={(e) => handleConfigChange("description", e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs"
+                  placeholder="e.g. Please verify amount ${{trigger.body.amount}} for {{trigger.body.vendor}}"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-slate-600 font-medium">Required Role</label>
+                  <select
+                    value={config.requiredRole || "MEMBER"}
+                    onChange={(e) => handleConfigChange("requiredRole", e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs"
+                  >
+                    <option value="MEMBER">Any Member</option>
+                    <option value="ADMIN">Admin Only</option>
+                    <option value="OWNER">Owner Only</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-600 font-medium">Timeout (Hours)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={720}
+                    value={config.timeoutHours || 24}
+                    onChange={(e) => handleConfigChange("timeoutHours", Number(e.target.value))}
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-mono"
+                  />
+                </div>
+              </div>
+              <div className="rounded-lg bg-rose-50 border border-rose-200/60 p-2.5 text-[10px] text-rose-800 space-y-1">
+                <span className="font-semibold block flex items-center gap-1">
+                  <ShieldCheck className="h-3.5 w-3.5 text-rose-600" />
+                  <span>Human-in-the-Loop Pause</span>
+                </span>
+                <p className="text-[10px] text-rose-700 leading-relaxed">
+                  Execution pauses in <strong className="font-bold">WAITING_APPROVAL</strong> state, releasing background workers.
+                  Connect the <strong className="text-emerald-700">Approved</strong> and <strong className="text-rose-700">Rejected</strong> handles to define post-approval paths.
+                </p>
               </div>
             </div>
           )}

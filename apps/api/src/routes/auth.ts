@@ -37,7 +37,7 @@ export async function authRoutes(server: FastifyInstance) {
 
       const wsName = workspaceName || `${name.split(" ")[0]}'s Workspace`;
       const baseSlug = wsName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-      const uniqueSlug = `${baseSlug}-${Date.now().toString().slice(-4)}`;
+      const uniqueSlug = `${baseSlug}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
       const workspace = await prisma.workspace.create({
         data: {

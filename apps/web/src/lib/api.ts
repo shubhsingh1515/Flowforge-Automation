@@ -81,6 +81,11 @@ export const api = {
     activate: (id: string) => request<any>(`/workflows/${id}/activate`, { method: "POST" }),
     pause: (id: string) => request<any>(`/workflows/${id}/pause`, { method: "POST" }),
     test: (id: string, payload?: any) => request<any>(`/workflows/${id}/test`, { method: "POST", body: JSON.stringify({ payload: payload || {} }) }),
+    previewTransform: (sampleInput: any, config: any) =>
+      request<any>("/workflows/preview-transform", {
+        method: "POST",
+        body: JSON.stringify({ sampleInput, config }),
+      }),
   },
 
   // Integrations
@@ -128,7 +133,29 @@ export const api = {
     },
     get: (id: string) => request<{ execution: any }>(`/executions/${id}`),
     retry: (id: string) => request<any>(`/executions/${id}/retry`, { method: "POST" }),
-    cancel: (id: string) => request<any>(`/executions/${id}/cancel`, { method: "POST" }),
+    cancel: (id: string, body?: { reason?: string }) =>
+      request<any>(`/executions/${id}/cancel`, {
+        method: "POST",
+        body: body ? JSON.stringify(body) : undefined,
+      }),
+  },
+
+  // Human Approvals
+  approvals: {
+    list: (params?: { status?: string; workflowId?: string; page?: number; limit?: number }) => {
+      const q = new URLSearchParams();
+      if (params?.status) q.set("status", params.status);
+      if (params?.workflowId) q.set("workflowId", params.workflowId);
+      if (params?.page) q.set("page", params.page.toString());
+      if (params?.limit) q.set("limit", params.limit.toString());
+      return request<{ data: any[]; meta: any }>(`/approvals?${q.toString()}`);
+    },
+    get: (id: string) => request<{ approval: any }>(`/approvals/${id}`),
+    decide: (id: string, body: { decision: "APPROVED" | "REJECTED"; comment?: string }) =>
+      request<any>(`/approvals/${id}/decide`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
   },
 
   // Templates

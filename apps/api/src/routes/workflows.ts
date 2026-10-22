@@ -655,4 +655,39 @@ export async function workflowRoutes(server: FastifyInstance) {
       });
     },
   });
+  // 9. Preview Data Transformation
+  server.post("/workflows/preview-transform", {
+    schema: {
+      tags: ["Workflows"],
+      summary: "Safely preview a data transformation against sample JSON input",
+      body: z.object({
+        sampleInput: z.any().default({}),
+        config: z.any().default({}),
+      }),
+    },
+    preHandler: [authenticateRequest],
+    handler: async (request, reply) => {
+      const { sampleInput, config: transformConfig } = request.body as {
+        sampleInput: any;
+        config: any;
+      };
+
+      try {
+        const { executeTransformation } = await import("../engine/nodes/transform.js");
+        const context = {
+          trigger: { body: sampleInput },
+          steps: {},
+          env: { PREVIEW: "true" },
+        };
+        const output = executeTransformation(transformConfig, context);
+        return { success: true, result: output };
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: "Transformation Error",
+          message: err.message,
+        });
+      }
+    },
+  });
 }

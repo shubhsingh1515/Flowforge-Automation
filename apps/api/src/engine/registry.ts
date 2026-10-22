@@ -3,7 +3,12 @@ import { NodeHandler } from "./types.js";
 import { webhookTriggerHandler } from "./nodes/trigger.js";
 import { httpRequestHandler } from "./nodes/http.js";
 import { conditionHandler } from "./nodes/condition.js";
+import { filterHandler } from "./nodes/filter.js";
 import { transformHandler } from "./nodes/transform.js";
+import { loopHandler } from "./nodes/loop.js";
+import { forkHandler } from "./nodes/fork.js";
+import { joinHandler } from "./nodes/join.js";
+import { approvalHandler } from "./nodes/approval.js";
 import { workflowEndHandler } from "./nodes/end.js";
 import { integrationRegistry } from "../integrations/registry.js";
 
@@ -14,7 +19,13 @@ export class NodeRegistry {
     this.register(webhookTriggerHandler);
     this.register(httpRequestHandler);
     this.register(conditionHandler);
+    this.register(filterHandler);
     this.register(transformHandler);
+    this.handlers.set("ACTION", transformHandler);
+    this.register(loopHandler);
+    this.register(forkHandler);
+    this.register(joinHandler);
+    this.register(approvalHandler);
     this.register(workflowEndHandler);
   }
 
@@ -32,7 +43,7 @@ export class NodeRegistry {
         return integrationRegistry.createNodeHandler(integrationKey);
       }
     }
-    return this.handlers.get(nodeType);
+    return this.handlers.get(nodeType) || (nodeType === "ACTION" ? this.handlers.get("TRANSFORM") : undefined);
   }
 }
 

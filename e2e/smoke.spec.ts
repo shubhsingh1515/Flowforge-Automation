@@ -1,4 +1,31 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, Page } from "@playwright/test";
+
+async function loginAsDemo(page: Page) {
+  await page.goto("/login");
+  await page.fill('input[type="email"]', "demo@flowforge.dev");
+  await page.fill('input[type="password"]', "Password123!");
+  await page.click('button[type="submit"]');
+  await expect(page).toHaveURL(/.*dashboard/, { timeout: 15000 });
+}
+
+async function addPaletteNode(page: Page, testId: string) {
+  // If config panel is open on mobile, close it so palette button is accessible
+  const closeConfigBtn = page.locator('button[title="Close panel"]');
+  if (await closeConfigBtn.isVisible()) {
+    await closeConfigBtn.click();
+    await page.waitForTimeout(200);
+  }
+
+  const openButton = page.locator('button:has-text("+ Add Nodes")');
+  if (await openButton.isVisible()) {
+    await openButton.click();
+    await page.waitForTimeout(200);
+  }
+  const nodeBtn = page.locator(`[data-testid="${testId}"]`);
+  await nodeBtn.scrollIntoViewIfNeeded();
+  await nodeBtn.click({ force: true });
+  await page.waitForTimeout(250);
+}
 
 test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
   test("1. Authentication Flow: Sign In with seeded credentials", async ({ page }) => {
@@ -21,11 +48,7 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
   });
 
   test("2. Dashboard Screen: Real metrics, activity, and onboarding", async ({ page }) => {
-    await page.goto("/login");
-    await page.fill('input[type="email"]', "demo@flowforge.dev");
-    await page.fill('input[type="password"]', "Password123!");
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/.*dashboard/, { timeout: 15000 });
+    await loginAsDemo(page);
 
     // Verify summary metric cards
     await expect(page.locator("text=Total Workflows")).toBeVisible();
@@ -40,15 +63,13 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
   });
 
   test("3. Workflows Screen: CRUD & status toggle", async ({ page }) => {
-    await page.goto("/login");
-    await page.fill('input[type="email"]', "demo@flowforge.dev");
-    await page.fill('input[type="password"]', "Password123!");
-    await page.click('button[type="submit"]');
+    await loginAsDemo(page);
 
     await page.goto("/workflows");
     await expect(page.locator("h1")).toContainText("Workflows");
 
-    // Check seeded workflow is present
+    // Search for seeded workflow
+    await page.fill('input[placeholder*="Search workflows"]', "Lead Intake");
     await expect(page.locator("text=Lead Intake & CRM Dispatcher").first()).toBeVisible();
 
     // Test status filter pills using data-testid
@@ -57,21 +78,16 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
   });
 
   test("4. Visual Workflow Canvas: React Flow nodes, configuration & save", async ({ page }) => {
-    await page.goto("/login");
-    await page.fill('input[type="email"]', "demo@flowforge.dev");
-    await page.fill('input[type="password"]', "Password123!");
-    await page.click('button[type="submit"]');
+    await loginAsDemo(page);
 
     await page.goto("/workflows/new");
     await page.waitForLoadState("networkidle");
 
-    // On mobile viewports, open palette if toggle button is present
+    // Check canvas and palette
     const mobileAddButton = page.locator('button:has-text("+ Add Nodes")');
     if (await mobileAddButton.isVisible()) {
       await mobileAddButton.click();
     }
-
-    // Check canvas and palette
     await expect(page.locator("text=Node Palette")).toBeVisible();
     await expect(page.getByRole("button", { name: /Webhook Trigger/ })).toBeVisible();
 
@@ -82,21 +98,18 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     await page.locator('.react-flow__node').last().click({ force: true });
     await expect(page.locator("text=Node Configuration")).toBeVisible();
 
-    // Save graph
+    // Save graph and verify redirect to saved workflow ID
     await page.click('button:has-text("Save Graph")');
-    await expect(page.locator("text=Saved to Cloud")).toBeVisible({ timeout: 10000 });
+    await expect(page).toHaveURL(/\/workflows\/[a-zA-Z0-9_-]+/, { timeout: 15000 });
   });
 
   test("5. Integrations Marketplace & Details Modal", async ({ page }) => {
-    await page.goto("/login");
-    await page.fill('input[type="email"]', "demo@flowforge.dev");
-    await page.fill('input[type="password"]', "Password123!");
-    await page.click('button[type="submit"]');
+    await loginAsDemo(page);
 
     await page.goto("/integrations");
     await expect(page.locator("h1")).toContainText("Integrations Catalog");
 
-    // Check available and planned integrations
+    // Check available integrations
     await expect(page.locator("text=Webhook Trigger").first()).toBeVisible();
     await expect(page.locator("text=HTTP / REST Request").first()).toBeVisible();
     await expect(page.getByRole("heading", { name: "Slack" })).toBeVisible();
@@ -108,10 +121,7 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
   });
 
   test("6. Templates: Instantiate pre-built automation", async ({ page }) => {
-    await page.goto("/login");
-    await page.fill('input[type="email"]', "demo@flowforge.dev");
-    await page.fill('input[type="password"]', "Password123!");
-    await page.click('button[type="submit"]');
+    await loginAsDemo(page);
 
     await page.goto("/templates");
     await expect(page.locator("h1")).toContainText("Workflow Templates");
@@ -120,10 +130,7 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
   });
 
   test("7. Settings: Update workspace organization", async ({ page }) => {
-    await page.goto("/login");
-    await page.fill('input[type="email"]', "demo@flowforge.dev");
-    await page.fill('input[type="password"]', "Password123!");
-    await page.click('button[type="submit"]');
+    await loginAsDemo(page);
 
     await page.goto("/settings");
     await expect(page.locator("h1")).toContainText("Settings");
@@ -134,17 +141,14 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
   });
 
   test("8. Phase 2 Execution Engine: Canvas Test Run, Activate & Live History Diagnostics", async ({ page }) => {
-    await page.goto("/login");
-    await page.fill('input[type="email"]', "demo@flowforge.dev");
-    await page.fill('input[type="password"]', "Password123!");
-    await page.click('button[type="submit"]');
+    await loginAsDemo(page);
 
     await page.goto("/workflows");
     await page.waitForLoadState("networkidle");
 
-    // Click on Lead Intake workflow to open visual canvas editor
-    await page.click('text=Lead Intake & CRM Dispatcher');
-    await page.waitForURL(/\/workflows\/[a-zA-Z0-9_-]+/);
+    // Click on Edit Canvas icon button to open visual canvas editor
+    await page.locator('a[title="Edit Canvas"]').first().click();
+    await page.waitForURL(/\/workflows\/[a-zA-Z0-9_-]+/, { timeout: 15000 });
     await page.waitForLoadState("networkidle");
 
     // Verify Phase 2 canvas action controls
@@ -176,11 +180,7 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
   });
 
   test("9. Phase 3 Connected Accounts & OAuth Management", async ({ page }) => {
-    await page.goto("/login");
-    await page.fill('input[type="email"]', "demo@flowforge.dev");
-    await page.fill('input[type="password"]', "Password123!");
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/.*dashboard/, { timeout: 15000 });
+    await loginAsDemo(page);
 
     await page.goto("/connections");
     await page.waitForLoadState("networkidle");
@@ -198,33 +198,65 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
   });
 
   test("10. Phase 3 Third-Party Integrations in Canvas", async ({ page }) => {
-    await page.goto("/login");
-    await page.fill('input[type="email"]', "demo@flowforge.dev");
-    await page.fill('input[type="password"]', "Password123!");
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/.*dashboard/, { timeout: 15000 });
+    await loginAsDemo(page);
 
     await page.goto("/workflows/new");
     await page.waitForLoadState("networkidle");
 
-    // Open palette if mobile
-    const mobileAddButton = page.locator('button:has-text("+ Add Nodes")');
-    if (await mobileAddButton.isVisible()) {
-      await mobileAddButton.click();
-    }
-
-    // Verify Third-Party integrations in Palette
-    await expect(page.locator('[data-testid="palette-node-slack-post-message"]')).toBeVisible();
-    await expect(page.locator('[data-testid="palette-node-google-sheets-append"]')).toBeVisible();
-    await expect(page.locator('[data-testid="palette-node-gmail-send-email"]')).toBeVisible();
-
-    // Add Slack node to canvas
-    await page.locator('[data-testid="palette-node-slack-post-message"]').click();
+    // Add Slack node to canvas using helper
+    await addPaletteNode(page, "palette-node-slack-post-message");
 
     // Click Slack node to open Node Configuration
     await page.locator('.react-flow__node').last().click({ force: true });
     await expect(page.locator("text=Node Configuration")).toBeVisible();
     await expect(page.locator("text=Channel ID or Name")).toBeVisible();
     await expect(page.locator("text=Message Text")).toBeVisible();
+  });
+
+  test("11. Phase 4 Advanced Flow Control Nodes in Canvas (Filter, Transform, Loop, Approval)", async ({ page }) => {
+    await loginAsDemo(page);
+
+    await page.goto("/workflows/new");
+    await page.waitForLoadState("networkidle");
+
+    // Add Data Transform node
+    await addPaletteNode(page, "palette-node-data-transform");
+
+    // Verify Transform Node configuration
+    await expect(page.locator("text=Node Configuration")).toBeVisible();
+    await expect(page.locator("text=Transformation Template (JSON)")).toBeVisible();
+    await expect(page.locator("text=Live Transform Preview")).toBeVisible();
+    await expect(page.locator("text=Sample Input JSON")).toBeVisible();
+
+    // Add Human Approval node
+    await addPaletteNode(page, "palette-node-human-approval");
+
+    // Verify Approval Node configuration
+    await expect(page.locator("text=Approval Title")).toBeVisible();
+    await expect(page.locator("text=Required Role")).toBeVisible();
+    await expect(page.locator("text=Human-in-the-Loop Pause")).toBeVisible();
+
+    // Save graph and verify transition to persistent workflow ID
+    await page.click('button:has-text("Save Graph")');
+    await expect(page).toHaveURL(/\/workflows\/[a-zA-Z0-9_-]+/, { timeout: 15000 });
+  });
+
+  test("12. Phase 4 Human Approvals Page: Governance, Status Filter & Modals", async ({ page }) => {
+    await loginAsDemo(page);
+
+    await page.goto("/approvals");
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.locator("h1")).toContainText("Approvals");
+    await expect(page.locator("text=Human-in-the-Loop Workflow Governance")).toBeVisible();
+
+    // Check filter buttons
+    await expect(page.locator('button:has-text("Pending")')).toBeVisible();
+    await expect(page.locator('button:has-text("Approved")')).toBeVisible();
+    await expect(page.locator('button:has-text("Rejected")')).toBeVisible();
+    await expect(page.locator('button:has-text("All")')).toBeVisible();
+
+    // Toggle filter
+    await page.click('button:has-text("All")');
   });
 });

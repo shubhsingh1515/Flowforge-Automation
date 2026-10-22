@@ -9,7 +9,7 @@ export function createWorkflowWorker(concurrency = 5): Worker<WorkflowJobData> {
   const worker = new Worker<WorkflowJobData>(
     QUEUE_NAME,
     async (job: Job<WorkflowJobData>) => {
-      let { executionId, workflowId, versionId, triggerPayload, correlationId, attempt } = job.data;
+      let { executionId, workflowId, versionId, triggerPayload, correlationId, attempt, resumeNodeId } = job.data;
 
       // If scheduled repeatable job, create execution record if not present
       if (!executionId) {
@@ -47,6 +47,7 @@ export function createWorkflowWorker(concurrency = 5): Worker<WorkflowJobData> {
           workflowId,
           correlationId,
           attempt: attempt || job.attemptsMade + 1,
+          resumeNodeId: resumeNodeId || null,
           timestamp: new Date().toISOString(),
         })
       );
@@ -58,10 +59,23 @@ export function createWorkflowWorker(concurrency = 5): Worker<WorkflowJobData> {
         triggerPayload,
         correlationId,
         attempt: attempt || job.attemptsMade + 1,
+        resumeNodeId,
       });
 
       if (result.status === "FAILED") {
         throw new Error(result.errorSummary || "Workflow execution failed");
+      }
+
+      if (result.status === "WAITING_APPROVAL") {
+        console.log(
+          JSON.stringify({
+            level: "info",
+            msg: "Workflow execution yielded for human approval",
+            executionId,
+            workflowId,
+            timestamp: new Date().toISOString(),
+          })
+        );
       }
 
       return result;

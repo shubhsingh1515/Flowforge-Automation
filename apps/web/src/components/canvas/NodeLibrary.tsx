@@ -14,6 +14,12 @@ import {
   Inbox,
   HardDrive,
   Info,
+  Filter,
+  Sparkles,
+  RotateCw,
+  Split,
+  GitMerge,
+  ShieldCheck,
 } from "lucide-react";
 import { NodeType } from "@flowforge/shared";
 
@@ -36,7 +42,7 @@ interface PaletteNode {
   bg: string;
   integrationKey?: string;
   initialConfig?: any;
-  category: "Primitives" | "Integrations";
+  category: "Primitives" | "Flow Control" | "Integrations";
 }
 
 const AVAILABLE_NODES: PaletteNode[] = [
@@ -60,24 +66,6 @@ const AVAILABLE_NODES: PaletteNode[] = [
     category: "Primitives",
   },
   {
-    type: "CONDITION",
-    label: "Condition Filter",
-    description: "Branch execution with If/Else logic based on values.",
-    icon: GitBranch,
-    color: "text-amber-600",
-    bg: "bg-amber-50",
-    category: "Primitives",
-  },
-  {
-    type: "ACTION",
-    label: "Transform Action",
-    description: "Execute data interpolation or template restructuring.",
-    icon: Play,
-    color: "text-blue-600",
-    bg: "bg-blue-50",
-    category: "Primitives",
-  },
-  {
     type: "HTTP_REQUEST",
     label: "HTTP / REST Call",
     description: "Dispatch outgoing HTTP request to any external API.",
@@ -85,6 +73,86 @@ const AVAILABLE_NODES: PaletteNode[] = [
     color: "text-sky-600",
     bg: "bg-sky-50",
     category: "Primitives",
+  },
+
+  // Advanced Flow Control & Logic
+  {
+    type: "CONDITION",
+    label: "Condition Filter",
+    description: "Branch execution with If/Else logic based on values.",
+    icon: GitBranch,
+    color: "text-amber-600",
+    bg: "bg-amber-50",
+    initialConfig: { field: "trigger.body.status", operator: "equals", value: "active" },
+    category: "Flow Control",
+  },
+  {
+    type: "FILTER",
+    label: "Array Filter",
+    description: "Filter individual items in an array based on conditions.",
+    icon: Filter,
+    color: "text-emerald-600",
+    bg: "bg-emerald-50",
+    initialConfig: { inputArray: "{{trigger.body.items}}", field: "status", operator: "equals", value: "active" },
+    category: "Flow Control",
+  },
+  {
+    type: "TRANSFORM",
+    label: "Data Transform",
+    description: "Declaratively map, convert, format, or restructure JSON.",
+    icon: Sparkles,
+    color: "text-purple-600",
+    bg: "bg-purple-50",
+    initialConfig: {
+      fieldRules: [
+        { targetField: "fullName", sourceExpression: "{{trigger.body.firstName}} {{trigger.body.lastName}}" },
+      ],
+    },
+    category: "Flow Control",
+  },
+  {
+    type: "LOOP",
+    label: "For Each Loop",
+    description: "Iterate over an array with bounded execution safety.",
+    icon: RotateCw,
+    color: "text-orange-600",
+    bg: "bg-orange-50",
+    initialConfig: { arrayExpression: "{{trigger.body.items}}", maxIterations: 50, errorPolicy: "STOP_ON_ERROR" },
+    category: "Flow Control",
+  },
+  {
+    type: "FORK",
+    label: "Fork Branches",
+    description: "Split execution across parallel concurrent branches.",
+    icon: Split,
+    color: "text-sky-600",
+    bg: "bg-sky-50",
+    initialConfig: {},
+    category: "Flow Control",
+  },
+  {
+    type: "JOIN",
+    label: "Join Branches",
+    description: "Wait for parallel branches to finish and synchronize output.",
+    icon: GitMerge,
+    color: "text-teal-600",
+    bg: "bg-teal-50",
+    initialConfig: { joinPolicy: "WAIT_ALL" },
+    category: "Flow Control",
+  },
+  {
+    type: "APPROVAL",
+    label: "Human Approval",
+    description: "Pause execution until an authorized reviewer approves.",
+    icon: ShieldCheck,
+    color: "text-rose-600",
+    bg: "bg-rose-50",
+    initialConfig: {
+      title: "Approval required for operation",
+      description: "Review and approve to continue execution.",
+      timeoutSeconds: 86400,
+    },
+    category: "Flow Control",
   },
 
   // Third-Party Integrations
@@ -139,14 +207,15 @@ const AVAILABLE_NODES: PaletteNode[] = [
     label: "Workflow End",
     description: "Mark successful termination of the automation pipeline.",
     icon: Flag,
-    color: "text-emerald-600",
-    bg: "bg-emerald-50",
+    color: "text-slate-600",
+    bg: "bg-slate-50",
     category: "Primitives",
   },
 ];
 
 export function NodeLibrary({ onAddNode }: NodeLibraryProps) {
   const primitives = AVAILABLE_NODES.filter((n) => n.category === "Primitives");
+  const flowControl = AVAILABLE_NODES.filter((n) => n.category === "Flow Control");
   const integrations = AVAILABLE_NODES.filter((n) => n.category === "Integrations");
 
   const renderNodeButton = (item: PaletteNode) => {
@@ -201,18 +270,31 @@ export function NodeLibrary({ onAddNode }: NodeLibraryProps) {
         {/* Core Primitives Section */}
         <div>
           <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1 mb-2">
-            Core Primitives
+            Triggers & Calls
           </h4>
           <div className="space-y-1.5">{primitives.map(renderNodeButton)}</div>
+        </div>
+
+        {/* Logic & Advanced Flow Control Section */}
+        <div>
+          <div className="flex items-center justify-between px-1 mb-2">
+            <h4 className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">
+              Logic & Flow Control
+            </h4>
+            <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[9px] font-bold text-indigo-700">
+              Phase 4
+            </span>
+          </div>
+          <div className="space-y-1.5">{flowControl.map(renderNodeButton)}</div>
         </div>
 
         {/* Third-Party Integrations Section */}
         <div>
           <div className="flex items-center justify-between px-1 mb-2">
-            <h4 className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">
+            <h4 className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">
               Apps & Integrations
             </h4>
-            <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[9px] font-bold text-indigo-700">
+            <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">
               OAuth 2.0
             </span>
           </div>

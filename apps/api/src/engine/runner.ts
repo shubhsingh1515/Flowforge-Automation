@@ -10,11 +10,12 @@ export interface WorkflowRunOptions {
   triggerPayload: any;
   correlationId?: string;
   attempt?: number;
+  resumeNodeId?: string;
 }
 
 export interface WorkflowRunResult {
   executionId: string;
-  status: "SUCCESS" | "FAILED" | "CANCELLED";
+  status: "SUCCESS" | "FAILED" | "CANCELLED" | "WAITING_APPROVAL";
   stepsExecuted: number;
   errorSummary?: string;
   errorCategory?: ExecutionErrorCategory;
@@ -28,19 +29,44 @@ export async function runWorkflowExecution(
   const correlationId = options.correlationId || `corr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const attempt = options.attempt || 1;
 
-  // 1. Update execution record to RUNNING
+  // 1. Fetch current execution record to check if already cancelled
+  const initialExecution = await prisma.workflowExecution.findUnique({
+    where: { id: options.executionId },
+  });
+
+  if (!initialExecution) {
+    return {
+      executionId: options.executionId,
+      status: "FAILED",
+      stepsExecuted: 0,
+      errorSummary: "Execution record not found",
+      durationMs: Date.now() - startTime,
+    };
+  }
+
+  if (initialExecution.status === ExecutionStatus.CANCELLED) {
+    return {
+      executionId: options.executionId,
+      status: "CANCELLED",
+      stepsExecuted: 0,
+      errorSummary: initialExecution.cancellationReason || "Execution was cancelled",
+      durationMs: Date.now() - startTime,
+    };
+  }
+
+  // 2. Update execution record to RUNNING
   await prisma.workflowExecution.update({
     where: { id: options.executionId },
     data: {
       status: ExecutionStatus.RUNNING,
-      startedAt: new Date(),
+      startedAt: initialExecution.startedAt || new Date(),
       correlationId,
       attempt,
       triggerEvent: options.triggerPayload as any,
     },
   });
 
-  // 2. Load Workflow and its Version
+  // 3. Load Workflow and its Version
   const workflow = await prisma.workflow.findUnique({
     where: { id: options.workflowId },
     include: {
@@ -82,7 +108,7 @@ export async function runWorkflowExecution(
 
   // Find Trigger Node
   const triggerNode = nodes.find((n) => n.data?.nodeType === "TRIGGER");
-  if (!triggerNode) {
+  if (!triggerNode && !options.resumeNodeId) {
     const errorMsg = "Workflow has no Trigger node configured.";
     await prisma.workflowExecution.update({
       where: { id: options.executionId },
@@ -104,9 +130,16 @@ export async function runWorkflowExecution(
     };
   }
 
-  // 3. Initialize Execution Context
-  const context: ExecutionContext = {
-    trigger: options.triggerPayload || {},
+  // 4. Initialize Execution Context (or restore from saved state on resume)
+  const savedState = initialExecution.executionState as any;
+  const rawTrigger = options.triggerPayload || {};
+  const normalizedTrigger =
+    typeof rawTrigger === "object" && rawTrigger !== null && rawTrigger.body !== undefined
+      ? rawTrigger
+      : { ...rawTrigger, body: rawTrigger };
+
+  const context: ExecutionContext = savedState?.context || {
+    trigger: normalizedTrigger,
     steps: {},
     env: {
       WORKFLOW_ID: workflow.id,
@@ -115,10 +148,8 @@ export async function runWorkflowExecution(
     },
   };
 
-  // 4. DAG Traversal Setup
-  // Map outgoing edges from each node: source -> Edge[]
+  // 5. Graph Topology Setup
   const outgoingEdges = new Map<string, any[]>();
-  // Map incoming edges for dependency checking: target -> Edge[]
   const incomingEdges = new Map<string, any[]>();
 
   for (const node of nodes) {
@@ -131,44 +162,86 @@ export async function runWorkflowExecution(
     incomingEdges.get(edge.target)?.push(edge);
   }
 
-  const queue: string[] = [triggerNode.id];
-  const visited = new Set<string>();
-  const activeBranches = new Map<string, string | null>(); // nodeId -> selectedBranch
+  // Restore visited set and active branches from saved state if resuming
+  const visited = new Set<string>(savedState?.visited || []);
+  const activeBranches = new Map<string, string | null>(
+    savedState?.activeBranches ? Object.entries(savedState.activeBranches) : []
+  );
+  const skippedNodes = new Set<string>();
+  const skippedEdges = new Set<string>();
+
+  // Determine starting node(s)
+  const queue: string[] = [];
+  if (options.resumeNodeId) {
+    // If resuming at a specific node
+    queue.push(options.resumeNodeId);
+  } else if (triggerNode) {
+    queue.push(triggerNode.id);
+  }
 
   let stepsExecutedCount = 0;
-  const executionTrace: Array<{ nodeId: string; status: string; durationMs: number }> = [];
+  const executionTrace: Array<{ nodeId: string; status: string; durationMs: number; branch?: string }> =
+    savedState?.executionTrace || [];
 
   while (queue.length > 0) {
+    // Check if cancellation was requested mid-execution
+    const currentStatusCheck = await prisma.workflowExecution.findUnique({
+      where: { id: options.executionId },
+      select: { status: true, cancellationReason: true },
+    });
+
+    if (currentStatusCheck?.status === ExecutionStatus.CANCELLED) {
+      await prisma.workflowExecution.update({
+        where: { id: options.executionId },
+        data: {
+          finishedAt: new Date(),
+          durationMs: Date.now() - startTime,
+          executionTrace: executionTrace as any,
+        },
+      });
+      return {
+        executionId: options.executionId,
+        status: "CANCELLED",
+        stepsExecuted: stepsExecutedCount,
+        errorSummary: currentStatusCheck.cancellationReason || "Workflow execution cancelled",
+        durationMs: Date.now() - startTime,
+      };
+    }
+
     const currentNodeId = queue.shift()!;
-    if (visited.has(currentNodeId)) continue;
+    if (visited.has(currentNodeId) && currentNodeId !== options.resumeNodeId) continue;
+    if (skippedNodes.has(currentNodeId)) continue;
 
     const node = nodeMap.get(currentNodeId);
     if (!node) continue;
 
-    // Check if all incoming dependencies have completed
+    // Check if all incoming dependencies have completed or been skipped
     const incoming = incomingEdges.get(currentNodeId) || [];
     let canExecute = true;
 
     for (const inEdge of incoming) {
-      // If the source node hasn't been visited, we cannot run yet
-      if (!visited.has(inEdge.source)) {
+      if (skippedEdges.has(inEdge.id)) {
+        continue; // Upstream branch was not chosen, so don't wait on this edge
+      }
+
+      if (!visited.has(inEdge.source) && inEdge.source !== options.resumeNodeId) {
         canExecute = false;
         break;
       }
 
-      // If the source node was a condition, verify this edge matches the branch selected
+      // Check condition routing from source node
       const sourceBranch = activeBranches.get(inEdge.source);
       if (sourceBranch !== undefined && sourceBranch !== null) {
-        // Condition node edge
         const edgeHandle = inEdge.sourceHandle || (inEdge.label || "").toLowerCase();
         if (edgeHandle && edgeHandle !== sourceBranch) {
           canExecute = false;
+          skippedEdges.add(inEdge.id);
           break;
         }
       }
     }
 
-    if (!canExecute && incoming.length > 0) {
+    if (!canExecute && incoming.length > 0 && currentNodeId !== options.resumeNodeId) {
       continue;
     }
 
@@ -228,7 +301,7 @@ export async function runWorkflowExecution(
       };
     }
 
-    // Execute Node
+    // Execute Node Handler
     let result;
     try {
       result = await handler.execute({
@@ -254,7 +327,42 @@ export async function runWorkflowExecution(
     stepsExecutedCount++;
     visited.add(currentNodeId);
 
-    // Persist step result
+    // Check for Human Approval Pause Signal
+    if (result.outputData?.waitingForApproval) {
+      await prisma.workflowStepExecution.update({
+        where: { id: stepRecord.id },
+        data: {
+          status: ExecutionStatus.PENDING,
+          outputData: (result.outputData as any) || null,
+          finishedAt: new Date(),
+          durationMs: stepDuration,
+        },
+      });
+
+      // Save execution state for durable pause/resume
+      await prisma.workflowExecution.update({
+        where: { id: options.executionId },
+        data: {
+          status: ExecutionStatus.WAITING_APPROVAL,
+          executionState: {
+            context,
+            visited: Array.from(visited),
+            activeBranches: Object.fromEntries(activeBranches),
+            executionTrace,
+            pausedNodeId: currentNodeId,
+          },
+        },
+      });
+
+      return {
+        executionId: options.executionId,
+        status: "WAITING_APPROVAL",
+        stepsExecuted: stepsExecutedCount,
+        durationMs: Date.now() - startTime,
+      };
+    }
+
+    // Persist standard step result
     await prisma.workflowStepExecution.update({
       where: { id: stepRecord.id },
       data: {
@@ -271,6 +379,7 @@ export async function runWorkflowExecution(
       nodeId: currentNodeId,
       status: result.status,
       durationMs: stepDuration,
+      branch: result.selectedBranch || undefined,
     });
 
     // Update Context
@@ -291,6 +400,7 @@ export async function runWorkflowExecution(
           errorSummary: summary,
           errorCategory: result.errorCategory || "INTERNAL_ERROR",
           executionTrace: executionTrace as any,
+          executionState: { context, visited: Array.from(visited) },
         },
       });
 
@@ -304,7 +414,7 @@ export async function runWorkflowExecution(
       };
     }
 
-    // Branching logic for Condition nodes
+    // Branching logic for Condition / Decision nodes
     if (result.selectedBranch) {
       activeBranches.set(currentNodeId, result.selectedBranch);
     }
@@ -312,11 +422,11 @@ export async function runWorkflowExecution(
     // Enqueue downstream target nodes
     const outEdges = outgoingEdges.get(currentNodeId) || [];
     for (const edge of outEdges) {
-      // If edge is conditioned, check matching branch
       if (result.selectedBranch) {
         const edgeHandle = edge.sourceHandle || (edge.label || "").toLowerCase();
         if (edgeHandle && edgeHandle !== result.selectedBranch) {
-          continue; // Skip branch that condition didn't take
+          skippedEdges.add(edge.id);
+          continue; // Skip edges that don't match the taken branch
         }
       }
 
@@ -335,6 +445,7 @@ export async function runWorkflowExecution(
       finishedAt: new Date(),
       durationMs: totalDuration,
       executionTrace: executionTrace as any,
+      executionState: { context, visited: Array.from(visited) },
     },
   });
 

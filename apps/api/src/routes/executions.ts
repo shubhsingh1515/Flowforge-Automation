@@ -10,7 +10,7 @@ export async function executionRoutes(server: FastifyInstance) {
       tags: ["Executions"],
       summary: "List execution history for workspace workflows",
       querystring: z.object({
-        status: z.enum(["ALL", "PENDING", "RUNNING", "SUCCESS", "FAILED", "CANCELLED"]).default("ALL"),
+        status: z.enum(["ALL", "PENDING", "RUNNING", "WAITING_APPROVAL", "SUCCESS", "FAILED", "CANCELLED"]).default("ALL"),
         workflowId: z.string().optional(),
         page: z.coerce.number().default(1),
         limit: z.coerce.number().default(20),
@@ -56,6 +56,13 @@ export async function executionRoutes(server: FastifyInstance) {
                 name: true,
               },
             },
+            approvals: {
+              select: {
+                id: true,
+                status: true,
+                title: true,
+              },
+            },
             _count: {
               select: {
                 steps: true,
@@ -76,6 +83,8 @@ export async function executionRoutes(server: FastifyInstance) {
           durationMs: ex.durationMs,
           totalSteps: ex._count.steps,
           errorSummary: ex.errorSummary,
+          cancellationReason: ex.cancellationReason,
+          pendingApproval: ex.approvals.find((a) => a.status === "PENDING"),
         })),
         meta: {
           total,
@@ -110,6 +119,9 @@ export async function executionRoutes(server: FastifyInstance) {
           },
           steps: {
             orderBy: { startedAt: "asc" },
+          },
+          approvals: {
+            orderBy: { createdAt: "desc" },
           },
         },
       });
@@ -199,17 +211,21 @@ export async function executionRoutes(server: FastifyInstance) {
     },
   });
 
-  // 4. Cancel an in-flight execution
+  // 4. Cancel an in-flight or waiting execution
   server.post("/executions/:id/cancel", {
     schema: {
       tags: ["Executions"],
-      summary: "Cancel an active or pending workflow execution",
+      summary: "Cancel an active, pending, or waiting workflow execution",
       params: z.object({ id: z.string() }),
+      body: z.object({
+        reason: z.string().max(200).optional(),
+      }).optional(),
     },
     preHandler: [authenticateRequest],
     handler: async (request, reply) => {
-      const { workspaceId } = request.authUser!;
+      const { workspaceId, id: userId } = request.authUser!;
       const { id } = request.params as { id: string };
+      const body = request.body as { reason?: string } | undefined;
 
       const execution = await prisma.workflowExecution.findFirst({
         where: {
@@ -234,13 +250,24 @@ export async function executionRoutes(server: FastifyInstance) {
         });
       }
 
+      const reason = body?.reason || "Execution was cancelled by user.";
+
       await prisma.workflowExecution.update({
         where: { id: execution.id },
         data: {
           status: ExecutionStatus.CANCELLED,
           finishedAt: new Date(),
-          errorSummary: "Execution was cancelled by user.",
+          errorSummary: reason,
+          cancellationReason: reason,
+          cancelledAt: new Date(),
+          cancelledByUserId: userId,
         },
+      });
+
+      // Cancel any pending approvals associated with this execution
+      await prisma.workflowApproval.updateMany({
+        where: { executionId: execution.id, status: "PENDING" },
+        data: { status: "CANCELLED" },
       });
 
       return {

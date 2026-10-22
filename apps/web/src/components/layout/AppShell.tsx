@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { APP_CONFIG } from "@flowforge/shared";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../../lib/api";
 import {
   LayoutDashboard,
   Workflow,
@@ -24,6 +26,7 @@ import {
   Menu,
   X,
   ExternalLink,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -41,10 +44,25 @@ export function AppShell({ children, title, description, action }: AppShellProps
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
+  const { data: pendingApprovalsData } = useQuery({
+    queryKey: ["approvals-pending-count"],
+    queryFn: () => api.approvals.list({ status: "PENDING", limit: 1 }),
+    enabled: Boolean(user),
+    refetchInterval: 10000,
+  });
+
+  const pendingCount = pendingApprovalsData?.meta?.total || 0;
+
   const navItems = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { label: "Workflows", href: "/workflows", icon: Workflow },
     { label: "Create Workflow", href: "/workflows/new", icon: PlusCircle, highlight: true },
+    {
+      label: "Approvals",
+      href: "/approvals",
+      icon: ShieldCheck,
+      badge: pendingCount > 0 ? pendingCount : undefined,
+    },
     { label: "Integrations", href: "/integrations", icon: Boxes },
     { label: "Connections", href: "/connections", icon: LinkIcon },
     { label: "Execution History", href: "/executions", icon: History },
@@ -149,20 +167,25 @@ export function AppShell({ children, title, description, action }: AppShellProps
                   />
                   <span>{item.label}</span>
                 </div>
+                {item.badge !== undefined && (
+                  <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-2xs">
+                    {item.badge}
+                  </span>
+                )}
               </Link>
             );
           })}
         </nav>
 
-        {/* Phase 1 Badge Footer */}
+        {/* Phase 4 Status Footer */}
         <div className="p-4 border-t border-slate-100">
-          <div className="rounded-xl bg-gradient-to-br from-indigo-50/60 to-slate-50 p-3 border border-indigo-100/50">
+          <div className="rounded-xl bg-gradient-to-br from-indigo-50/60 to-purple-50/50 p-3 border border-indigo-100/50">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-900">
               <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
-              <span>Phase 1 Architecture</span>
+              <span>Phase 4 Flow Control</span>
             </div>
             <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-              Foundation, UI, database models & React Flow canvas active. Execution engine in Phase 2.
+              Condition groups, array filters, safe transforms, loops, fork/join & human approvals active.
             </p>
           </div>
         </div>

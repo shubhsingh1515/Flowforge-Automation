@@ -17,6 +17,7 @@ export interface WorkflowJobData {
   triggerPayload: any;
   correlationId: string;
   attempt?: number;
+  resumeNodeId?: string;
 }
 
 export const workflowQueue = new Queue<WorkflowJobData>(QUEUE_NAME, {
@@ -37,8 +38,12 @@ export const workflowQueue = new Queue<WorkflowJobData>(QUEUE_NAME, {
 });
 
 export async function enqueueWorkflowExecution(data: WorkflowJobData) {
+  const jobKey = data.resumeNodeId
+    ? `job_${data.executionId}_resume_${Date.now()}`
+    : `job_${data.executionId}_att_${data.attempt || 1}`;
+
   return workflowQueue.add(`exec_${data.executionId}`, data, {
-    jobId: `job_${data.executionId}_att_${data.attempt || 1}`,
+    jobId: jobKey,
   });
 }
 

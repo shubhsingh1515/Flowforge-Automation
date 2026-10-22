@@ -18,7 +18,11 @@ import {
   Activity,
   Layers,
   Check,
+  Ban,
+  ShieldCheck,
+  AlertTriangle,
 } from "lucide-react";
+import Link from "next/link";
 import { cn, formatDate } from "../../lib/utils";
 
 export default function ExecutionsPage() {
@@ -35,7 +39,7 @@ export default function ExecutionsPage() {
     refetchInterval: (query) => {
       const execs = query.state.data?.data || [];
       const hasActive = execs.some(
-        (e: any) => e.status === "PENDING" || e.status === "RUNNING"
+        (e: any) => e.status === "PENDING" || e.status === "RUNNING" || e.status === "WAITING_APPROVAL"
       );
       return hasActive ? 2000 : 8000;
     },
@@ -47,7 +51,7 @@ export default function ExecutionsPage() {
     enabled: !!selectedExecutionId,
     refetchInterval: (query) => {
       const st = query.state.data?.execution?.status;
-      return st === "PENDING" || st === "RUNNING" ? 1500 : false;
+      return st === "PENDING" || st === "RUNNING" || st === "WAITING_APPROVAL" ? 1500 : false;
     },
   });
 
@@ -60,6 +64,21 @@ export default function ExecutionsPage() {
       );
       queryClient.invalidateQueries({ queryKey: ["executions"] });
       setTimeout(() => setRetryNotice(null), 4000);
+    },
+  });
+
+  // Cancel execution mutation
+  const cancelMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      api.executions.cancel(id, { reason: reason || "User initiated cancellation via console" }),
+    onSuccess: () => {
+      setRetryNotice("Execution run marked CANCELLED successfully.");
+      queryClient.invalidateQueries({ queryKey: ["executions"] });
+      queryClient.invalidateQueries({ queryKey: ["execution-detail"] });
+      setTimeout(() => setRetryNotice(null), 4000);
+    },
+    onError: (err: any) => {
+      alert(err?.message || "Failed to cancel execution");
     },
   });
 
@@ -118,7 +137,7 @@ export default function ExecutionsPage() {
       {/* Filter Toolbar */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
-          {["ALL", "SUCCESS", "FAILED", "RUNNING", "PENDING"].map((st) => (
+          {["ALL", "SUCCESS", "FAILED", "RUNNING", "PENDING", "WAITING_APPROVAL", "CANCELLED"].map((st) => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
@@ -129,7 +148,11 @@ export default function ExecutionsPage() {
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
               )}
             >
-              {st === "ALL" ? "All Runs" : st.charAt(0) + st.slice(1).toLowerCase()}
+              {st === "ALL"
+                ? "All Runs"
+                : st === "WAITING_APPROVAL"
+                ? "Waiting Approval"
+                : st.charAt(0) + st.slice(1).toLowerCase()}
             </button>
           ))}
         </div>
@@ -178,6 +201,10 @@ export default function ExecutionsPage() {
                             ? "bg-rose-50 text-rose-700 border border-rose-200"
                             : ex.status === "RUNNING"
                             ? "bg-blue-50 text-blue-700 border border-blue-200"
+                            : ex.status === "WAITING_APPROVAL"
+                            ? "bg-purple-50 text-purple-700 border border-purple-200 animate-pulse"
+                            : ex.status === "CANCELLED"
+                            ? "bg-slate-100 text-slate-600 border border-slate-200"
                             : "bg-amber-50 text-amber-700 border border-amber-200"
                         )}
                       >
@@ -185,6 +212,10 @@ export default function ExecutionsPage() {
                           <CheckCircle2 className="h-3 w-3" />
                         ) : ex.status === "FAILED" ? (
                           <XCircle className="h-3 w-3" />
+                        ) : ex.status === "WAITING_APPROVAL" ? (
+                          <ShieldCheck className="h-3 w-3 text-purple-600" />
+                        ) : ex.status === "CANCELLED" ? (
+                          <Ban className="h-3 w-3 text-slate-500" />
                         ) : (
                           <RotateCw className="h-3 w-3 animate-spin" />
                         )}
@@ -204,6 +235,15 @@ export default function ExecutionsPage() {
                     <td className="py-3.5 px-6 text-slate-600">{ex.totalSteps} steps</td>
                     <td className="py-3.5 px-6 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {ex.status === "WAITING_APPROVAL" && (
+                          <Link
+                            href="/approvals"
+                            className="inline-flex items-center gap-1 rounded-md bg-purple-50 border border-purple-200 px-2 py-1 text-[11px] font-semibold text-purple-700 hover:bg-purple-100 transition-colors shadow-2xs"
+                          >
+                            <ShieldCheck className="h-3 w-3" />
+                            <span>Review</span>
+                          </Link>
+                        )}
                         {ex.status === "FAILED" && (
                           <button
                             onClick={() => retryMutation.mutate(ex.id)}
@@ -213,6 +253,21 @@ export default function ExecutionsPage() {
                           >
                             <RotateCw className="h-3 w-3" />
                             <span>Retry</span>
+                          </button>
+                        )}
+                        {(ex.status === "RUNNING" || ex.status === "PENDING" || ex.status === "WAITING_APPROVAL") && (
+                          <button
+                            onClick={() => {
+                              if (confirm("Are you sure you want to cancel this execution run?")) {
+                                cancelMutation.mutate({ id: ex.id });
+                              }
+                            }}
+                            disabled={cancelMutation.isPending}
+                            className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 transition-colors shadow-2xs"
+                            title="Cancel active execution"
+                          >
+                            <Ban className="h-3 w-3" />
+                            <span>Cancel</span>
                           </button>
                         )}
                         <button
@@ -249,6 +304,10 @@ export default function ExecutionsPage() {
                         ? "bg-emerald-100 text-emerald-800"
                         : detailData.execution.status === "FAILED"
                         ? "bg-rose-100 text-rose-800"
+                        : detailData.execution.status === "WAITING_APPROVAL"
+                        ? "bg-purple-100 text-purple-800"
+                        : detailData.execution.status === "CANCELLED"
+                        ? "bg-slate-100 text-slate-800"
                         : "bg-amber-100 text-amber-800"
                     )}
                   >
@@ -285,6 +344,35 @@ export default function ExecutionsPage() {
                 <p className="font-bold text-slate-800">{detailData.execution.attempt || 1} / {detailData.execution.maxAttempts || 3}</p>
               </div>
             </div>
+
+            {/* Waiting Approval Notification */}
+            {detailData.execution.status === "WAITING_APPROVAL" && (
+              <div className="mt-4 rounded-xl border border-purple-200 bg-purple-50 p-3 text-xs text-purple-900 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-purple-600 animate-pulse" />
+                  <span>This execution is currently paused waiting for human review.</span>
+                </div>
+                <Link
+                  href="/approvals"
+                  className="rounded-lg bg-purple-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-purple-700 shadow-2xs"
+                >
+                  Go to Approvals
+                </Link>
+              </div>
+            )}
+
+            {/* Cancellation Summary */}
+            {detailData.execution.status === "CANCELLED" && (
+              <div className="mt-4 rounded-xl border border-slate-300 bg-slate-50 p-3 text-xs text-slate-800">
+                <div className="flex items-center gap-1.5 font-bold mb-1">
+                  <Ban className="h-4 w-4 text-slate-600" />
+                  <span>Execution Cancelled</span>
+                </div>
+                <p className="text-[11px] text-slate-600">
+                  Reason: {detailData.execution.cancellationReason || "User cancelled"}
+                </p>
+              </div>
+            )}
 
             {/* Error Category summary if failed */}
             {detailData.execution.errorSummary && (

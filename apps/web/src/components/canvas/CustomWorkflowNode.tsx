@@ -6,11 +6,14 @@ import {
   Webhook,
   Play,
   GitBranch,
+  Filter,
+  Sparkles,
+  RotateCw,
+  Split,
+  GitMerge,
+  ShieldCheck,
   Globe,
   Flag,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -39,6 +42,48 @@ const NODE_CONFIG: Record<
     borderColor: "border-amber-200",
     label: "Condition",
   },
+  FILTER: {
+    icon: Filter,
+    color: "text-emerald-600",
+    bgColor: "bg-emerald-50",
+    borderColor: "border-emerald-200",
+    label: "Filter",
+  },
+  TRANSFORM: {
+    icon: Sparkles,
+    color: "text-purple-600",
+    bgColor: "bg-purple-50",
+    borderColor: "border-purple-200",
+    label: "Transform",
+  },
+  LOOP: {
+    icon: RotateCw,
+    color: "text-orange-600",
+    bgColor: "bg-orange-50",
+    borderColor: "border-orange-200",
+    label: "For Each",
+  },
+  FORK: {
+    icon: Split,
+    color: "text-sky-600",
+    bgColor: "bg-sky-50",
+    borderColor: "border-sky-200",
+    label: "Fork",
+  },
+  JOIN: {
+    icon: GitMerge,
+    color: "text-teal-600",
+    bgColor: "bg-teal-50",
+    borderColor: "border-teal-200",
+    label: "Join",
+  },
+  APPROVAL: {
+    icon: ShieldCheck,
+    color: "text-rose-600",
+    bgColor: "bg-rose-50",
+    borderColor: "border-rose-200",
+    label: "Approval",
+  },
   HTTP_REQUEST: {
     icon: Globe,
     color: "text-sky-600",
@@ -48,9 +93,9 @@ const NODE_CONFIG: Record<
   },
   WORKFLOW_END: {
     icon: Flag,
-    color: "text-emerald-600",
-    bgColor: "bg-emerald-50",
-    borderColor: "border-emerald-200",
+    color: "text-slate-600",
+    bgColor: "bg-slate-50",
+    borderColor: "border-slate-200",
     label: "Workflow End",
   },
 };
@@ -64,6 +109,7 @@ function CustomWorkflowNodeComponent({ data, selected }: NodeProps) {
   const isTrigger = nodeType === "TRIGGER";
   const isEnd = nodeType === "WORKFLOW_END";
   const isCondition = nodeType === "CONDITION";
+  const isApproval = nodeType === "APPROVAL";
 
   return (
     <div
@@ -123,8 +169,31 @@ function CustomWorkflowNodeComponent({ data, selected }: NodeProps) {
         </p>
       )}
 
-      {/* Condition Specific Outputs */}
-      {isCondition ? (
+      {/* Specific Branch Outputs */}
+      {isApproval ? (
+        <div className="mt-3 flex justify-between border-t border-slate-100 pt-2 text-[10px] font-semibold text-slate-500">
+          <div className="relative flex items-center gap-1">
+            <span className="text-emerald-600">Approved</span>
+            <Handle
+              type="source"
+              position={Position.Right}
+              id="approved"
+              style={{ top: "auto", bottom: 10 }}
+              className="!h-2.5 !w-2.5 !bg-emerald-500 !border-2 !border-white"
+            />
+          </div>
+          <div className="relative flex items-center gap-1">
+            <span className="text-rose-500">Rejected</span>
+            <Handle
+              type="source"
+              position={Position.Right}
+              id="rejected"
+              style={{ top: "auto", bottom: 26 }}
+              className="!h-2.5 !w-2.5 !bg-rose-500 !border-2 !border-white"
+            />
+          </div>
+        </div>
+      ) : isCondition ? (
         <div className="mt-3 flex justify-between border-t border-slate-100 pt-2 text-[10px] font-semibold text-slate-500">
           <div className="relative flex items-center gap-1">
             <span className="text-emerald-600">True</span>

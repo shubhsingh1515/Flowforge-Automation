@@ -7,6 +7,12 @@ export const NodeTypeEnum = z.enum([
   "TRIGGER",
   "ACTION",
   "CONDITION",
+  "FILTER",
+  "TRANSFORM",
+  "LOOP",
+  "FORK",
+  "JOIN",
+  "APPROVAL",
   "HTTP_REQUEST",
   "WORKFLOW_END",
 ]);
