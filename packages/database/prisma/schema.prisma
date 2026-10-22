@@ -1,0 +1,217 @@
+// Prisma Schema for FlowForge Automation
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum WorkflowStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+}
+
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+enum IntegrationStatus {
+  AVAILABLE
+  PLANNED
+  BETA
+}
+
+enum AuthType {
+  NONE
+  API_KEY
+  OAUTH2
+  BEARER_TOKEN
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships WorkspaceMembership[]
+  sessions    Session[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Workspace {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  ownerId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships       WorkspaceMembership[]
+  workflows         Workflow[]
+  connectedAccounts ConnectedAccount[]
+
+  @@map("workspaces")
+}
+
+model WorkspaceMembership {
+  id          String        @id @default(uuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole @default(MEMBER)
+  createdAt   DateTime      @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@index([workspaceId])
+  @@map("workspace_memberships")
+}
+
+model Workflow {
+  id          String         @id @default(uuid())
+  workspaceId String
+  name        String
+  description String?
+  status      WorkflowStatus @default(DRAFT)
+  triggerType String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  workspace  Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  versions   WorkflowVersion[]
+  executions WorkflowExecution[]
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, createdAt])
+  @@map("workflows")
+}
+
+model WorkflowVersion {
+  id         String   @id @default(uuid())
+  workflowId String
+  version    Int      @default(1)
+  nodes      Json     @default("[]")
+  edges      Json     @default("[]")
+  viewport   Json?
+  isValid    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  workflow   Workflow            @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  executions WorkflowExecution[]
+
+  @@unique([workflowId, version])
+  @@index([workflowId])
+  @@map("workflow_versions")
+}
+
+model IntegrationDefinition {
+  id               String            @id @default(uuid())
+  key              String            @unique
+  name             String
+  description      String
+  category         String
+  status           IntegrationStatus @default(AVAILABLE)
+  authType         AuthType          @default(NONE)
+  isBuiltin        Boolean           @default(false)
+  iconName         String
+  accentColor      String            @default("#6366f1")
+  documentationUrl String?
+  metadata         Json              @default("{}")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@map("integration_definitions")
+}
+
+model ConnectedAccount {
+  id             String    @id @default(uuid())
+  workspaceId    String
+  integrationKey String
+  name           String
+  credentials    Json      @default("{}")
+  status         String    @default("ACTIVE")
+  scopes         String[]  @default([])
+  lastVerifiedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([workspaceId, integrationKey])
+  @@map("connected_accounts")
+}
+
+model WorkflowExecution {
+  id           String          @id @default(uuid())
+  workflowId   String
+  versionId    String?
+  status       ExecutionStatus @default(PENDING)
+  startedAt    DateTime        @default(now())
+  finishedAt   DateTime?
+  durationMs   Int?
+  triggerEvent Json?
+  errorSummary String?
+  createdAt    DateTime        @default(now())
+
+  workflow Workflow         @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  version  WorkflowVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
+  steps    WorkflowStepExecution[]
+
+  @@index([workflowId, status])
+  @@index([workflowId, createdAt])
+  @@map("workflow_executions")
+}
+
+model WorkflowStepExecution {
+  id           String          @id @default(uuid())
+  executionId  String
+  nodeId       String
+  nodeName     String
+  nodeType     String
+  status       ExecutionStatus @default(PENDING)
+  inputData    Json?
+  outputData   Json?
+  errorMessage String?
+  durationMs   Int?
+  startedAt    DateTime        @default(now())
+  finishedAt   DateTime?
+
+  execution WorkflowExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+  @@map("workflow_step_executions")
+}

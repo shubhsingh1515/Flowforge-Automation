@@ -1,0 +1,29 @@
+{
+  "name": "flowforge-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:db": "docker compose -f infra/docker-compose.yml up -d",
+    "db:migrate": "npm run --workspace=@flowforge/database migrate",
+    "db:push": "npm run --workspace=@flowforge/database db:push",
+    "db:generate": "npm run --workspace=@flowforge/database generate",
+    "db:seed": "npm run --workspace=@flowforge/database seed",
+    "build:shared": "npm run --workspace=@flowforge/shared build",
+    "dev:api": "npm run --workspace=@flowforge/api dev",
+    "dev:web": "npm run --workspace=@flowforge/web dev",
+    "build:api": "npm run --workspace=@flowforge/api build",
+    "build:web": "npm run --workspace=@flowforge/web build",
+    "build": "npm run build:shared && npm run build:api && npm run build:web",
+    "test": "npm run --workspace=@flowforge/api test",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "concurrently": "^8.2.2",
+    "typescript": "^5.4.5"
+  }
+}
