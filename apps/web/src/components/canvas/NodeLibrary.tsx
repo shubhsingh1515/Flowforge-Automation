@@ -8,6 +8,7 @@ import {
   Globe,
   Flag,
   Plus,
+  Clock,
   Info,
 } from "lucide-react";
 import { NodeType } from "@flowforge/shared";
@@ -31,6 +32,14 @@ const AVAILABLE_NODES: Array<{
     icon: Webhook,
     color: "text-indigo-600",
     bg: "bg-indigo-50",
+  },
+  {
+    type: "TRIGGER",
+    label: "Schedule Trigger",
+    description: "Trigger workflow periodically using a cron schedule.",
+    icon: Clock,
+    color: "text-purple-600",
+    bg: "bg-purple-50",
   },
   {
     type: "ACTION",

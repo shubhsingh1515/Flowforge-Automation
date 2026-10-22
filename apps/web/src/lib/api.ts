@@ -78,6 +78,9 @@ export const api = {
     delete: (id: string) => request<any>(`/workflows/${id}`, { method: "DELETE" }),
     duplicate: (id: string) => request<any>(`/workflows/${id}/duplicate`, { method: "POST" }),
     validate: (body: { nodes: any[]; edges: any[] }) => request<any>("/workflows/validate", { method: "POST", body: JSON.stringify(body) }),
+    activate: (id: string) => request<any>(`/workflows/${id}/activate`, { method: "POST" }),
+    pause: (id: string) => request<any>(`/workflows/${id}/pause`, { method: "POST" }),
+    test: (id: string, payload?: any) => request<any>(`/workflows/${id}/test`, { method: "POST", body: JSON.stringify({ payload: payload || {} }) }),
   },
 
   // Integrations
@@ -109,6 +112,8 @@ export const api = {
       return request<{ data: any[]; meta: any }>(`/executions?${q.toString()}`);
     },
     get: (id: string) => request<{ execution: any }>(`/executions/${id}`),
+    retry: (id: string) => request<any>(`/executions/${id}/retry`, { method: "POST" }),
+    cancel: (id: string) => request<any>(`/executions/${id}/cancel`, { method: "POST" }),
   },
 
   // Templates

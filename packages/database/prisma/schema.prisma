@@ -1,4 +1,4 @@
-// Prisma Schema for FlowForge Automation
+// Prisma Schema for FlowForge Automation - Phase 2 Execution Engine
 
 generator client {
   provider = "prisma-client-js"
@@ -101,18 +101,22 @@ model WorkspaceMembership {
 }
 
 model Workflow {
-  id          String         @id @default(uuid())
-  workspaceId String
-  name        String
-  description String?
-  status      WorkflowStatus @default(DRAFT)
-  triggerType String?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id            String         @id @default(uuid())
+  workspaceId   String
+  name          String
+  description   String?
+  status        WorkflowStatus @default(DRAFT)
+  triggerType   String?
+  webhookSlug   String?        @unique
+  webhookSecret String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
-  workspace  Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  versions   WorkflowVersion[]
-  executions WorkflowExecution[]
+  workspace          Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  versions           WorkflowVersion[]
+  executions         WorkflowExecution[]
+  webhookReceipts    WebhookEventReceipt[]
+  scheduledTriggers  ScheduledTrigger[]
 
   @@index([workspaceId, status])
   @@index([workspaceId, createdAt])
@@ -175,17 +179,60 @@ model ConnectedAccount {
   @@map("connected_accounts")
 }
 
+model WebhookEventReceipt {
+  id          String   @id @default(uuid())
+  workflowId  String
+  eventId     String
+  sourceIp    String?
+  headers     Json?
+  payload     Json?
+  executionId String?
+  createdAt   DateTime @default(now())
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, eventId])
+  @@index([workflowId, createdAt])
+  @@map("webhook_event_receipts")
+}
+
+model ScheduledTrigger {
+  id             String    @id @default(uuid())
+  workflowId     String
+  cronExpression String
+  timezone       String    @default("UTC")
+  nextRunAt      DateTime?
+  lastRunAt      DateTime?
+  status         String    @default("ACTIVE")
+  jobId          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId])
+  @@index([status, nextRunAt])
+  @@map("scheduled_triggers")
+}
+
 model WorkflowExecution {
-  id           String          @id @default(uuid())
-  workflowId   String
-  versionId    String?
-  status       ExecutionStatus @default(PENDING)
-  startedAt    DateTime        @default(now())
-  finishedAt   DateTime?
-  durationMs   Int?
-  triggerEvent Json?
-  errorSummary String?
-  createdAt    DateTime        @default(now())
+  id             String          @id @default(uuid())
+  workflowId     String
+  versionId      String?
+  status         ExecutionStatus @default(PENDING)
+  attempt        Int             @default(1)
+  maxAttempts    Int             @default(3)
+  retryOfId      String?
+  correlationId  String?
+  errorCategory  String?
+  triggerEvent   Json?
+  errorSummary   String?
+  executionTrace Json?
+  nextRetryAt    DateTime?
+  startedAt      DateTime        @default(now())
+  finishedAt     DateTime?
+  durationMs     Int?
+  createdAt      DateTime        @default(now())
 
   workflow Workflow         @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   version  WorkflowVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
@@ -193,22 +240,26 @@ model WorkflowExecution {
 
   @@index([workflowId, status])
   @@index([workflowId, createdAt])
+  @@index([correlationId])
   @@map("workflow_executions")
 }
 
 model WorkflowStepExecution {
-  id           String          @id @default(uuid())
-  executionId  String
-  nodeId       String
-  nodeName     String
-  nodeType     String
-  status       ExecutionStatus @default(PENDING)
-  inputData    Json?
-  outputData   Json?
-  errorMessage String?
-  durationMs   Int?
-  startedAt    DateTime        @default(now())
-  finishedAt   DateTime?
+  id            String          @id @default(uuid())
+  executionId   String
+  nodeId        String
+  nodeName      String
+  nodeType      String
+  status        ExecutionStatus @default(PENDING)
+  attempt       Int             @default(1)
+  correlationId String?
+  errorCategory String?
+  inputData     Json?
+  outputData    Json?
+  errorMessage  String?
+  durationMs    Int?
+  startedAt     DateTime        @default(now())
+  finishedAt    DateTime?
 
   execution WorkflowExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
 

@@ -131,4 +131,46 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     await page.click('button:has-text("Workspace")');
     await expect(page.locator("text=Workspace Organization")).toBeVisible();
   });
+
+  test("8. Phase 2 Execution Engine: Canvas Test Run, Activate & Live History Diagnostics", async ({ page }) => {
+    await page.goto("/login");
+    await page.fill('input[type="email"]', "demo@flowforge.dev");
+    await page.fill('input[type="password"]', "Password123!");
+    await page.click('button[type="submit"]');
+
+    await page.goto("/workflows");
+    await page.waitForLoadState("networkidle");
+
+    // Click on Lead Intake workflow to open visual canvas editor
+    await page.click('text=Lead Intake & CRM Dispatcher');
+    await page.waitForURL(/\/workflows\/[a-zA-Z0-9_-]+/);
+    await page.waitForLoadState("networkidle");
+
+    // Verify Phase 2 canvas action controls
+    await expect(page.locator('[data-testid="test-flow-btn"]')).toBeVisible();
+    await expect(page.locator('[data-testid="toggle-activate-btn"]')).toBeVisible();
+
+    // Trigger test run modal
+    await page.click('[data-testid="test-flow-btn"]');
+    await expect(page.locator("text=Execute Test Flow")).toBeVisible();
+    await expect(page.locator("text=Trigger Mock Payload (JSON)")).toBeVisible();
+
+    // Submit test execution
+    await page.click('[data-testid="submit-test-flow-btn"]');
+    await expect(page.locator("text=Job Enqueued Successfully!")).toBeVisible({ timeout: 10000 });
+
+    // Navigate to Executions page
+    await page.goto("/executions");
+    await page.waitForLoadState("networkidle");
+
+    // Verify executions table contains the run
+    await expect(page.locator("h1")).toContainText("Execution History");
+    await expect(page.locator("text=BullMQ Asynchronous Runtime Engine Active")).toBeVisible();
+    await expect(page.locator("text=Lead Intake & CRM Dispatcher").first()).toBeVisible();
+
+    // Click Logs on first execution
+    await page.locator('button:has-text("Logs")').first().click();
+    await expect(page.locator("text=Execution Run Diagnostics")).toBeVisible();
+    await expect(page.locator("text=Step Logs")).toBeVisible();
+  });
 });

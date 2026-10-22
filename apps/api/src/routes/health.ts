@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { prisma } from "@flowforge/database";
 import { z } from "zod";
+import { getQueueHealth } from "../worker/queue.js";
 
 export async function healthRoutes(server: FastifyInstance) {
   server.get("/health/live", {
@@ -58,6 +59,30 @@ export async function healthRoutes(server: FastifyInstance) {
           error: err?.message || "Database connection failed",
         });
       }
+    },
+  });
+
+  server.get("/health/worker", {
+    schema: {
+      tags: ["System"],
+      summary: "Execution Worker and Queue health check",
+      description: "Returns Redis and BullMQ queue status and metrics.",
+      response: {
+        200: z.object({
+          status: z.string(),
+          redisStatus: z.string(),
+          metrics: z.object({
+            waiting: z.number(),
+            active: z.number(),
+            completed: z.number(),
+            failed: z.number(),
+          }),
+        }),
+      },
+    },
+    handler: async () => {
+      const health = await getQueueHealth();
+      return health;
     },
   });
 }

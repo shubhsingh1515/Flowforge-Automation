@@ -17,9 +17,11 @@
     "@fastify/swagger-ui": "^3.0.0",
     "@flowforge/database": "*",
     "@flowforge/shared": "*",
+    "bullmq": "^6.4.0",
     "dotenv": "^16.4.5",
     "fastify": "^4.27.0",
     "fastify-type-provider-zod": "^2.0.0",
+    "ioredis": "^6.0.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

@@ -119,6 +119,9 @@ export async function workflowRoutes(server: FastifyInstance) {
       const triggerNode = data.nodes.find((n) => n.data.nodeType === "TRIGGER");
       const triggerType = triggerNode ? triggerNode.data.label : "Manual";
 
+      const isWebhook = triggerNode?.data?.integrationKey === "webhook" || triggerNode?.data?.label?.toLowerCase().includes("webhook");
+      const webhookSlug = isWebhook ? `wh_${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}` : undefined;
+
       const workflow = await prisma.workflow.create({
         data: {
           workspaceId,
@@ -126,6 +129,7 @@ export async function workflowRoutes(server: FastifyInstance) {
           description: data.description || "",
           status: data.status,
           triggerType,
+          webhookSlug,
           versions: {
             create: {
               version: 1,
@@ -150,6 +154,8 @@ export async function workflowRoutes(server: FastifyInstance) {
           description: workflow.description,
           status: workflow.status,
           triggerType: workflow.triggerType,
+          webhookSlug: workflow.webhookSlug,
+          webhookSecret: workflow.webhookSecret,
           version: workflow.versions[0],
           validation,
           createdAt: workflow.createdAt,
@@ -209,6 +215,8 @@ export async function workflowRoutes(server: FastifyInstance) {
           description: workflow.description,
           status: workflow.status,
           triggerType: workflow.triggerType,
+          webhookSlug: workflow.webhookSlug,
+          webhookSecret: workflow.webhookSecret,
           nodes: latestVersion.nodes,
           edges: latestVersion.edges,
           viewport: latestVersion.viewport,
@@ -295,6 +303,12 @@ export async function workflowRoutes(server: FastifyInstance) {
         });
       }
 
+      let webhookSlug = existing.webhookSlug;
+      const isWebhook = triggerType?.toLowerCase().includes("webhook");
+      if (isWebhook && !webhookSlug) {
+        webhookSlug = `wh_${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
+      }
+
       const updated = await prisma.workflow.update({
         where: { id: existing.id },
         data: {
@@ -302,6 +316,7 @@ export async function workflowRoutes(server: FastifyInstance) {
           description: data.description !== undefined ? data.description : existing.description,
           status: data.status !== undefined ? data.status : existing.status,
           triggerType,
+          webhookSlug,
         },
         include: {
           versions: {
@@ -318,6 +333,8 @@ export async function workflowRoutes(server: FastifyInstance) {
           description: updated.description,
           status: updated.status,
           triggerType: updated.triggerType,
+          webhookSlug: updated.webhookSlug,
+          webhookSecret: updated.webhookSecret,
           nodes: updated.versions[0]?.nodes || [],
           edges: updated.versions[0]?.edges || [],
           viewport: updated.versions[0]?.viewport,
@@ -437,6 +454,205 @@ export async function workflowRoutes(server: FastifyInstance) {
       const { nodes, edges } = request.body as { nodes: any[]; edges: any[] };
       const validation = validateWorkflowGraph(nodes, edges);
       return validation;
+    },
+  });
+
+  // 8. Activate workflow
+  server.post("/workflows/:id/activate", {
+    schema: {
+      tags: ["Workflows"],
+      summary: "Validate, activate, and register trigger hooks for a workflow",
+      params: z.object({ id: z.string() }),
+    },
+    preHandler: [authenticateRequest],
+    handler: async (request, reply) => {
+      const { workspaceId } = request.authUser!;
+      const { id } = request.params as { id: string };
+
+      const workflow = await prisma.workflow.findFirst({
+        where: { id, workspaceId },
+        include: {
+          versions: {
+            orderBy: { version: "desc" },
+            take: 1,
+          },
+        },
+      });
+
+      if (!workflow) {
+        return reply.status(404).send({
+          error: "Not Found",
+          message: "Workflow not found in current workspace.",
+          statusCode: 404,
+        });
+      }
+
+      const version = workflow.versions[0];
+      const nodes: any[] = (version?.nodes as any[]) || [];
+      const edges: any[] = (version?.edges as any[]) || [];
+
+      // Validate graph before activation
+      const validation = validateWorkflowGraph(nodes, edges);
+      if (!validation.isValid) {
+        return reply.status(400).send({
+          error: "Bad Request",
+          message: `Cannot activate invalid workflow: ${validation.errors.map((e) => e.message).join("; ")}`,
+          statusCode: 400,
+          details: validation.errors,
+        });
+      }
+
+      // Generate webhook slug if trigger is Webhook and slug is missing
+      const triggerNode = nodes.find((n) => n.data?.nodeType === "TRIGGER");
+      const isWebhook = triggerNode?.data?.integrationKey === "webhook" || triggerNode?.data?.label?.toLowerCase().includes("webhook");
+      const isSchedule = triggerNode?.data?.integrationKey === "schedule" || triggerNode?.data?.label?.toLowerCase().includes("schedule");
+
+      let webhookSlug = workflow.webhookSlug;
+      if (isWebhook && !webhookSlug) {
+        const randomHex = Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+        webhookSlug = `wh_${randomHex}`;
+      }
+
+      const updated = await prisma.workflow.update({
+        where: { id: workflow.id },
+        data: {
+          status: WorkflowStatus.ACTIVE,
+          webhookSlug,
+        },
+      });
+
+      // If scheduled, register schedule
+      if (isSchedule && triggerNode?.data?.config?.cronExpression) {
+        const { scheduler } = await import("../worker/scheduler.js");
+        await scheduler.registerSchedule({
+          workflowId: workflow.id,
+          cronExpression: triggerNode.data.config.cronExpression,
+          timezone: triggerNode.data.config.timezone || "UTC",
+        });
+      }
+
+      return {
+        workflow: {
+          id: updated.id,
+          name: updated.name,
+          status: updated.status,
+          webhookSlug: updated.webhookSlug,
+          message: "Workflow successfully activated.",
+        },
+      };
+    },
+  });
+
+  // 9. Pause workflow
+  server.post("/workflows/:id/pause", {
+    schema: {
+      tags: ["Workflows"],
+      summary: "Pause an active workflow",
+      params: z.object({ id: z.string() }),
+    },
+    preHandler: [authenticateRequest],
+    handler: async (request, reply) => {
+      const { workspaceId } = request.authUser!;
+      const { id } = request.params as { id: string };
+
+      const workflow = await prisma.workflow.findFirst({
+        where: { id, workspaceId },
+      });
+
+      if (!workflow) {
+        return reply.status(404).send({
+          error: "Not Found",
+          message: "Workflow not found.",
+          statusCode: 404,
+        });
+      }
+
+      const updated = await prisma.workflow.update({
+        where: { id: workflow.id },
+        data: { status: WorkflowStatus.PAUSED },
+      });
+
+      // Remove active schedule if any
+      const { scheduler } = await import("../worker/scheduler.js");
+      await scheduler.removeSchedule(workflow.id);
+
+      return {
+        workflow: {
+          id: updated.id,
+          name: updated.name,
+          status: updated.status,
+          message: "Workflow paused.",
+        },
+      };
+    },
+  });
+
+  // 10. Test execute workflow
+  server.post("/workflows/:id/test", {
+    schema: {
+      tags: ["Workflows"],
+      summary: "Enqueue a test execution with custom payload",
+      params: z.object({ id: z.string() }),
+      body: z.object({
+        triggerPayload: z.any().optional(),
+      }).optional(),
+    },
+    preHandler: [authenticateRequest],
+    handler: async (request, reply) => {
+      const { workspaceId } = request.authUser!;
+      const { id } = request.params as { id: string };
+      const body = (request.body as any) || {};
+
+      const workflow = await prisma.workflow.findFirst({
+        where: { id, workspaceId },
+        include: {
+          versions: {
+            orderBy: { version: "desc" },
+            take: 1,
+          },
+        },
+      });
+
+      if (!workflow || workflow.versions.length === 0) {
+        return reply.status(404).send({
+          error: "Not Found",
+          message: "Workflow not found.",
+          statusCode: 404,
+        });
+      }
+
+      const correlationId = `test_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const triggerPayload = body.triggerPayload || {
+        event: "manual.test",
+        timestamp: new Date().toISOString(),
+        testData: true,
+      };
+
+      const execution = await prisma.workflowExecution.create({
+        data: {
+          workflowId: workflow.id,
+          versionId: workflow.versions[0]?.id || null,
+          status: "PENDING",
+          correlationId,
+          triggerEvent: triggerPayload,
+        },
+      });
+
+      const { enqueueWorkflowExecution } = await import("../worker/queue.js");
+      await enqueueWorkflowExecution({
+        executionId: execution.id,
+        workflowId: workflow.id,
+        versionId: workflow.versions[0]?.id || null,
+        triggerPayload,
+        correlationId,
+      });
+
+      return reply.status(202).send({
+        status: "queued",
+        executionId: execution.id,
+        correlationId,
+        message: "Test execution enqueued for background worker.",
+      });
     },
   });
 }

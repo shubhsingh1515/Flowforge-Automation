@@ -125,4 +125,130 @@ export async function executionRoutes(server: FastifyInstance) {
       return { execution };
     },
   });
+
+  // 3. Retry an execution
+  server.post("/executions/:id/retry", {
+    schema: {
+      tags: ["Executions"],
+      summary: "Retry an eligible failed or cancelled execution",
+      params: z.object({ id: z.string() }),
+    },
+    preHandler: [authenticateRequest],
+    handler: async (request, reply) => {
+      const { workspaceId } = request.authUser!;
+      const { id } = request.params as { id: string };
+
+      const existing = await prisma.workflowExecution.findFirst({
+        where: {
+          id,
+          workflow: { workspaceId },
+        },
+        include: {
+          workflow: true,
+        },
+      });
+
+      if (!existing) {
+        return reply.status(404).send({
+          error: "Not Found",
+          message: "Execution not found.",
+          statusCode: 404,
+        });
+      }
+
+      if (existing.status !== ExecutionStatus.FAILED && existing.status !== ExecutionStatus.CANCELLED) {
+        return reply.status(400).send({
+          error: "Bad Request",
+          message: `Only failed or cancelled executions can be retried. Current status is ${existing.status}.`,
+          statusCode: 400,
+        });
+      }
+
+      const nextAttempt = (existing.attempt || 1) + 1;
+      const correlationId = `retry_${existing.id}_att_${nextAttempt}`;
+
+      // Create new retry execution record linked by retryOfId
+      const newExecution = await prisma.workflowExecution.create({
+        data: {
+          workflowId: existing.workflowId,
+          versionId: existing.versionId,
+          status: ExecutionStatus.PENDING,
+          attempt: nextAttempt,
+          retryOfId: existing.id,
+          correlationId,
+          triggerEvent: existing.triggerEvent as any,
+        },
+      });
+
+      const { enqueueWorkflowExecution } = await import("../worker/queue.js");
+      await enqueueWorkflowExecution({
+        executionId: newExecution.id,
+        workflowId: newExecution.workflowId,
+        versionId: newExecution.versionId,
+        triggerPayload: newExecution.triggerEvent,
+        correlationId,
+        attempt: nextAttempt,
+      });
+
+      return reply.status(202).send({
+        status: "queued",
+        executionId: newExecution.id,
+        attempt: nextAttempt,
+        message: "Retry job successfully enqueued.",
+      });
+    },
+  });
+
+  // 4. Cancel an in-flight execution
+  server.post("/executions/:id/cancel", {
+    schema: {
+      tags: ["Executions"],
+      summary: "Cancel an active or pending workflow execution",
+      params: z.object({ id: z.string() }),
+    },
+    preHandler: [authenticateRequest],
+    handler: async (request, reply) => {
+      const { workspaceId } = request.authUser!;
+      const { id } = request.params as { id: string };
+
+      const execution = await prisma.workflowExecution.findFirst({
+        where: {
+          id,
+          workflow: { workspaceId },
+        },
+      });
+
+      if (!execution) {
+        return reply.status(404).send({
+          error: "Not Found",
+          message: "Execution not found.",
+          statusCode: 404,
+        });
+      }
+
+      if (execution.status === ExecutionStatus.SUCCESS || execution.status === ExecutionStatus.FAILED) {
+        return reply.status(400).send({
+          error: "Bad Request",
+          message: `Execution has already concluded with status ${execution.status}.`,
+          statusCode: 400,
+        });
+      }
+
+      await prisma.workflowExecution.update({
+        where: { id: execution.id },
+        data: {
+          status: ExecutionStatus.CANCELLED,
+          finishedAt: new Date(),
+          errorSummary: "Execution was cancelled by user.",
+        },
+      });
+
+      return {
+        success: true,
+        executionId: execution.id,
+        status: "CANCELLED",
+        message: "Workflow execution cancelled.",
+      };
+    },
+  });
 }

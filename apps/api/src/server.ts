@@ -19,9 +19,16 @@ import { connectionRoutes } from "./routes/connections.js";
 import { executionRoutes } from "./routes/executions.js";
 import { templateRoutes } from "./routes/templates.js";
 import { workspaceRoutes } from "./routes/workspaces.js";
+import { webhookRoutes } from "./routes/webhooks.js";
+import { startWorker, stopWorker } from "./worker/worker.js";
+import { workflowScheduler } from "./worker/scheduler.js";
 import { APP_CONFIG } from "@flowforge/shared";
 
-export async function buildServer() {
+export interface BuildServerOptions {
+  enableWorker?: boolean;
+}
+
+export async function buildServer(options: BuildServerOptions = {}) {
   const server = Fastify({
     logger: config.nodeEnv === "development" ? { level: "info" } : { level: "warn" },
   });
@@ -130,15 +137,29 @@ export async function buildServer() {
       await api.register(executionRoutes);
       await api.register(templateRoutes);
       await api.register(workspaceRoutes);
+      await api.register(webhookRoutes);
     },
     { prefix: config.apiPrefix }
   );
+
+  // Background Worker & Scheduler startup if enabled
+  if (options.enableWorker !== false) {
+    startWorker();
+    workflowScheduler.syncSchedulesOnStartup().catch((err) => {
+      server.log.warn({ msg: "Schedule sync failed on startup", error: err.message });
+    });
+  }
+
+  // Graceful shutdown
+  server.addHook("onClose", async () => {
+    await stopWorker();
+  });
 
   return server;
 }
 
 async function main() {
-  const server = await buildServer();
+  const server = await buildServer({ enableWorker: true });
   try {
     await server.listen({ port: config.port, host: config.host });
     console.log(`🚀 ${APP_CONFIG.name} API running at http://${config.host}:${config.port}${config.apiPrefix}`);

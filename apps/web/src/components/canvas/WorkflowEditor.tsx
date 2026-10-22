@@ -32,10 +32,17 @@ import {
   CheckCircle2,
   AlertTriangle,
   Layers,
-  Sparkles,
+  Play,
+  Pause,
+  Zap,
+  Copy,
+  Check,
   ExternalLink,
+  X,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { api } from "../../lib/api";
 
 interface WorkflowEditorProps {
   initialWorkflow?: {
@@ -43,6 +50,8 @@ interface WorkflowEditorProps {
     name: string;
     description?: string;
     status: WorkflowStatus;
+    webhookSlug?: string;
+    webhookSecret?: string;
     nodes: any[];
     edges: any[];
     viewport?: any;
@@ -64,6 +73,9 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
   const [status, setStatus] = useState<WorkflowStatus>(
     initialWorkflow?.status || "DRAFT"
   );
+  const [webhookSlug, setWebhookSlug] = useState<string | undefined>(
+    initialWorkflow?.webhookSlug
+  );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(
     (initialWorkflow?.nodes as Node[]) || []
@@ -78,13 +90,23 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
   const [saveError, setSaveError] = useState<string | null>(null);
   const [mobilePaletteOpen, setMobilePaletteOpen] = useState(false);
 
+  // Activation & Test Run State
+  const [isTogglingStatus, setIsTogglingStatus] = useState(false);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [testModalOpen, setTestModalOpen] = useState(false);
+  const [testPayload, setTestPayload] = useState(
+    JSON.stringify({ event: "test_trigger", data: { message: "Hello FlowForge", amount: 150 } }, null, 2)
+  );
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<any>(null);
+  const [copiedSlug, setCopiedSlug] = useState(false);
+
   // Register custom node type
   const nodeTypes = useMemo(() => ({ custom: CustomWorkflowNode }), []);
 
   // Handle edge connection
   const onConnect = useCallback(
     (params: Connection) => {
-      // Connect and animate edge
       setEdges((eds) => addEdge({ ...params, animated: true }, eds));
     },
     [setEdges]
@@ -112,7 +134,7 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
 
     setNodes((nds) => [...nds, newNode]);
     setSelectedNodeId(id);
-    setMobilePaletteOpen(false); // Close palette on mobile once node is selected
+    setMobilePaletteOpen(false);
   };
 
   // Node selection
@@ -152,13 +174,16 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
     setSaveSuccess(false);
 
     try {
-      await onSave({
+      const saved = await onSave({
         name,
         description,
         status,
         nodes,
         edges,
       });
+      if (saved?.workflow?.webhookSlug) {
+        setWebhookSlug(saved.workflow.webhookSlug);
+      }
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
@@ -166,6 +191,76 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Activate / Pause Toggle
+  const handleToggleActivate = async () => {
+    if (!initialWorkflow?.id) {
+      setSaveError("Please save the workflow first before activating.");
+      return;
+    }
+
+    setIsTogglingStatus(true);
+    setActionNotice(null);
+    setSaveError(null);
+
+    try {
+      if (status === "ACTIVE") {
+        await api.workflows.pause(initialWorkflow.id);
+        setStatus("PAUSED");
+        setActionNotice("Workflow paused successfully.");
+      } else {
+        const res = await api.workflows.activate(initialWorkflow.id);
+        setStatus("ACTIVE");
+        if (res?.workflow?.webhookSlug) {
+          setWebhookSlug(res.workflow.webhookSlug);
+        }
+        setActionNotice("Workflow activated! Background execution worker is now listening.");
+      }
+      setTimeout(() => setActionNotice(null), 4000);
+    } catch (err: any) {
+      setSaveError(err?.message || "Failed to update workflow active status.");
+    } finally {
+      setIsTogglingStatus(false);
+    }
+  };
+
+  // Execute Test Flow
+  const handleRunTest = async () => {
+    if (!initialWorkflow?.id) {
+      setSaveError("Please save the workflow first before running a test.");
+      return;
+    }
+
+    setIsTesting(true);
+    setTestResult(null);
+
+    try {
+      let parsed = {};
+      try {
+        parsed = JSON.parse(testPayload);
+      } catch {
+        parsed = { raw: testPayload };
+      }
+
+      const res = await api.workflows.test(initialWorkflow.id, parsed);
+      setTestResult(res);
+    } catch (err: any) {
+      setTestResult({
+        error: true,
+        message: err?.message || "Test execution request failed.",
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const handleCopyWebhookUrl = () => {
+    if (!webhookSlug) return;
+    const url = `http://localhost:4000/api/v1/webhooks/${webhookSlug}`;
+    navigator.clipboard.writeText(url);
+    setCopiedSlug(true);
+    setTimeout(() => setCopiedSlug(false), 2000);
   };
 
   return (
@@ -202,8 +297,29 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
           </div>
         </div>
 
-        {/* Validation indicator & Save actions */}
-        <div className="flex items-center gap-3">
+        {/* Validation indicator, Webhook pill, Status Toggle, Test Button, Save actions */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Webhook endpoint pill if available */}
+          {webhookSlug && (
+            <button
+              onClick={handleCopyWebhookUrl}
+              className="hidden lg:flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50/60 px-3 py-1 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100/60 transition-colors"
+              title="Click to copy Webhook URL"
+            >
+              {copiedSlug ? (
+                <>
+                  <Check className="h-3 w-3 text-emerald-600" />
+                  <span className="text-emerald-700 font-semibold">URL Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3 w-3 text-indigo-500" />
+                  <span className="font-mono text-[10px]">{webhookSlug}</span>
+                </>
+              )}
+            </button>
+          )}
+
           {/* Validation Status Indicator */}
           <div
             className={cn(
@@ -226,16 +342,47 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
             )}
           </div>
 
-          {/* Status selector */}
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as WorkflowStatus)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 focus:border-indigo-600 focus:outline-none"
-          >
-            <option value="DRAFT">Draft</option>
-            <option value="ACTIVE">Active</option>
-            <option value="PAUSED">Paused</option>
-          </select>
+          {/* Test Flow Execution Trigger */}
+          {initialWorkflow?.id && (
+            <button
+              onClick={() => {
+                setTestResult(null);
+                setTestModalOpen(true);
+              }}
+              data-testid="test-flow-btn"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+            >
+              <Zap className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+              <span>Test Flow</span>
+            </button>
+          )}
+
+          {/* Activate / Pause Toggle Button */}
+          {initialWorkflow?.id && (
+            <button
+              onClick={handleToggleActivate}
+              disabled={isTogglingStatus || !validationResult.isValid}
+              data-testid="toggle-activate-btn"
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all shadow-2xs disabled:opacity-50",
+                status === "ACTIVE"
+                  ? "border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                  : "border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
+              )}
+            >
+              {status === "ACTIVE" ? (
+                <>
+                  <Pause className="h-3.5 w-3.5" />
+                  <span>Pause</span>
+                </>
+              ) : (
+                <>
+                  <Play className="h-3.5 w-3.5 fill-white" />
+                  <span>Activate</span>
+                </>
+              )}
+            </button>
+          )}
 
           {/* Save Button */}
           <button
@@ -248,6 +395,23 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
           </button>
         </div>
       </header>
+
+      {/* Action Banner / Notification */}
+      {actionNotice && (
+        <div className="bg-emerald-50 border-b border-emerald-200 px-6 py-2 text-xs text-emerald-800 flex items-center justify-between z-20 transition-all">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            <span>{actionNotice}</span>
+          </div>
+          <Link
+            href="/executions"
+            className="text-[11px] font-semibold text-emerald-700 hover:underline flex items-center gap-1"
+          >
+            <span>View Executions</span>
+            <ExternalLink className="h-3 w-3" />
+          </Link>
+        </div>
+      )}
 
       {/* Validation Alert Banner if error exists */}
       {!validationResult.isValid && validationResult.errors.length > 0 && (
@@ -263,7 +427,7 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
 
       {saveError && (
         <div className="bg-rose-50 border-b border-rose-200 px-6 py-2 text-xs text-rose-700 z-20">
-          <span>Error saving: {saveError}</span>
+          <span>Error: {saveError}</span>
         </div>
       )}
 
@@ -278,7 +442,7 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
           <span>{mobilePaletteOpen ? "Close Palette" : "+ Add Nodes"}</span>
         </button>
 
-        {/* Left Node Library Palette (Collapsible on Mobile, Fixed on Desktop) */}
+        {/* Left Node Library Palette */}
         <div
           className={cn(
             "fixed inset-y-16 left-0 z-20 transition-transform duration-200 md:static md:translate-x-0",
@@ -338,6 +502,8 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
           <div className="fixed inset-y-16 right-0 z-30 md:static md:translate-x-0">
             <NodeConfigPanel
               selectedNode={selectedNode}
+              webhookSlug={webhookSlug}
+              workflowId={initialWorkflow?.id}
               onUpdateNode={handleUpdateNode}
               onDeleteNode={handleDeleteNode}
               onClose={() => setSelectedNodeId(null)}
@@ -345,6 +511,115 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
           </div>
         )}
       </div>
+
+      {/* Test Flow Execution Modal Dialog */}
+      {testModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                  <Zap className="h-4 w-4 fill-amber-500" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Execute Test Flow</h3>
+                  <p className="text-[11px] text-slate-500">
+                    Dispatches an asynchronous execution job with your payload.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setTestModalOpen(false)}
+                className="rounded-lg p-1 text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700">
+                  Trigger Mock Payload (JSON)
+                </label>
+                <textarea
+                  rows={5}
+                  value={testPayload}
+                  onChange={(e) => setTestPayload(e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-slate-300 p-3 font-mono text-xs text-slate-800 focus:border-indigo-600 focus:outline-none"
+                  placeholder='{"event": "test", "key": "value"}'
+                />
+              </div>
+
+              {testResult && (
+                <div
+                  className={cn(
+                    "rounded-xl border p-4 text-xs",
+                    testResult.error
+                      ? "border-rose-200 bg-rose-50 text-rose-800"
+                      : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  )}
+                >
+                  <div className="flex items-center justify-between font-bold mb-1">
+                    <span>
+                      {testResult.error ? "Test Execution Failed" : "Job Enqueued Successfully!"}
+                    </span>
+                    {!testResult.error && (
+                      <span className="font-mono text-[10px] bg-emerald-100 px-2 py-0.5 rounded-md text-emerald-800">
+                        {testResult.execution?.id?.slice(0, 8)}...
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] mt-1 text-slate-600">
+                    {testResult.message || (testResult.error ? testResult.message : "The execution has been enqueued to the BullMQ background worker.")}
+                  </p>
+
+                  {!testResult.error && testResult.execution?.id && (
+                    <div className="mt-3 flex items-center justify-between border-t border-emerald-200/60 pt-2.5">
+                      <span className="text-[10px] text-emerald-700">
+                        Status: <strong>{testResult.execution?.status || "PENDING"}</strong>
+                      </span>
+                      <Link
+                        href={`/executions`}
+                        className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 hover:underline"
+                      >
+                        <span>View Live Executions</span>
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-slate-100 bg-slate-50 px-6 py-3.5">
+              <button
+                onClick={() => setTestModalOpen(false)}
+                className="rounded-lg px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-200/60 transition-colors"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleRunTest}
+                disabled={isTesting}
+                data-testid="submit-test-flow-btn"
+                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm"
+              >
+                {isTesting ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span>Enqueuing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="h-3.5 w-3.5 fill-white" />
+                    <span>Run Test Execution</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
