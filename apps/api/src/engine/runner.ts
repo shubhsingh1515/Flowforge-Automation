@@ -1,6 +1,8 @@
 import { prisma, ExecutionStatus } from "@flowforge/database";
 import { config } from "../config.js";
 import { workflowExecutionsTotal, workflowExecutionDuration } from "../metrics.js";
+import { entitlementService } from "../services/entitlements.js";
+import { usageService } from "../services/usage.js";
 import { defaultRegistry } from "./registry.js";
 import { ExecutionContext } from "./mapping/resolver.js";
 import { ExecutionErrorCategory } from "./types.js";
@@ -101,6 +103,38 @@ async function executeWorkflowInternal(
       durationMs: Date.now() - startTime,
     };
   }
+
+  // Phase 6: Server-authoritative execution quota check
+  if (!options.resumeNodeId) {
+    const quotaCheck = await entitlementService.canExecuteWorkflow(workflow.workspaceId);
+    if (!quotaCheck.allowed) {
+      const errorMsg = quotaCheck.reason || "Monthly execution quota exceeded for this workspace.";
+      await prisma.workflowExecution.update({
+        where: { id: options.executionId },
+        data: {
+          status: ExecutionStatus.FAILED,
+          finishedAt: new Date(),
+          durationMs: Date.now() - startTime,
+          errorSummary: errorMsg,
+          errorCategory: "RESOURCE_LIMIT_EXCEEDED",
+        },
+      });
+      return {
+        executionId: options.executionId,
+        status: "FAILED",
+        stepsExecuted: 0,
+        errorSummary: errorMsg,
+        errorCategory: "RESOURCE_LIMIT_EXCEEDED",
+        durationMs: Date.now() - startTime,
+      };
+    }
+  }
+
+  // Phase 6: Durable idempotent usage recording
+  await usageService.recordExecutionUsage({
+    workspaceId: workflow.workspaceId,
+    executionId: options.executionId,
+  });
 
   const version = workflow.versions[0];
   const nodes: any[] = Array.isArray(version.nodes) ? version.nodes : [];

@@ -21,6 +21,10 @@ const envSchema = z.object({
   CREDENTIAL_ENCRYPTION_KEY: z.string().default("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
   MAX_WORKFLOW_STEPS: z.coerce.number().default(500),
   MAX_EXECUTION_DURATION_SECONDS: z.coerce.number().default(300),
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PRICE_PRO: z.string().default("price_pro_monthly"),
+  STRIPE_PRICE_BUSINESS: z.string().default("price_business_monthly"),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -69,4 +73,8 @@ export const config = {
   credentialEncryptionKey: env.CREDENTIAL_ENCRYPTION_KEY,
   maxWorkflowSteps: env.MAX_WORKFLOW_STEPS,
   maxExecutionDurationSeconds: env.MAX_EXECUTION_DURATION_SECONDS,
+  stripeSecretKey: env.STRIPE_SECRET_KEY,
+  stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET,
+  stripePricePro: env.STRIPE_PRICE_PRO,
+  stripePriceBusiness: env.STRIPE_PRICE_BUSINESS,
 };

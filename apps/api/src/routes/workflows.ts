@@ -6,6 +6,7 @@ import {
   validateWorkflowGraph,
 } from "@flowforge/shared";
 import { authenticateRequest } from "../plugins/auth.js";
+import { entitlementService } from "../services/entitlements.js";
 import { z } from "zod";
 
 export async function workflowRoutes(server: FastifyInstance) {
@@ -121,6 +122,19 @@ export async function workflowRoutes(server: FastifyInstance) {
 
       const isWebhook = triggerNode?.data?.integrationKey === "webhook" || triggerNode?.data?.label?.toLowerCase().includes("webhook");
       const webhookSlug = isWebhook ? `wh_${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}` : undefined;
+
+      // Enforce plan active workflows quota
+      if (data.status === "ACTIVE") {
+        const activationQuota = await entitlementService.canActivateWorkflow(workspaceId);
+        if (!activationQuota.allowed) {
+          return reply.status(403).send({
+            error: "Forbidden",
+            message: activationQuota.reason,
+            code: "PLAN_LIMIT_REACHED",
+            statusCode: 403,
+          });
+        }
+      }
 
       const workflow = await prisma.workflow.create({
         data: {
@@ -307,6 +321,19 @@ export async function workflowRoutes(server: FastifyInstance) {
       const isWebhook = triggerType?.toLowerCase().includes("webhook");
       if (isWebhook && !webhookSlug) {
         webhookSlug = `wh_${Math.random().toString(36).substring(2, 10)}${Date.now().toString(36)}`;
+      }
+
+      // Enforce plan active workflows quota
+      if (data.status === "ACTIVE" && existing.status !== "ACTIVE") {
+        const activationQuota = await entitlementService.canActivateWorkflow(workspaceId, existing.id);
+        if (!activationQuota.allowed) {
+          return reply.status(403).send({
+            error: "Forbidden",
+            message: activationQuota.reason,
+            code: "PLAN_LIMIT_REACHED",
+            statusCode: 403,
+          });
+        }
       }
 
       const updated = await prisma.workflow.update({
@@ -511,6 +538,19 @@ export async function workflowRoutes(server: FastifyInstance) {
       if (isWebhook && !webhookSlug) {
         const randomHex = Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
         webhookSlug = `wh_${randomHex}`;
+      }
+
+      // Enforce plan active workflows quota
+      if (workflow.status !== "ACTIVE") {
+        const activationQuota = await entitlementService.canActivateWorkflow(workspaceId, workflow.id);
+        if (!activationQuota.allowed) {
+          return reply.status(403).send({
+            error: "Forbidden",
+            message: activationQuota.reason,
+            code: "PLAN_LIMIT_REACHED",
+            statusCode: 403,
+          });
+        }
       }
 
       const updated = await prisma.workflow.update({

@@ -259,4 +259,51 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     // Toggle filter
     await page.click('button:has-text("All")');
   });
+
+  test("13. Phase 6 Pricing Page: Plan Tiers, Feature Comparison & Quotas", async ({ page }) => {
+    await page.goto("/pricing");
+    await expect(page.locator("h1")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=Free").first()).toBeVisible();
+    await expect(page.locator("text=Pro").first()).toBeVisible();
+    await expect(page.locator("text=Business").first()).toBeVisible();
+    await expect(page.locator("text=Detailed Feature Comparison")).toBeVisible();
+  });
+
+  test("14. Phase 6 Workspace Billing & Usage Dashboard in Settings", async ({ page }) => {
+    await loginAsDemo(page);
+
+    await page.goto("/settings");
+    await page.waitForLoadState("networkidle");
+
+    // Click Billing tab
+    await page.click('button:has-text("Billing & Usage")');
+
+    await expect(page.locator("text=Current Plan")).toBeVisible();
+    await expect(page.locator("text=Monthly Quotas & Consumption")).toBeVisible();
+    await expect(page.locator("text=Workflow Runs")).toBeVisible();
+    await expect(page.locator("text=Active Workflows")).toBeVisible();
+    await expect(page.locator('span:has-text("Team Members")').first()).toBeVisible();
+    await expect(page.locator('span:has-text("Integrations")').first()).toBeVisible();
+    await expect(page.locator('a:has-text("Change Plan")')).toBeVisible();
+  });
+
+  test("15. Phase 6 Team Members & Governance in Settings", async ({ page }) => {
+    await loginAsDemo(page);
+
+    await page.goto("/settings");
+    await page.waitForLoadState("networkidle");
+
+    // Click Team & Members tab
+    await page.click('button:has-text("Team & Members")');
+
+    await expect(page.locator("text=Workspace Members & Access")).toBeVisible();
+    await expect(page.locator("text=Active Members")).toBeVisible();
+    await expect(page.locator('button:has-text("Invite Member")')).toBeVisible();
+
+    // Open Invite Member Modal
+    await page.click('button:has-text("Invite Member")');
+    await expect(page.locator("text=Send a secure 7-day invitation link")).toBeVisible();
+    await expect(page.locator('button:has-text("Cancel")')).toBeVisible();
+    await page.click('button:has-text("Cancel")');
+  });
 });

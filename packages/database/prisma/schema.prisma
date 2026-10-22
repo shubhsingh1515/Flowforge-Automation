@@ -43,6 +43,28 @@ enum AuthType {
   BEARER_TOKEN
 }
 
+enum PlanTier {
+  FREE
+  PRO
+  BUSINESS
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+  UNPAID
+  INCOMPLETE
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -81,6 +103,9 @@ model Workspace {
   memberships       WorkspaceMembership[]
   workflows         Workflow[]
   connectedAccounts ConnectedAccount[]
+  subscription      WorkspaceSubscription?
+  usageRecords      UsageRecord[]
+  invitations       WorkspaceInvitation[]
 
   @@map("workspaces")
 }
@@ -326,4 +351,74 @@ model WorkflowApproval {
   @@index([executionId])
   @@index([status, expiresAt])
   @@map("workflow_approvals")
+}
+
+model WorkspaceSubscription {
+  id                   String             @id @default(uuid())
+  workspaceId          String             @unique
+  planTier             PlanTier           @default(FREE)
+  status               SubscriptionStatus @default(ACTIVE)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  stripePriceId        String?
+  currentPeriodStart   DateTime           @default(now())
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  canceledAt           DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([stripeCustomerId])
+  @@index([stripeSubscriptionId])
+  @@map("workspace_subscriptions")
+}
+
+model UsageRecord {
+  id             String   @id @default(uuid())
+  workspaceId    String
+  metricType     String   @default("WORKFLOW_EXECUTION") // WORKFLOW_EXECUTION, STEP_EXECUTION
+  quantity       Int      @default(1)
+  executionId    String?
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, metricType])
+  @@map("usage_records")
+}
+
+model BillingWebhookEvent {
+  id          String   @id @default(uuid())
+  eventId     String   @unique
+  eventType   String
+  provider    String   @default("STRIPE")
+  payload     Json?
+  processedAt DateTime @default(now())
+
+  @@index([eventType])
+  @@map("billing_webhook_events")
+}
+
+model WorkspaceInvitation {
+  id              String           @id @default(uuid())
+  workspaceId     String
+  email           String
+  role            WorkspaceRole    @default(MEMBER)
+  tokenHash       String           @unique
+  status          InvitationStatus @default(PENDING)
+  invitedByUserId String
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@index([email])
+  @@map("workspace_invitations")
 }

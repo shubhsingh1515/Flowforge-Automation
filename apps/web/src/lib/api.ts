@@ -170,4 +170,39 @@ export const api = {
     updateName: (name: string) => request<any>("/workspaces/current", { method: "PATCH", body: JSON.stringify({ name }) }),
     updateProfile: (data: { name?: string; email?: string }) => request<any>("/workspaces/profile", { method: "PATCH", body: JSON.stringify(data) }),
   },
+
+  // Billing & Monetization
+  billing: {
+    getPlans: () => request<{ plans: any[] }>("/plans"),
+    getSubscription: () => request<any>("/billing/subscription"),
+    createCheckout: (targetPlan: "PRO" | "BUSINESS", successUrl?: string, cancelUrl?: string) =>
+      request<{ url: string; sessionId: string }>("/billing/checkout", {
+        method: "POST",
+        body: JSON.stringify({ targetPlan, successUrl, cancelUrl }),
+      }),
+    createPortal: (returnUrl?: string) =>
+      request<{ url: string }>("/billing/portal", {
+        method: "POST",
+        body: JSON.stringify({ returnUrl }),
+      }),
+    cancelSubscription: () => request<any>("/billing/cancel", { method: "POST" }),
+    getUsage: () => request<{ summary: any; history: any[] }>("/billing/usage"),
+  },
+
+  // Workspace Invitations & Team
+  members: {
+    invite: (email: string, role: string) =>
+      request<any>("/workspaces/members/invite", {
+        method: "POST",
+        body: JSON.stringify({ email, role }),
+      }),
+    listInvitations: () => request<{ invitations: any[] }>("/workspaces/invitations"),
+    revokeInvitation: (id: string) => request<any>(`/workspaces/invitations/${id}`, { method: "DELETE" }),
+    acceptInvitation: (token: string) =>
+      request<any>("/invitations/accept", {
+        method: "POST",
+        body: JSON.stringify({ token }),
+      }),
+    removeMember: (userId: string) => request<any>(`/workspaces/members/${userId}`, { method: "DELETE" }),
+  },
 };

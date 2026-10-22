@@ -24,6 +24,7 @@ import { workspaceRoutes } from "./routes/workspaces.js";
 import { webhookRoutes } from "./routes/webhooks.js";
 import { oauthRoutes } from "./routes/oauth.js";
 import { approvalRoutes } from "./routes/approvals.js";
+import { billingRoutes } from "./routes/billing.js";
 import { startWorker, stopWorker } from "./worker/worker.js";
 import { workflowScheduler } from "./worker/scheduler.js";
 import { httpRequestDuration, httpRequestsTotal } from "./metrics.js";
@@ -214,6 +215,7 @@ export async function buildServer(options: BuildServerOptions = {}) {
       await api.register(webhookRoutes);
       await api.register(oauthRoutes);
       await api.register(approvalRoutes);
+      await api.register(billingRoutes);
     },
     { prefix: config.apiPrefix }
   );

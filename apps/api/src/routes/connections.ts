@@ -4,6 +4,7 @@ import { ConnectAccountSchema } from "@flowforge/shared";
 import { authenticateRequest } from "../plugins/auth.js";
 import { encryptCredentials } from "../security/encryption.js";
 import { tokenManager } from "../integrations/token-manager.js";
+import { entitlementService } from "../services/entitlements.js";
 import { z } from "zod";
 
 export async function connectionRoutes(server: FastifyInstance) {
@@ -70,6 +71,17 @@ export async function connectionRoutes(server: FastifyInstance) {
         return reply.status(404).send({
           error: "Not Found",
           message: "Integration definition not found.",
+        });
+      }
+
+      // Enforce plan connected accounts quota
+      const quota = await entitlementService.canConnectAccount(workspaceId);
+      if (!quota.allowed) {
+        return reply.status(403).send({
+          error: "Forbidden",
+          message: quota.reason,
+          code: "PLAN_LIMIT_REACHED",
+          statusCode: 403,
         });
       }
 

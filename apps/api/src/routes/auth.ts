@@ -10,7 +10,7 @@ export async function authRoutes(server: FastifyInstance) {
   server.post("/auth/register", {
     config: {
       rateLimit: {
-        max: config.nodeEnv === "production" ? 15 : 1000,
+        max: config.nodeEnv === "development" ? 1000 : 15,
         timeWindow: "1 minute",
       },
     },
@@ -91,7 +91,7 @@ export async function authRoutes(server: FastifyInstance) {
   server.post("/auth/login", {
     config: {
       rateLimit: {
-        max: config.nodeEnv === "production" ? 15 : 1000,
+        max: config.nodeEnv === "development" ? 1000 : 15,
         timeWindow: "1 minute",
       },
     },

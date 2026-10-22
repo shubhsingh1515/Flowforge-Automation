@@ -67,6 +67,7 @@ export function AppShell({ children, title, description, action }: AppShellProps
     { label: "Connections", href: "/connections", icon: LinkIcon },
     { label: "Execution History", href: "/executions", icon: History },
     { label: "Templates", href: "/templates", icon: FolderGit2 },
+    { label: "Plans & Pricing", href: "/pricing", icon: Sparkles },
     { label: "Settings", href: "/settings", icon: Settings },
   ];
 
