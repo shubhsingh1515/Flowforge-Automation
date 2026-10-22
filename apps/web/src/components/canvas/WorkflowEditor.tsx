@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -40,8 +40,16 @@ import {
   ExternalLink,
   X,
   RefreshCw,
+  Clock,
+  Download,
+  RotateCcw,
+  GitBranch,
+  FileCode,
+  History,
+  ShieldCheck,
+  Info,
 } from "lucide-react";
-import { cn } from "../../lib/utils";
+import { cn, formatRelativeTime } from "../../lib/utils";
 import { api } from "../../lib/api";
 
 interface WorkflowEditorProps {
@@ -52,6 +60,7 @@ interface WorkflowEditorProps {
     status: WorkflowStatus;
     webhookSlug?: string;
     webhookSecret?: string;
+    version?: number;
     nodes: any[];
     edges: any[];
     viewport?: any;
@@ -62,6 +71,9 @@ interface WorkflowEditorProps {
     status: WorkflowStatus;
     nodes: any[];
     edges: any[];
+    expectedVersion?: number;
+    changeSummary?: string;
+    createVersion?: boolean;
   }) => Promise<any>;
 }
 
@@ -75,6 +87,9 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
   );
   const [webhookSlug, setWebhookSlug] = useState<string | undefined>(
     initialWorkflow?.webhookSlug
+  );
+  const [currentVersion, setCurrentVersion] = useState<number>(
+    initialWorkflow?.version || 1
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(
@@ -100,6 +115,15 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
   const [copiedSlug, setCopiedSlug] = useState(false);
+
+  // Phase 7: Version History & Diagnostics State
+  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
+  const [versionsList, setVersionsList] = useState<any[]>([]);
+  const [loadingVersions, setLoadingVersions] = useState(false);
+  const [diagnosticsModalOpen, setDiagnosticsModalOpen] = useState(false);
+  const [checkpointModalOpen, setCheckpointModalOpen] = useState(false);
+  const [checkpointNote, setCheckpointNote] = useState("");
+  const [isRollingBack, setIsRollingBack] = useState(false);
 
   // Register custom node type
   const nodeTypes = useMemo(() => ({ custom: CustomWorkflowNode }), []);
@@ -174,8 +198,69 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
     return validateWorkflowGraph(nodes as any, edges as any);
   }, [nodes, edges]);
 
-  // Save handler
-  const handleSave = async () => {
+  // Load versions history from backend
+  const loadVersionHistory = async () => {
+    if (!initialWorkflow?.id) return;
+    setLoadingVersions(true);
+    try {
+      const res = await api.workflows.listVersions(initialWorkflow.id);
+      setVersionsList(res.versions || []);
+      setCurrentVersion(res.currentVersion || 1);
+    } catch (err: any) {
+      console.error("Failed to load versions:", err);
+    } finally {
+      setLoadingVersions(false);
+    }
+  };
+
+  // Safe Rollback to a historical version snapshot
+  const handleRollback = async (targetVerNum: number) => {
+    if (!initialWorkflow?.id) return;
+    setIsRollingBack(true);
+    setSaveError(null);
+
+    try {
+      const res = await api.workflows.rollback(initialWorkflow.id, targetVerNum);
+      const restored = res.restoredVersion;
+      // Fetch full restored version snapshot to update canvas
+      const snapshot = await api.workflows.getVersion(initialWorkflow.id, restored.version);
+      if (snapshot?.version) {
+        setNodes((snapshot.version.nodes as Node[]) || []);
+        setEdges((snapshot.version.edges as Edge[]) || []);
+      }
+      setStatus("DRAFT");
+      setCurrentVersion(restored.version);
+      setActionNotice(`Successfully restored Version ${targetVerNum}! Created as new Version ${restored.version} (Draft).`);
+      setHistoryDrawerOpen(false);
+      setTimeout(() => setActionNotice(null), 5000);
+    } catch (err: any) {
+      setSaveError(err.message || "Rollback failed.");
+    } finally {
+      setIsRollingBack(false);
+    }
+  };
+
+  // Export Workflow as JSON file
+  const handleExport = async () => {
+    if (!initialWorkflow?.id) return;
+    try {
+      const exportData = await api.workflows.export(initialWorkflow.id);
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${name.toLowerCase().replace(/[^a-z0-9]/g, "_")}_export.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setSaveError(err.message || "Failed to export workflow.");
+    }
+  };
+
+  // Save handler with optional checkpoint
+  const handleSave = async (asCheckpoint = false, note = "") => {
     setIsSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
@@ -187,11 +272,19 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
         status,
         nodes,
         edges,
+        expectedVersion: currentVersion,
+        createVersion: asCheckpoint,
+        changeSummary: note || undefined,
       });
       if (saved?.workflow?.webhookSlug) {
         setWebhookSlug(saved.workflow.webhookSlug);
       }
+      if (saved?.workflow?.version) {
+        setCurrentVersion(saved.workflow.version);
+      }
       setSaveSuccess(true);
+      setCheckpointModalOpen(false);
+      setCheckpointNote("");
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
       setSaveError(err?.message || "Failed to save workflow graph.");
@@ -287,13 +380,18 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
 
           {/* Workflow Title & Description Inputs */}
           <div>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Workflow Name"
-              className="text-sm font-bold text-slate-900 border-b border-transparent hover:border-slate-300 focus:border-indigo-600 focus:outline-none px-1"
-            />
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Workflow Name"
+                className="text-sm font-bold text-slate-900 border-b border-transparent hover:border-slate-300 focus:border-indigo-600 focus:outline-none px-1"
+              />
+              <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold">
+                v{currentVersion}
+              </span>
+            </div>
             <input
               type="text"
               value={description}
@@ -305,12 +403,12 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
         </div>
 
         {/* Validation indicator, Webhook pill, Status Toggle, Test Button, Save actions */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-2.5">
           {/* Webhook endpoint pill if available */}
           {webhookSlug && (
             <button
               onClick={handleCopyWebhookUrl}
-              className="hidden lg:flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50/60 px-3 py-1 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100/60 transition-colors"
+              className="hidden xl:flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50/60 px-3 py-1 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100/60 transition-colors"
               title="Click to copy Webhook URL"
             >
               {copiedSlug ? (
@@ -328,26 +426,57 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
           )}
 
           {/* Validation Status Indicator */}
-          <div
+          <button
+            onClick={() => setDiagnosticsModalOpen(true)}
             className={cn(
-              "hidden sm:flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border",
+              "hidden sm:flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border hover:opacity-90 transition-opacity",
               validationResult.isValid
                 ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                 : "bg-amber-50 text-amber-800 border-amber-200"
             )}
+            title="Click to inspect validation diagnostics"
           >
             {validationResult.isValid ? (
               <>
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                <span>Graph Valid ({nodes.length} nodes)</span>
+                <span>Graph Valid ({nodes.length})</span>
               </>
             ) : (
               <>
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-                <span>{validationResult.errors[0]?.message || "Validation issues"}</span>
+                <span>{validationResult.errors[0]?.message || "Issues Found"}</span>
               </>
             )}
-          </div>
+          </button>
+
+          {/* Version History Drawer Trigger */}
+          {initialWorkflow?.id && (
+            <button
+              onClick={() => {
+                loadVersionHistory();
+                setHistoryDrawerOpen(true);
+              }}
+              data-testid="version-history-btn"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+              title="View immutable version history and rollbacks"
+            >
+              <History className="h-3.5 w-3.5 text-indigo-600" />
+              <span className="hidden md:inline">History</span>
+            </button>
+          )}
+
+          {/* Export Workflow JSON Button */}
+          {initialWorkflow?.id && (
+            <button
+              onClick={handleExport}
+              data-testid="export-json-canvas-btn"
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+              title="Export sanitized workflow JSON"
+            >
+              <Download className="h-3.5 w-3.5 text-slate-500" />
+              <span className="hidden md:inline">Export</span>
+            </button>
+          )}
 
           {/* Test Flow Execution Trigger */}
           {initialWorkflow?.id && (
@@ -391,15 +520,25 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
             </button>
           )}
 
-          {/* Save Button */}
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-70 transition-colors"
-          >
-            <Save className="h-3.5 w-3.5" />
-            <span>{isSaving ? "Saving..." : saveSuccess ? "Saved to Cloud" : "Save Graph"}</span>
-          </button>
+          {/* Save Button & Checkpoint Dropdown */}
+          <div className="flex items-center">
+            <button
+              onClick={() => handleSave(false)}
+              disabled={isSaving}
+              data-testid="save-graph-btn"
+              className="inline-flex items-center gap-2 rounded-l-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-70 transition-colors"
+            >
+              <Save className="h-3.5 w-3.5" />
+              <span>{isSaving ? "Saving..." : saveSuccess ? "Saved to Cloud" : "Save Graph"}</span>
+            </button>
+            <button
+              onClick={() => setCheckpointModalOpen(true)}
+              className="rounded-r-lg bg-indigo-700 px-2 py-1.5 text-xs font-semibold text-white hover:bg-indigo-800 border-l border-indigo-500"
+              title="Save a new version snapshot checkpoint"
+            >
+              +v
+            </button>
+          </div>
         </div>
       </header>
 
@@ -428,13 +567,26 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
             <span className="font-semibold">Graph Warning:</span>
             <span>{validationResult.errors[0].message}</span>
           </div>
-          <span className="text-[11px] text-amber-600">DAG Cycle Prevention Active</span>
+          <button
+            onClick={() => setDiagnosticsModalOpen(true)}
+            className="text-[11px] text-amber-700 underline font-semibold"
+          >
+            View Diagnostics
+          </button>
         </div>
       )}
 
       {saveError && (
-        <div className="bg-rose-50 border-b border-rose-200 px-6 py-2 text-xs text-rose-700 z-20">
+        <div className="bg-rose-50 border-b border-rose-200 px-6 py-2 text-xs text-rose-700 z-20 flex items-center justify-between">
           <span>Error: {saveError}</span>
+          {saveError.includes("Conflict") && (
+            <button
+              onClick={() => window.location.reload()}
+              className="underline font-bold text-rose-800"
+            >
+              Reload Latest Version
+            </button>
+          )}
         </div>
       )}
 
@@ -519,6 +671,229 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
         )}
       </div>
 
+      {/* Version History Drawer */}
+      {historyDrawerOpen && (
+        <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-white shadow-2xl border-l border-slate-200 flex flex-col">
+          <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+            <div className="flex items-center gap-2">
+              <History className="h-5 w-5 text-indigo-600" />
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Version History</h3>
+                <p className="text-[11px] text-slate-500">Immutable checkpoints and safe rollbacks</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setHistoryDrawerOpen(false)}
+              className="rounded-lg p-1 text-slate-400 hover:text-slate-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="p-6 overflow-y-auto flex-1 space-y-4">
+            {loadingVersions ? (
+              <div className="py-12 text-center text-xs text-slate-400">Loading version history...</div>
+            ) : versionsList.length === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-400">No versions recorded yet.</div>
+            ) : (
+              versionsList.map((ver: any) => {
+                const isCurrent = ver.version === currentVersion;
+
+                return (
+                  <div
+                    key={ver.id}
+                    className={cn(
+                      "rounded-xl border p-4 text-xs transition-all",
+                      isCurrent
+                        ? "border-indigo-300 bg-indigo-50/40 shadow-2xs"
+                        : "border-slate-200 bg-white hover:border-slate-300"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900 font-mono text-sm">
+                          Version {ver.version}
+                        </span>
+                        {isCurrent && (
+                          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
+                            Current Active
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[11px] text-slate-400">
+                        {formatRelativeTime(ver.createdAt)}
+                      </span>
+                    </div>
+
+                    <p className="mt-2 text-slate-600 text-[11px] leading-relaxed">
+                      {ver.changeSummary || "No change notes provided."}
+                    </p>
+
+                    <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2 text-[10px] text-slate-400">
+                      <span>{ver.nodeCount || 0} nodes</span>
+
+                      {!isCurrent && (
+                        <button
+                          onClick={() => handleRollback(ver.version)}
+                          disabled={isRollingBack}
+                          data-testid={`rollback-btn-v${ver.version}`}
+                          className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          <span>Rollback to v{ver.version}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Diagnostics Modal Dialog */}
+      {diagnosticsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-indigo-600" />
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Workflow Diagnostics & Health</h3>
+                  <p className="text-[11px] text-slate-500">Structural integrity and execution readiness</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDiagnosticsModalOpen(false)}
+                className="rounded-lg p-1 text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div
+                className={cn(
+                  "rounded-xl border p-4 text-xs",
+                  validationResult.isValid
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                    : "border-amber-200 bg-amber-50 text-amber-800"
+                )}
+              >
+                <div className="font-bold flex items-center gap-1.5">
+                  {validationResult.isValid ? (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  ) : (
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  )}
+                  <span>{validationResult.isValid ? "Graph is structurally sound" : "Action Required"}</span>
+                </div>
+                <p className="mt-1 text-[11px] text-slate-600">
+                  {validationResult.isValid
+                    ? "All DAG rules are satisfied. No cycles, valid trigger connectivity, and active endpoints are present."
+                    : "Please resolve the following issues before activating this pipeline."}
+                </p>
+              </div>
+
+              {validationResult.errors.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Detected Issues</h4>
+                  {validationResult.errors.map((err, i) => (
+                    <div
+                      key={i}
+                      className="rounded-lg border border-amber-200 bg-amber-50/50 p-2.5 text-xs text-amber-900 flex items-start gap-2"
+                    >
+                      <span className="font-bold text-amber-700 shrink-0">#{i + 1}</span>
+                      <div>
+                        <span>{err.message}</span>
+                        {err.nodeId && (
+                          <span className="block text-[10px] text-slate-400 mt-0.5">
+                            Node ID: {err.nodeId}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3 text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Total Nodes</span>
+                  <span className="font-bold text-slate-800 text-sm">{nodes.length}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Total Connections (Edges)</span>
+                  <span className="font-bold text-slate-800 text-sm">{edges.length}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end border-t border-slate-100 bg-slate-50 px-6 py-3.5">
+              <button
+                onClick={() => setDiagnosticsModalOpen(false)}
+                className="rounded-lg px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-200/60"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Checkpoint Modal */}
+      {checkpointModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+              <div className="flex items-center gap-2">
+                <GitBranch className="h-5 w-5 text-indigo-600" />
+                <h3 className="text-sm font-bold text-slate-900">Create Version Checkpoint</h3>
+              </div>
+              <button
+                onClick={() => setCheckpointModalOpen(false)}
+                className="rounded-lg p-1 text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Save an immutable version snapshot (v{currentVersion + 1}) to preserve this checkpoint for auditing and safe rollback.
+              </p>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700">Change Description (Optional)</label>
+                <input
+                  type="text"
+                  value={checkpointNote}
+                  onChange={(e) => setCheckpointNote(e.target.value)}
+                  placeholder="e.g. Added Slack notifications and filtered leads"
+                  className="mt-1.5 w-full rounded-lg border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-indigo-600 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-slate-100 bg-slate-50 px-6 py-3.5">
+              <button
+                onClick={() => setCheckpointModalOpen(false)}
+                className="rounded-lg px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-200/60"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleSave(true, checkpointNote)}
+                disabled={isSaving}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 shadow-sm"
+              >
+                {isSaving ? "Creating Checkpoint..." : "Save Checkpoint (v" + (currentVersion + 1) + ")"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Test Flow Execution Modal Dialog */}
       {testModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
@@ -572,7 +947,7 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
                     </span>
                     {!testResult.error && (
                       <span className="font-mono text-[10px] bg-emerald-100 px-2 py-0.5 rounded-md text-emerald-800">
-                        {testResult.execution?.id?.slice(0, 8)}...
+                        {testResult.executionId?.slice(0, 8)}...
                       </span>
                     )}
                   </div>
@@ -580,10 +955,10 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
                     {testResult.message || (testResult.error ? testResult.message : "The execution has been enqueued to the BullMQ background worker.")}
                   </p>
 
-                  {!testResult.error && testResult.execution?.id && (
+                  {!testResult.error && testResult.executionId && (
                     <div className="mt-3 flex items-center justify-between border-t border-emerald-200/60 pt-2.5">
                       <span className="text-[10px] text-emerald-700">
-                        Status: <strong>{testResult.execution?.status || "PENDING"}</strong>
+                        Correlation: <strong>{testResult.correlationId}</strong>
                       </span>
                       <Link
                         href={`/executions`}

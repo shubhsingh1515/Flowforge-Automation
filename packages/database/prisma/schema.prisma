@@ -106,6 +106,8 @@ model Workspace {
   subscription      WorkspaceSubscription?
   usageRecords      UsageRecord[]
   invitations       WorkspaceInvitation[]
+  templates         WorkflowTemplate[]
+  onboarding        WorkspaceOnboarding?
 
   @@map("workspaces")
 }
@@ -153,7 +155,9 @@ model Workflow {
 model WorkflowVersion {
   id         String   @id @default(uuid())
   workflowId String
-  version    Int      @default(1)
+  version       Int      @default(1)
+  changeSummary String?
+  createdById   String?
   nodes      Json     @default("[]")
   edges      Json     @default("[]")
   viewport   Json?
@@ -421,4 +425,50 @@ model WorkspaceInvitation {
   @@index([workspaceId, status])
   @@index([email])
   @@map("workspace_invitations")
+}
+
+
+model WorkflowTemplate {
+  id                   String   @id @default(uuid())
+  slug                 String   @unique
+  title                String
+  description          String
+  category             String
+  tags                 String[] @default([])
+  difficulty           String   @default("BEGINNER")
+  triggerType          String
+  actionType           String
+  requiredIntegrations String[] @default([])
+  setupGuide           String?
+  nodes                Json     @default("[]")
+  edges                Json     @default("[]")
+  isPlatform           Boolean  @default(false)
+  workspaceId          String?
+  createdById          String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  workspace            Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([category])
+  @@index([workspaceId])
+  @@index([isPlatform])
+  @@map("workflow_templates")
+}
+
+model WorkspaceOnboarding {
+  id                   String   @id @default(uuid())
+  workspaceId          String   @unique
+  hasCreatedWorkflow   Boolean  @default(false)
+  hasTestedWorkflow    Boolean  @default(false)
+  hasActivatedWorkflow Boolean  @default(false)
+  hasConnectedAccount  Boolean  @default(false)
+  hasUsedTemplate      Boolean  @default(false)
+  hasInvitedMember     Boolean  @default(false)
+  dismissed            Boolean  @default(false)
+  updatedAt            DateTime @updatedAt
+
+  workspace            Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("workspace_onboarding")
 }

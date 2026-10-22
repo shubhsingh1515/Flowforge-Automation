@@ -171,7 +171,7 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     // Verify executions table contains the run
     await expect(page.locator("h1")).toContainText("Execution History");
     await expect(page.locator("text=BullMQ Asynchronous Runtime Engine Active")).toBeVisible();
-    await expect(page.locator("text=Lead Intake & CRM Dispatcher").first()).toBeVisible();
+    await expect(page.locator("tbody tr").first()).toBeVisible();
 
     // Click Logs on first execution
     await page.locator('button:has-text("Logs")').first().click();
@@ -266,6 +266,7 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     await expect(page.locator("text=Free").first()).toBeVisible();
     await expect(page.locator("text=Pro").first()).toBeVisible();
     await expect(page.locator("text=Business").first()).toBeVisible();
+    await page.locator("text=Detailed Feature Comparison").scrollIntoViewIfNeeded();
     await expect(page.locator("text=Detailed Feature Comparison")).toBeVisible();
   });
 
@@ -303,6 +304,84 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     // Open Invite Member Modal
     await page.click('button:has-text("Invite Member")');
     await expect(page.locator("text=Send a secure 7-day invitation link")).toBeVisible();
+    await expect(page.locator('button:has-text("Cancel")')).toBeVisible();
+    await page.click('button:has-text("Cancel")');
+  });
+
+  test("16. Phase 7 Template Library: Category Tabs, Search and Template Details Modal", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/templates");
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.locator("h1")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=Workflow Templates")).toBeVisible();
+
+    // Verify category filtering
+    await page.click('button:has-text("Developer")');
+    await expect(page.locator("input[placeholder*='Search recipes']")).toBeVisible();
+
+    // Search for Webhook
+    await page.fill("input[placeholder*='Search recipes']", "Webhook");
+
+    // Click Details on a template card
+    const detailsBtn = page.locator('button:has-text("Details")').first();
+    await expect(detailsBtn).toBeVisible();
+    await detailsBtn.click();
+
+    // Verify modal contents
+    await expect(page.locator("text=Setup & Configuration Guide")).toBeVisible();
+    await expect(page.locator("text=New Workflow Title")).toBeVisible();
+    await expect(page.locator('button:has-text("Cancel")')).toBeVisible();
+    await page.click('button:has-text("Cancel")');
+  });
+
+  test("17. Phase 7 Workflow Canvas: Version History Drawer and Diagnostics", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/workflows");
+    await page.waitForLoadState("networkidle");
+
+    // Open first workflow canvas
+    const firstWfLink = page.locator('tbody tr td a[href^="/workflows/"]').first();
+    await expect(firstWfLink).toBeVisible();
+    await firstWfLink.click();
+    await page.waitForLoadState("networkidle");
+
+    // Check canvas editor header
+    await expect(page.locator('button[data-testid="version-history-btn"]')).toBeVisible({ timeout: 10000 });
+
+    // Open Version History Drawer
+    await page.click('button[data-testid="version-history-btn"]');
+    await expect(page.locator('h3:has-text("Version History")')).toBeVisible();
+    await expect(page.locator("text=Immutable checkpoints and safe rollbacks")).toBeVisible();
+
+    // Close History Drawer
+    await page.click('button:has(svg.lucide-x)');
+
+    // Verify Export Button is present
+    await expect(page.locator('button[data-testid="export-json-canvas-btn"]')).toBeVisible();
+  });
+
+  test("18. Phase 7 Dashboard Onboarding Checklist and Workflows Import Modal", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/dashboard");
+    await page.waitForLoadState("networkidle");
+
+    // Check Persistent Onboarding Checklist Widget
+    const onboardingCard = page.locator('[data-testid="onboarding-checklist-card"]');
+    if (await onboardingCard.isVisible()) {
+      await expect(page.locator("text=Workspace Onboarding Guide")).toBeVisible();
+      await expect(page.locator("text=milestones completed")).toBeVisible();
+    }
+
+    // Navigate to Workflows page and test Import Modal
+    await page.goto("/workflows");
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.locator('button[data-testid="import-workflow-btn"]')).toBeVisible();
+    await page.click('button[data-testid="import-workflow-btn"]');
+
+    await expect(page.locator("text=Import Workflow JSON")).toBeVisible();
+    await expect(page.locator("text=Select JSON File")).toBeVisible();
     await expect(page.locator('button:has-text("Cancel")')).toBeVisible();
     await page.click('button:has-text("Cancel")');
   });

@@ -80,6 +80,9 @@ export const UpdateWorkflowSchema = z.object({
   nodes: z.array(WorkflowNodeSchema).optional(),
   edges: z.array(WorkflowEdgeSchema).optional(),
   viewport: ViewportSchema.optional(),
+  expectedVersion: z.number().int().positive().optional(),
+  changeSummary: z.string().max(255).optional(),
+  createVersion: z.boolean().optional(),
 });
 
 export type UpdateWorkflowInput = z.infer<typeof UpdateWorkflowSchema>;

@@ -7,6 +7,8 @@ import {
 } from "@flowforge/shared";
 import { authenticateRequest } from "../plugins/auth.js";
 import { entitlementService } from "../services/entitlements.js";
+import { templateService } from "../services/templates.js";
+import { workflowVersioningService } from "../services/workflowVersioning.js";
 import { z } from "zod";
 
 export async function workflowRoutes(server: FastifyInstance) {
@@ -257,6 +259,7 @@ export async function workflowRoutes(server: FastifyInstance) {
       const { id } = request.params as { id: string };
       const data = UpdateWorkflowSchema.parse(request.body);
 
+      const { userId } = request.authUser!;
       // Verify ownership
       const existing = await prisma.workflow.findFirst({
         where: { id, workspaceId },
@@ -267,6 +270,25 @@ export async function workflowRoutes(server: FastifyInstance) {
           },
         },
       });
+
+      if (!existing) {
+        return reply.status(404).send({
+          error: "Not Found",
+          message: "Workflow not found or access denied.",
+          statusCode: 404,
+        });
+      }
+
+      const currentVerNum = existing.versions[0]?.version || 1;
+      // Optimistic concurrency check
+      if (data.expectedVersion && data.expectedVersion !== currentVerNum) {
+        return reply.status(409).send({
+          error: "Conflict",
+          message: `This workflow was modified by another user (expected v${data.expectedVersion}, but current is v${currentVerNum}). Please reload.`,
+          currentVersion: currentVerNum,
+          statusCode: 409,
+        });
+      }
 
       if (!existing) {
         return reply.status(404).send({
@@ -291,30 +313,44 @@ export async function workflowRoutes(server: FastifyInstance) {
           triggerType = triggerNode.data.label;
         }
 
-        // Upsert latest version
-        const currentVerNum = existing.versions[0]?.version || 1;
-        await prisma.workflowVersion.upsert({
-          where: {
-            workflowId_version: {
+        if (data.createVersion || data.changeSummary) {
+          const newVerNum = currentVerNum + 1;
+          await prisma.workflowVersion.create({
+            data: {
+              workflowId: existing.id,
+              version: newVerNum,
+              changeSummary: data.changeSummary || `Version ${newVerNum} checkpoint`,
+              createdById: userId,
+              nodes: nodesToValidate,
+              edges: edgesToValidate,
+              viewport: data.viewport as any,
+              isValid: validation.isValid,
+            },
+          });
+        } else {
+          await prisma.workflowVersion.upsert({
+            where: {
+              workflowId_version: {
+                workflowId: existing.id,
+                version: currentVerNum,
+              },
+            },
+            update: {
+              nodes: nodesToValidate,
+              edges: edgesToValidate,
+              viewport: data.viewport as any,
+              isValid: validation.isValid,
+            },
+            create: {
               workflowId: existing.id,
               version: currentVerNum,
+              nodes: nodesToValidate,
+              edges: edgesToValidate,
+              viewport: data.viewport as any,
+              isValid: validation.isValid,
             },
-          },
-          update: {
-            nodes: nodesToValidate,
-            edges: edgesToValidate,
-            viewport: data.viewport as any,
-            isValid: validation.isValid,
-          },
-          create: {
-            workflowId: existing.id,
-            version: currentVerNum,
-            nodes: nodesToValidate,
-            edges: edgesToValidate,
-            viewport: data.viewport as any,
-            isValid: validation.isValid,
-          },
-        });
+          });
+        }
       }
 
       let webhookSlug = existing.webhookSlug;
@@ -436,6 +472,9 @@ export async function workflowRoutes(server: FastifyInstance) {
       }
 
       const latestVersion = original.versions[0];
+      const rawNodes = (latestVersion?.nodes as any[]) || [];
+      const rawEdges = (latestVersion?.edges as any[]) || [];
+      const { nodes: remappedNodes, edges: remappedEdges } = templateService.remapGraph(rawNodes, rawEdges);
 
       const duplicated = await prisma.workflow.create({
         data: {
@@ -447,13 +486,21 @@ export async function workflowRoutes(server: FastifyInstance) {
           versions: {
             create: {
               version: 1,
-              nodes: (latestVersion?.nodes as any) || [],
-              edges: (latestVersion?.edges as any) || [],
+              changeSummary: `Duplicated from ${original.name}`,
+              createdById: request.authUser!.userId,
+              nodes: remappedNodes,
+              edges: remappedEdges,
               viewport: (latestVersion?.viewport as any) || null,
               isValid: latestVersion?.isValid ?? true,
             },
           },
         },
+      });
+
+      await prisma.workspaceOnboarding.upsert({
+        where: { workspaceId },
+        update: { hasCreatedWorkflow: true },
+        create: { workspaceId, hasCreatedWorkflow: true },
       });
 
       return reply.status(201).send({
@@ -727,6 +774,138 @@ export async function workflowRoutes(server: FastifyInstance) {
           error: "Transformation Error",
           message: err.message,
         });
+      }
+    },
+  });
+
+  // 11. Workflow Version History List
+  server.get("/workflows/:id/versions", {
+    schema: {
+      tags: ["Workflows"],
+      summary: "Get immutable version history snapshots for a workflow",
+      params: z.object({ id: z.string() }),
+    },
+    preHandler: [authenticateRequest],
+    handler: async (request, reply) => {
+      const { workspaceId } = request.authUser!;
+      const { id } = request.params as { id: string };
+
+      try {
+        const history = await workflowVersioningService.listVersions(id, workspaceId);
+        return history;
+      } catch (err: any) {
+        return reply.status(404).send({ error: "Not Found", message: err.message, statusCode: 404 });
+      }
+    },
+  });
+
+  // 12. Get Specific Workflow Version
+  server.get("/workflows/:id/versions/:version", {
+    schema: {
+      tags: ["Workflows"],
+      summary: "Get a specific historical workflow version snapshot",
+      params: z.object({ id: z.string(), version: z.coerce.number() }),
+    },
+    preHandler: [authenticateRequest],
+    handler: async (request, reply) => {
+      const { workspaceId } = request.authUser!;
+      const { id, version } = request.params as { id: string; version: number };
+
+      try {
+        const snapshot = await workflowVersioningService.getVersion(id, version, workspaceId);
+        return { version: snapshot };
+      } catch (err: any) {
+        return reply.status(404).send({ error: "Not Found", message: err.message, statusCode: 404 });
+      }
+    },
+  });
+
+  // 13. Compare Workflow Versions Diff
+  server.get("/workflows/:id/versions/compare", {
+    schema: {
+      tags: ["Workflows"],
+      summary: "Compare two workflow versions and return structural diff",
+      params: z.object({ id: z.string() }),
+      querystring: z.object({
+        from: z.coerce.number(),
+        to: z.coerce.number(),
+      }),
+    },
+    preHandler: [authenticateRequest],
+    handler: async (request, reply) => {
+      const { workspaceId } = request.authUser!;
+      const { id } = request.params as { id: string };
+      const { from, to } = request.query as { from: number; to: number };
+
+      try {
+        const diff = await workflowVersioningService.compareVersions(id, from, to, workspaceId);
+        return diff;
+      } catch (err: any) {
+        return reply.status(400).send({ error: "Compare Error", message: err.message, statusCode: 400 });
+      }
+    },
+  });
+
+  // 14. Safe Rollback to Historical Version
+  server.post("/workflows/:id/versions/:version/rollback", {
+    schema: {
+      tags: ["Workflows"],
+      summary: "Safely restore a previous workflow version as a new sequential version without destroying history",
+      params: z.object({ id: z.string(), version: z.coerce.number() }),
+    },
+    preHandler: [authenticateRequest],
+    handler: async (request, reply) => {
+      const { workspaceId, userId } = request.authUser!;
+      const { id, version } = request.params as { id: string; version: number };
+
+      try {
+        const result = await workflowVersioningService.rollbackToVersion(id, version, workspaceId, userId);
+        return reply.status(200).send(result);
+      } catch (err: any) {
+        return reply.status(400).send({ error: "Rollback Error", message: err.message, statusCode: 400 });
+      }
+    },
+  });
+
+  // 15. Export Workflow
+  server.get("/workflows/:id/export", {
+    schema: {
+      tags: ["Workflows"],
+      summary: "Export sanitized portable workflow definition (JSON)",
+      params: z.object({ id: z.string() }),
+    },
+    preHandler: [authenticateRequest],
+    handler: async (request, reply) => {
+      const { workspaceId } = request.authUser!;
+      const { id } = request.params as { id: string };
+
+      try {
+        const exportData = await workflowVersioningService.exportWorkflow(id, workspaceId);
+        reply.header("Content-Disposition", `attachment; filename="workflow_${id}.json"`);
+        return exportData;
+      } catch (err: any) {
+        return reply.status(404).send({ error: "Export Error", message: err.message, statusCode: 404 });
+      }
+    },
+  });
+
+  // 16. Import Workflow
+  server.post("/workflows/import", {
+    schema: {
+      tags: ["Workflows"],
+      summary: "Import validated workflow JSON definition into active workspace",
+      body: z.any(),
+    },
+    preHandler: [authenticateRequest],
+    handler: async (request, reply) => {
+      const { workspaceId, userId } = request.authUser!;
+      const body = request.body;
+
+      try {
+        const imported = await workflowVersioningService.importWorkflow(workspaceId, userId, body);
+        return reply.status(201).send(imported);
+      } catch (err: any) {
+        return reply.status(400).send({ error: "Import Error", message: err.message, statusCode: 400 });
       }
     },
   });

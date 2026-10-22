@@ -80,12 +80,19 @@ export const api = {
     validate: (body: { nodes: any[]; edges: any[] }) => request<any>("/workflows/validate", { method: "POST", body: JSON.stringify(body) }),
     activate: (id: string) => request<any>(`/workflows/${id}/activate`, { method: "POST" }),
     pause: (id: string) => request<any>(`/workflows/${id}/pause`, { method: "POST" }),
-    test: (id: string, payload?: any) => request<any>(`/workflows/${id}/test`, { method: "POST", body: JSON.stringify({ payload: payload || {} }) }),
+    test: (id: string, payload?: any) => request<any>(`/workflows/${id}/test`, { method: "POST", body: JSON.stringify({ triggerPayload: payload || {} }) }),
     previewTransform: (sampleInput: any, config: any) =>
       request<any>("/workflows/preview-transform", {
         method: "POST",
         body: JSON.stringify({ sampleInput, config }),
       }),
+    listVersions: (id: string) => request<{ workflowId: string; currentVersion: number; versions: any[] }>(`/workflows/${id}/versions`),
+    getVersion: (id: string, version: number) => request<{ version: any }>(`/workflows/${id}/versions/${version}`),
+    compareVersions: (id: string, from: number, to: number) => request<any>(`/workflows/${id}/versions/compare?from=${from}&to=${to}`),
+    rollback: (id: string, version: number) => request<any>(`/workflows/${id}/versions/${version}/rollback`, { method: "POST" }),
+    export: (id: string) => request<any>(`/workflows/${id}/export`),
+    import: (body: any) => request<any>("/workflows/import", { method: "POST", body: JSON.stringify(body) }),
+    saveAsTemplate: (id: string, body: any) => request<any>(`/workflows/${id}/save-as-template`, { method: "POST", body: JSON.stringify(body) }),
   },
 
   // Integrations
@@ -160,8 +167,34 @@ export const api = {
 
   // Templates
   templates: {
-    list: () => request<{ templates: any[] }>("/templates"),
-    instantiate: (id: string) => request<{ workflow: any }>(`/templates/${id}/instantiate`, { method: "POST" }),
+    list: (params?: { search?: string; category?: string; difficulty?: string; tag?: string; type?: string; page?: number; limit?: number }) => {
+      const q = new URLSearchParams();
+      if (params?.search) q.set("search", params.search);
+      if (params?.category) q.set("category", params.category);
+      if (params?.difficulty) q.set("difficulty", params.difficulty);
+      if (params?.tag) q.set("tag", params.tag);
+      if (params?.type) q.set("type", params.type);
+      if (params?.page) q.set("page", params.page.toString());
+      if (params?.limit) q.set("limit", params.limit.toString());
+      return request<{ templates: any[]; meta?: any }>(`/templates?${q.toString()}`);
+    },
+    getCategories: () => request<{ categories: string[] }>("/templates/categories"),
+    get: (id: string) => request<{ template: any }>(`/templates/${id}`),
+    instantiate: (id: string, name?: string) =>
+      request<{ workflow: any }>(`/templates/${id}/instantiate`, {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      }),
+  },
+
+  // Onboarding
+  onboarding: {
+    get: () => request<any>("/workspaces/onboarding"),
+    update: (body: { dismissed?: boolean; hasUsedTemplate?: boolean; hasTestedWorkflow?: boolean }) =>
+      request<any>("/workspaces/onboarding", {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
   },
 
   // Workspace & Settings

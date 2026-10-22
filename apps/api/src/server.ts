@@ -25,6 +25,7 @@ import { webhookRoutes } from "./routes/webhooks.js";
 import { oauthRoutes } from "./routes/oauth.js";
 import { approvalRoutes } from "./routes/approvals.js";
 import { billingRoutes } from "./routes/billing.js";
+import { onboardingRoutes } from "./routes/onboarding.js";
 import { startWorker, stopWorker } from "./worker/worker.js";
 import { workflowScheduler } from "./worker/scheduler.js";
 import { httpRequestDuration, httpRequestsTotal } from "./metrics.js";
@@ -71,7 +72,7 @@ export async function buildServer(options: BuildServerOptions = {}) {
 
   // Rate Limiting
   await server.register(rateLimit, {
-    max: 300,
+    max: process.env.NODE_ENV === "production" ? 1000 : 3000,
     timeWindow: "1 minute",
     allowList: (req) => {
       const url = req.url || "";
@@ -216,6 +217,7 @@ export async function buildServer(options: BuildServerOptions = {}) {
       await api.register(oauthRoutes);
       await api.register(approvalRoutes);
       await api.register(billingRoutes);
+      await api.register(onboardingRoutes);
     },
     { prefix: config.apiPrefix }
   );
