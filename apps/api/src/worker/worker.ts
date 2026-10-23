@@ -2,6 +2,7 @@ import { Worker, Job } from "bullmq";
 import { QUEUE_NAME, redisConnection, WorkflowJobData } from "./queue.js";
 import { runWorkflowExecution } from "../engine/runner.js";
 import { prisma, ExecutionStatus } from "@flowforge/database";
+import { config } from "../config.js";
 
 const NON_RETRYABLE_ERROR_CATEGORIES = new Set([
   "INVALID_CONFIG",
@@ -13,11 +14,11 @@ const NON_RETRYABLE_ERROR_CATEGORIES = new Set([
 
 let workerInstance: Worker<WorkflowJobData> | null = null;
 
-export function createWorkflowWorker(concurrency = 5): Worker<WorkflowJobData> {
+export function createWorkflowWorker(concurrency = config.workerConcurrency): Worker<WorkflowJobData> {
   const worker = new Worker<WorkflowJobData>(
     QUEUE_NAME,
     async (job: Job<WorkflowJobData>) => {
-      let { executionId, workflowId, versionId, triggerPayload, correlationId, attempt, resumeNodeId } = job.data;
+      let { executionId, workflowId, versionId, triggerPayload, correlationId, traceparent, attempt, resumeNodeId } = job.data;
 
       // If scheduled repeatable job, create execution record if not present
       if (!executionId) {
@@ -38,6 +39,7 @@ export function createWorkflowWorker(concurrency = 5): Worker<WorkflowJobData> {
             status: ExecutionStatus.PENDING,
             triggerEvent: triggerPayload || {},
             correlationId: correlationId || `sched_${Date.now()}`,
+            traceparent: traceparent || null,
             attempt: 1,
             maxAttempts: 3,
           },
@@ -54,6 +56,7 @@ export function createWorkflowWorker(concurrency = 5): Worker<WorkflowJobData> {
           executionId,
           workflowId,
           correlationId,
+          traceparent: traceparent || null,
           attempt: attempt || job.attemptsMade + 1,
           resumeNodeId: resumeNodeId || null,
           timestamp: new Date().toISOString(),
@@ -66,6 +69,7 @@ export function createWorkflowWorker(concurrency = 5): Worker<WorkflowJobData> {
         versionId,
         triggerPayload,
         correlationId,
+        traceparent,
         attempt: attempt || job.attemptsMade + 1,
         resumeNodeId,
       });
@@ -136,7 +140,7 @@ export function createWorkflowWorker(concurrency = 5): Worker<WorkflowJobData> {
   return worker;
 }
 
-export function startWorker(concurrency = 5) {
+export function startWorker(concurrency = config.workerConcurrency) {
   if (!workerInstance) {
     workerInstance = createWorkflowWorker(concurrency);
     console.log(`⚡ Workflow execution worker started (concurrency: ${concurrency})`);

@@ -76,6 +76,7 @@ model User {
 
   memberships WorkspaceMembership[]
   sessions    Session[]
+  ssoIdentities SsoUserIdentity[]
 
   @@map("users")
 }
@@ -118,6 +119,10 @@ model Workspace {
   retentionPolicy        WorkspaceRetentionPolicy?
   dataExportRequests     DataExportRequest[]
   deletionRequests       WorkspaceDeletionRequest[]
+  ssoProvider            WorkspaceSsoProvider?
+  ssoIdentities          SsoUserIdentity[]
+  ssoAuthStates          SsoAuthorizationState[]
+  scimTokens             ScimProvisioningToken[]
 
   @@map("workspaces")
 }
@@ -284,6 +289,9 @@ model WorkflowExecution {
   maxAttempts        Int             @default(3)
   retryOfId          String?
   correlationId      String?
+  traceparent        String?
+  diagnostics        Json?
+  timeline           Json?
   errorCategory      String?
   triggerEvent       Json?
   errorSummary       String?
@@ -724,4 +732,122 @@ model WorkspaceDeletionRequest {
 
   @@index([workspaceId, status])
   @@map("workspace_deletion_requests")
+}
+
+
+// ==========================================
+// PHASE 10: ENTERPRISE IDENTITY & RELIABILITY
+// ==========================================
+
+model WorkspaceSsoProvider {
+  id                            String   @id @default(uuid())
+  workspaceId                   String   @unique
+  name                          String   @default("Enterprise OIDC")
+  issuerUrl                     String
+  authorizationEndpoint         String
+  tokenEndpoint                 String
+  userinfoEndpoint              String?
+  clientId                      String
+  encryptedClientSecret         String
+  scopes                        String   @default("openid email profile")
+  enforceSso                    Boolean  @default(false)
+  allowPasswordFallbackForAdmins Boolean @default(true)
+  lastTestedAt                  DateTime?
+  lastTestStatus                String?
+  lastTestError                 String?
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+
+  workspace  Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  identities SsoUserIdentity[]
+
+  @@map("workspace_sso_providers")
+}
+
+model SsoUserIdentity {
+  id                  String   @id @default(uuid())
+  userId              String
+  workspaceId         String
+  providerId          String
+  externalSubjectId   String
+  externalEmail       String
+  metadata            Json?
+  lastAuthenticatedAt DateTime @default(now())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  provider  WorkspaceSsoProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, externalSubjectId])
+  @@index([userId])
+  @@index([workspaceId, externalEmail])
+  @@map("sso_user_identities")
+}
+
+model SsoAuthorizationState {
+  id           String   @id @default(uuid())
+  workspaceId  String
+  state        String   @unique
+  nonce        String
+  codeVerifier String?
+  redirectUri  String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([state])
+  @@index([workspaceId])
+  @@map("sso_authorization_states")
+}
+
+model ScimProvisioningToken {
+  id          String    @id @default(uuid())
+  workspaceId String
+  name        String    @default("Primary SCIM Token")
+  tokenHash   String    @unique
+  tokenPrefix String
+  status      String    @default("ACTIVE")
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("scim_provisioning_tokens")
+}
+
+model ExecutionReconciliationLog {
+  id             String   @id @default(uuid())
+  executionId    String
+  workflowId     String
+  workspaceId    String
+  previousStatus String
+  newStatus      String
+  reason         String
+  actionTaken    String
+  reconciledAt   DateTime @default(now())
+
+  @@index([workspaceId, reconciledAt])
+  @@index([executionId])
+  @@map("execution_reconciliation_logs")
+}
+
+model OperationalAlertRule {
+  id              String   @id @default(uuid())
+  metricName      String
+  operator        String
+  threshold       Float
+  durationMinutes Int      @default(5)
+  severity        String   @default("WARNING")
+  isEnabled       Boolean  @default(true)
+  description     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("operational_alert_rules")
 }

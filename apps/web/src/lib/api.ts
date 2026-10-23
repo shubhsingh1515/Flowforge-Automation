@@ -396,4 +396,72 @@ export const api = {
   readiness: {
     check: () => request<any>("/health/readiness-check"),
   },
+
+  // Phase 10: Enterprise Identity (SSO & SCIM)
+  sso: {
+    getConfig: () => request<any>("/sso/config"),
+    saveConfig: (body: any) =>
+      request<any>("/sso/config", {
+        method: "PUT",
+        body: JSON.stringify(body),
+      }),
+    test: (body: any) =>
+      request<any>("/sso/test", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    initiate: (workspaceSlug: string) =>
+      request<any>("/sso/initiate", {
+        method: "POST",
+        body: JSON.stringify({ workspaceSlug }),
+      }),
+  },
+
+  scim: {
+    listTokens: () => request<any>("/scim/tokens"),
+    createToken: (body: { name: string; expiresInDays?: number }) =>
+      request<any>("/scim/tokens", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    revokeToken: (id: string) =>
+      request<any>(`/scim/tokens/${id}`, {
+        method: "DELETE",
+      }),
+  },
+
+  // Phase 10: Active Session Management
+  sessions: {
+    list: () => request<any>("/sessions"),
+    revoke: (id: string) =>
+      request<any>(`/sessions/${id}`, {
+        method: "DELETE",
+      }),
+    revokeAllOthers: () =>
+      request<any>("/sessions/revoke-others", {
+        method: "POST",
+      }),
+  },
+
+  // Phase 10: Advanced Observability & Diagnostics
+  diagnostics: {
+    get: (executionId: string) => request<any>(`/diagnostics/${executionId}`),
+    download: (executionId: string) => request<any>(`/diagnostics/${executionId}/download`),
+  },
+
+  // Phase 10: Reliability Engineering & Operations
+  operations: {
+    getOverview: () => request<any>("/operations/overview"),
+    reconcile: (dryRun: boolean = true) =>
+      request<any>("/operations/reconciliation", {
+        method: "POST",
+        body: JSON.stringify({ dryRun }),
+      }),
+    getLogs: (params?: { limit?: number }) => {
+      const q = new URLSearchParams();
+      if (params?.limit) q.set("limit", String(params.limit));
+      const qs = q.toString();
+      return request<any>(`/operations/reconciliation/logs${qs ? `?${qs}` : ""}`);
+    },
+  },
 };

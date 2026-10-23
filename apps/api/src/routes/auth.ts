@@ -3,6 +3,7 @@ import { prisma } from "@flowforge/database";
 import { RegisterSchema, LoginSchema } from "@flowforge/shared";
 import { hashPassword, verifyPassword } from "../utils/auth.js";
 import { authenticateRequest } from "../plugins/auth.js";
+import { sessionService } from "../services/sessions.js";
 import { config } from "../config.js";
 
 export async function authRoutes(server: FastifyInstance) {
@@ -65,6 +66,8 @@ export async function authRoutes(server: FastifyInstance) {
         { expiresIn: "7d" }
       );
 
+      await sessionService.createSession(user.id, token, new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+      await sessionService.createSession(user.id, token, new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
       reply.setCookie("flowforge_session", token, {
         path: "/",
         httpOnly: true,
@@ -123,6 +126,44 @@ export async function authRoutes(server: FastifyInstance) {
       const primaryMembership = user.memberships[0];
       const workspaceId = primaryMembership?.workspaceId || "";
       const workspaceName = primaryMembership?.workspace?.name || "Default Workspace";
+
+      // Phase 10: Check SSO Enforcement & Owner Recovery Path
+      if (workspaceId) {
+        const ssoProvider = await prisma.workspaceSsoProvider.findUnique({
+          where: { workspaceId },
+        });
+
+        if (ssoProvider && ssoProvider.enforceSso) {
+          const isPrivileged = primaryMembership.role === "OWNER" || primaryMembership.role === "ADMIN";
+          if (!isPrivileged || !ssoProvider.allowPasswordFallbackForAdmins) {
+            return reply.status(403).send({
+              error: "Forbidden",
+              message: "This workspace enforces Single Sign-On (SSO). Please sign in via your identity provider.",
+              statusCode: 403,
+              requiresSso: true,
+            });
+          }
+        }
+      }
+
+      // Phase 10: Check SSO Enforcement & Owner Recovery Path
+      if (workspaceId) {
+        const ssoProvider = await prisma.workspaceSsoProvider.findUnique({
+          where: { workspaceId },
+        });
+
+        if (ssoProvider && ssoProvider.enforceSso) {
+          const isPrivileged = primaryMembership.role === "OWNER" || primaryMembership.role === "ADMIN";
+          if (!isPrivileged || !ssoProvider.allowPasswordFallbackForAdmins) {
+            return reply.status(403).send({
+              error: "Forbidden",
+              message: "This workspace enforces Single Sign-On (SSO). Please sign in via your identity provider.",
+              statusCode: 403,
+              requiresSso: true,
+            });
+          }
+        }
+      }
 
       const token = server.jwt.sign(
         { userId: user.id, workspaceId, email: user.email },

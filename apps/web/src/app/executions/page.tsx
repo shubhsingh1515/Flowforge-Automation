@@ -82,6 +82,27 @@ export default function ExecutionsPage() {
     },
   });
 
+  const [downloadingDiag, setDownloadingDiag] = useState(false);
+  const handleDownloadDiagnostics = async (execId: string) => {
+    try {
+      setDownloadingDiag(true);
+      const res = await api.diagnostics.download(execId);
+      const blob = new Blob([JSON.stringify(res, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `flowforge-diagnostics-${execId}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert("Failed to download diagnostics: " + (err.message || err));
+    } finally {
+      setDownloadingDiag(false);
+    }
+  };
+
   const executions = data?.data || [];
 
   return (

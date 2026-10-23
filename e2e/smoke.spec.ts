@@ -563,4 +563,69 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     // Verify export feedback (either newly generated export or plan limit reached message)
     await expect(page.locator('text=/Data export completed|Monthly data export limit/')).toBeVisible({ timeout: 10000 });
   });
+
+  test("25. Phase 10 Single Sign-On (SSO) & SCIM Tabs in Settings", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/settings");
+    await page.waitForLoadState("networkidle");
+
+    // Click Single Sign-On Tab
+    const ssoTab = page.locator('[data-testid="tab-sso"]');
+    await expect(ssoTab).toBeVisible({ timeout: 10000 });
+    await ssoTab.click();
+
+    // Verify SSO Header and Inputs
+    await expect(page.getByRole("heading", { name: "Single Sign-On (OIDC / OAuth 2.0)" })).toBeVisible();
+    await expect(page.locator('[data-testid="input-sso-issuer"]')).toBeVisible();
+    await expect(page.locator('[data-testid="input-sso-client-id"]')).toBeVisible();
+    await expect(page.locator('[data-testid="btn-test-sso-connection"]')).toBeVisible();
+
+    // Click SCIM Provisioning Tab
+    const scimTab = page.locator('[data-testid="tab-scim"]');
+    await expect(scimTab).toBeVisible({ timeout: 10000 });
+    await scimTab.click();
+
+    // Verify SCIM Header & Endpoints Reference
+    await expect(page.getByRole("heading", { name: "SCIM 2.0 Automated User Provisioning" })).toBeVisible();
+    await expect(page.locator("text=SCIM 2.0 Base URL:")).toBeVisible();
+    await expect(page.locator('[data-testid="btn-create-scim-token"]')).toBeVisible();
+  });
+
+  test("26. Phase 10 Active Sessions Management", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/settings");
+    await page.waitForLoadState("networkidle");
+
+    // Click Security Tab
+    const secTab = page.locator('button:has-text("Security & Sessions")');
+    await expect(secTab).toBeVisible({ timeout: 10000 });
+    await secTab.click();
+
+    // Verify Active Sessions Tab
+    await expect(page.getByRole("heading", { name: "Active Sessions & Token Security" })).toBeVisible();
+    await expect(page.locator('[data-testid="btn-revoke-all-other-sessions"]')).toBeVisible();
+    await expect(page.locator("text=Validated against revocation list")).toBeVisible();
+    await expect(page.locator("text=Active Logged-in Devices")).toBeVisible();
+  });
+
+  test("27. Phase 10 Operations Dashboard & Stuck Execution Reconciliation", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/operations");
+    await page.waitForLoadState("networkidle");
+
+    // Verify Operations Page Headers & Telemetry Cards
+    await expect(page.getByRole("heading", { name: "System Operations & Reliability" })).toBeVisible();
+    await expect(page.locator("text=Data Stores Latency")).toBeVisible();
+    await expect(page.locator("text=Workflow Queue Depth")).toBeVisible();
+    await expect(page.locator("text=Worker Concurrency")).toBeVisible();
+    await expect(page.locator("text=Threshold Alert Monitors")).toBeVisible();
+
+    // Run Dry-Run Reconciliation
+    const dryRunBtn = page.locator('[data-testid="btn-reconcile-dry-run"]');
+    await expect(dryRunBtn).toBeVisible();
+    await dryRunBtn.click();
+
+    // Verify reconciliation result feedback
+    await expect(page.locator("text=Reconciliation Complete: (Dry Run - No Changes Applied)")).toBeVisible({ timeout: 10000 });
+  });
 });

@@ -1,4 +1,4 @@
-import { prisma, PlanTier, SubscriptionStatus } from "@flowforge/database";
+import { prisma, PlanTier, SubscriptionStatus, ExecutionStatus } from "@flowforge/database";
 import { getPlan, PlanDefinition, PlanFeatures } from "@flowforge/shared";
 
 export interface QuotaCheckResult {
@@ -115,6 +115,31 @@ export class EntitlementService {
   /**
    * Checks whether the workspace can create or save an active workflow.
    */
+
+  /**
+   * Checks whether workspace has reached its maximum concurrent active executions (resource isolation).
+   */
+  async canExecuteConcurrentWorkflow(workspaceId: string): Promise<QuotaCheckResult> {
+    const { plan } = await this.getEffectivePlan(workspaceId);
+    const limit = plan.tier === "BUSINESS" ? 50 : plan.tier === "PRO" ? 15 : 3;
+
+    const currentActive = await prisma.workflowExecution.count({
+      where: {
+        status: ExecutionStatus.RUNNING,
+        workflow: { workspaceId },
+      },
+    });
+
+    const allowed = currentActive < limit;
+    return {
+      allowed,
+      current: currentActive,
+      limit,
+      remaining: Math.max(0, limit - currentActive),
+      reason: allowed ? undefined : `Workspace active execution concurrency limit of ${limit} reached for ${plan.name} plan. Backpressure active.`,
+    };
+  }
+
   async canActivateWorkflow(workspaceId: string, currentWorkflowId?: string): Promise<QuotaCheckResult> {
     const { plan } = await this.getEffectivePlan(workspaceId);
 

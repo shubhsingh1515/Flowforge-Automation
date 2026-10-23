@@ -28,6 +28,7 @@ import {
   ExternalLink,
   ShieldCheck,
   Store,
+  Activity,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -70,6 +71,7 @@ export function AppShell({ children, title, description, action }: AppShellProps
     { label: "Templates", href: "/templates", icon: FolderGit2 },
     { label: "Marketplace", href: "/marketplace", icon: Store },
     { label: "Plans & Pricing", href: "/pricing", icon: Sparkles },
+    { label: "Operations", href: "/operations", icon: Activity },
     { label: "Settings", href: "/settings", icon: Settings },
   ];
 

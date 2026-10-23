@@ -7,3 +7,5 @@ export * from "./plans";
 export * from "./developer";
 export * from "./marketplace";
 export * from "./governance";
+export * from "./sso";
+export * from "./observability";

@@ -7,6 +7,9 @@ import { usageService } from "../services/usage.js";
 import { defaultRegistry } from "./registry.js";
 import { ExecutionContext } from "./mapping/resolver.js";
 import { ExecutionErrorCategory } from "./types.js";
+import { tracingService, redactSensitiveData } from "../services/tracing.js";
+import { diagnosticsService } from "../services/diagnostics.js";
+import { DiagnosticMilestone } from "@flowforge/shared";
 
 export interface WorkflowRunOptions {
   workflowId: string;
@@ -14,6 +17,7 @@ export interface WorkflowRunOptions {
   versionId?: string | null;
   triggerPayload: any;
   correlationId?: string;
+  traceparent?: string;
   attempt?: number;
   resumeNodeId?: string;
 }
@@ -33,11 +37,27 @@ async function executeWorkflowInternal(
   const startTime = Date.now();
   const correlationId = options.correlationId || `corr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const attempt = options.attempt || 1;
+  const traceCtx = tracingService.generateTraceContext(options.traceparent);
 
   // 1. Fetch current execution record to check if already cancelled
   const initialExecution = await prisma.workflowExecution.findUnique({
     where: { id: options.executionId },
   });
+
+  const timelineMilestones: DiagnosticMilestone[] = [
+    {
+      id: `ms_queued_${options.executionId}`,
+      type: "QUEUED",
+      timestamp: new Date(initialExecution ? initialExecution.createdAt : Date.now()).toISOString(),
+      details: { attempt },
+    },
+    {
+      id: `ms_started_${options.executionId}`,
+      type: "STARTED",
+      timestamp: new Date().toISOString(),
+      details: { correlationId, traceparent: traceCtx.traceparent },
+    },
+  ];
 
   if (!initialExecution) {
     return {
@@ -103,6 +123,32 @@ async function executeWorkflowInternal(
       errorCategory: "INVALID_CONFIG",
       durationMs: Date.now() - startTime,
     };
+  }
+
+  // Phase 10: Horizontal Scaling & Concurrency Isolation
+  if (!options.resumeNodeId) {
+    const concurrentCheck = await entitlementService.canExecuteConcurrentWorkflow(workflow.workspaceId);
+    if (!concurrentCheck.allowed) {
+      const errorMsg = concurrentCheck.reason || "Concurrent execution quota exceeded for this workspace.";
+      await prisma.workflowExecution.update({
+        where: { id: options.executionId },
+        data: {
+          status: ExecutionStatus.FAILED,
+          finishedAt: new Date(),
+          durationMs: Date.now() - startTime,
+          errorSummary: errorMsg,
+          errorCategory: "RESOURCE_LIMIT_EXCEEDED",
+        },
+      });
+      return {
+        executionId: options.executionId,
+        status: "FAILED",
+        stepsExecuted: 0,
+        errorSummary: errorMsg,
+        errorCategory: "RESOURCE_LIMIT_EXCEEDED",
+        durationMs: Date.now() - startTime,
+      };
+    }
   }
 
   // Phase 6: Server-authoritative execution quota check
@@ -333,6 +379,15 @@ async function executeWorkflowInternal(
 
     // Step Execution Record in DB
     const stepStartTime = Date.now();
+    timelineMilestones.push({
+      id: `ms_step_start_${currentNodeId}_${Date.now()}`,
+      type: "NODE_STARTED",
+      timestamp: new Date().toISOString(),
+      nodeId: currentNodeId,
+      nodeName: node.data?.label || node.id,
+      nodeType: node.data?.nodeType,
+      attempt,
+    });
     const stepRecord = await prisma.workflowStepExecution.create({
       data: {
         executionId: options.executionId,
@@ -410,6 +465,17 @@ async function executeWorkflowInternal(
     }
 
     const stepDuration = Date.now() - stepStartTime;
+    timelineMilestones.push({
+      id: `ms_step_end_${currentNodeId}_${Date.now()}`,
+      type: result.status === "SUCCESS" ? "NODE_COMPLETED" : "FAILED",
+      timestamp: new Date().toISOString(),
+      durationMs: stepDuration,
+      nodeId: currentNodeId,
+      nodeName: node.data?.label || node.id,
+      nodeType: node.data?.nodeType,
+      attempt,
+      details: result.errorMessage ? { error: result.errorMessage } : undefined,
+    });
     stepsExecutedCount++;
     visited.add(currentNodeId);
 

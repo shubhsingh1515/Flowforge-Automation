@@ -31,6 +31,9 @@ import { CustomIntegrationsTab } from "../../components/developer/CustomIntegrat
 import { GovernanceTab } from "../../components/enterprise/GovernanceTab";
 import { AuditLogTab } from "../../components/enterprise/AuditLogTab";
 import { DataPrivacyTab } from "../../components/enterprise/DataPrivacyTab";
+import { SsoTab } from "../../components/enterprise/SsoTab";
+import { ScimTab } from "../../components/enterprise/ScimTab";
+import { SessionsTab } from "../../components/enterprise/SessionsTab";
 import { ShieldAlert, FileText, Database } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -38,7 +41,7 @@ export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<"profile" | "workspace" | "members" | "billing" | "security" | "api-keys" | "webhooks" | "custom-integrations" | "governance" | "audit-logs" | "data-privacy">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "workspace" | "members" | "billing" | "security" | "api-keys" | "webhooks" | "custom-integrations" | "governance" | "audit-logs" | "data-privacy" | "sso" | "scim">("profile");
 
   const [name, setName] = useState(user?.name || "");
   const [workspaceName, setWorkspaceName] = useState(user?.workspaceName || "");
@@ -328,6 +331,34 @@ export default function SettingsPage() {
         >
           <Database className="h-4 w-4" />
           <span>Data & Privacy</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveTab("sso"); setActionError(null); }}
+          data-testid="tab-sso"
+          className={cn(
+            "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
+            activeTab === "sso"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          )}
+        >
+          <Shield className="h-4 w-4" />
+          <span>Single Sign-On</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveTab("scim"); setActionError(null); }}
+          data-testid="tab-scim"
+          className={cn(
+            "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
+            activeTab === "scim"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          )}
+        >
+          <Users className="h-4 w-4" />
+          <span>SCIM Provisioning</span>
         </button>
       </div>
 
@@ -832,28 +863,7 @@ export default function SettingsPage() {
       )}
 
       {/* 5. Security Tab */}
-      {activeTab === "security" && (
-        <div className="max-w-xl rounded-xl border border-slate-200/80 bg-white p-6 shadow-2xs space-y-6">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 mb-1">Session & Authentication</h3>
-            <p className="text-xs text-slate-500">
-              Current session authenticated via secure HttpOnly JWT credentials.
-            </p>
-          </div>
-
-          <div className="rounded-lg border border-slate-200 p-4 bg-slate-50/50 space-y-2 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-slate-700">Active Authentication Token</span>
-              <span className="rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[10px] font-bold">
-                Valid & Verified
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-500">
-              Sessions are cryptographically signed using HMAC SHA-256 and expire in 7 days.
-            </p>
-          </div>
-        </div>
-      )}
+      {activeTab === "security" && <SessionsTab />}
 
       {/* 6. Developer Platform: API Keys Tab */}
       {activeTab === "api-keys" && <ApiKeysTab />}
@@ -872,6 +882,11 @@ export default function SettingsPage() {
 
       {/* 11. Customer Data Rights & Retention Tab */}
       {activeTab === "data-privacy" && <DataPrivacyTab />}
+          {/* 12. Enterprise SSO Tab */}
+      {activeTab === "sso" && <SsoTab />}
+
+      {/* 13. Enterprise SCIM Tab */}
+      {activeTab === "scim" && <ScimTab />}
     </AppShell>
   );
 }

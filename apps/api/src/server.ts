@@ -34,6 +34,11 @@ import { marketplaceRoutes } from "./routes/marketplace.js";
 import { governanceRoutes } from "./routes/governance.js";
 import { dataRetentionRoutes } from "./routes/dataRetention.js";
 import { readinessRoutes } from "./routes/readiness.js";
+import { ssoRoutes } from "./routes/sso.js";
+import { scimRoutes } from "./routes/scim.js";
+import { sessionRoutes } from "./routes/sessions.js";
+import { diagnosticsRoutes } from "./routes/diagnostics.js";
+import { operationsRoutes } from "./routes/operations.js";
 import { startWorker, stopWorker } from "./worker/worker.js";
 import { startOutboundWebhookWorker, stopOutboundWebhookWorker } from "./worker/outboundWebhookWorker.js";
 import { workflowScheduler } from "./worker/scheduler.js";
@@ -240,6 +245,11 @@ export async function buildServer(options: BuildServerOptions = {}) {
       await api.register(governanceRoutes);
       await api.register(dataRetentionRoutes);
       await api.register(readinessRoutes);
+      await api.register(ssoRoutes);
+      await api.register(scimRoutes);
+      await api.register(sessionRoutes);
+      await api.register(diagnosticsRoutes);
+      await api.register(operationsRoutes);
     },
     { prefix: config.apiPrefix }
   );

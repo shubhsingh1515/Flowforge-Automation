@@ -2,6 +2,7 @@ import { FastifyReply, FastifyRequest } from "fastify";
 import { prisma } from "@flowforge/database";
 import { ApiKeyScope } from "@flowforge/shared";
 import { apiKeyService } from "../services/apiKeys.js";
+import { sessionService } from "../services/sessions.js";
 
 export interface AuthenticatedUser {
   id: string;
@@ -75,6 +76,16 @@ export async function authenticateRequest(
 
     // 3. Otherwise verify session token via fastify jwt
     const decoded = request.server.jwt.verify<{ userId: string; workspaceId: string }>(token);
+
+    // Check if session was revoked
+    const isSessionActive = await sessionService.isSessionValid(token);
+    if (!isSessionActive) {
+      return reply.status(401).send({
+        error: "Unauthorized",
+        message: "Session has been revoked or expired. Please sign in again.",
+        statusCode: 401,
+      });
+    }
 
     // 4. Look up user and active workspace membership
     const user = await prisma.user.findUnique({
