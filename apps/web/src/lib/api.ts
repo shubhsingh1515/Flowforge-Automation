@@ -535,4 +535,87 @@ export const api = {
   status: {
     getPublic: () => request<any>("/status/public"),
   },
+
+  // Phase 12: Environments & Release Lifecycle
+  environments: {
+    list: () => request<{ data: any[] }>("/environments"),
+    get: (id: string) => request<{ data: any }>(`/environments/${id}`),
+    create: (body: any) => request<{ data: any }>("/environments", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: string, body: any) => request<{ data: any }>(`/environments/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    listVariables: (id: string) => request<{ data: any[] }>(`/environments/${id}/variables`),
+    setVariable: (id: string, body: any) => request<{ data: any }>(`/environments/${id}/variables`, { method: "POST", body: JSON.stringify(body) }),
+    deleteVariable: (id: string, key: string) => request<{ data: any }>(`/environments/${id}/variables/${key}`, { method: "DELETE" }),
+    listBindings: (id: string) => request<{ data: any[] }>(`/environments/${id}/bindings`),
+    setBinding: (id: string, body: any) => request<{ data: any }>(`/environments/${id}/bindings`, { method: "POST", body: JSON.stringify(body) }),
+    deleteBinding: (id: string, key: string) => request<{ data: any }>(`/environments/${id}/bindings/${key}`, { method: "DELETE" }),
+  },
+
+  // Phase 12: Release Artifacts
+  releases: {
+    list: (workflowId: string) => request<{ data: any[] }>(`/workflows/${workflowId}/releases`),
+    get: (id: string) => request<{ data: any }>(`/releases/${id}`),
+    create: (workflowId: string, body: any = {}) =>
+      request<{ data: any }>(`/workflows/${workflowId}/releases`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+  },
+
+  // Phase 12: Deployments & Promotion
+  deployments: {
+    list: (params?: { environmentId?: string; workflowId?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.environmentId) q.set("environmentId", params.environmentId);
+      if (params?.workflowId) q.set("workflowId", params.workflowId);
+      const qs = q.toString();
+      return request<{ data: any[] }>(`/deployments${qs ? `?${qs}` : ""}`);
+    },
+    validate: (body: { releaseArtifactId: string; environmentId: string }) =>
+      request<{ data: any }>("/deployments/validate", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    promote: (body: any) =>
+      request<{ data: any }>("/deployments/promote", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    get: (id: string) => request<{ data: any }>(`/deployments/${id}`),
+    decide: (id: string, body: { decision: "APPROVED" | "REJECTED"; comment?: string }) =>
+      request<{ data: any }>(`/deployments/${id}/decision`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    rollback: (body: any) =>
+      request<{ data: any }>("/deployments/rollback", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+  },
+
+  // Phase 12: Automated Workflow Testing
+  tests: {
+    list: (workflowId: string) => request<{ data: any[] }>(`/workflows/${workflowId}/tests`),
+    get: (id: string) => request<{ data: any }>(`/tests/${id}`),
+    create: (workflowId: string, body: any) =>
+      request<{ data: any }>(`/workflows/${workflowId}/tests`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    update: (id: string, body: any) =>
+      request<{ data: any }>(`/tests/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    delete: (id: string) =>
+      request<{ data: any }>(`/tests/${id}`, {
+        method: "DELETE",
+      }),
+    run: (id: string, body: any = {}) =>
+      request<{ data: any }>(`/tests/${id}/run`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    listRuns: (workflowId: string) => request<{ data: any[] }>(`/workflows/${workflowId}/test-runs`),
+  },
 };

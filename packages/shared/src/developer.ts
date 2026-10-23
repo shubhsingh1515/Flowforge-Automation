@@ -11,6 +11,14 @@ export const API_KEY_SCOPES = [
   "webhooks:manage",
   "integrations:read",
   "integrations:manage",
+  "environments:read",
+  "environments:write",
+  "releases:read",
+  "releases:create",
+  "deployments:promote",
+  "deployments:approve",
+  "deployments:rollback",
+  "tests:run",
 ] as const;
 
 export type ApiKeyScope = (typeof API_KEY_SCOPES)[number];
@@ -34,6 +42,10 @@ export const WEBHOOK_EVENTS = [
   "execution.cancelled",
   "approval.requested",
   "approval.decided",
+  "deployment.promoted",
+  "deployment.approved",
+  "deployment.failed",
+  "deployment.rolled_back",
 ] as const;
 
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];

@@ -147,4 +147,87 @@ describe("FlowForge TypeScript SDK Client Suite", () => {
     const del = await client.workflows.delete("wf-1");
     expect(del.success).toBe(true);
   });
+
+  it("interacts with environments and variables via SDK", async () => {
+    global.fetch = vi.fn().mockImplementation(async (url, init) => {
+      if (init?.method === "POST" && String(url).includes("/variables")) {
+        return { ok: true, status: 200, json: async () => ({ data: { key: "API_URL", value: "https://api.dev" } }) } as any;
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [{ id: "env-1", name: "Development", slug: "development" }] }),
+      } as any;
+    });
+
+    const client = new FlowForgeClient({ apiKey: "ff_live_valid" });
+    const envs = await client.environments.list();
+    expect(envs.data.length).toBe(1);
+    expect(envs.data[0].slug).toBe("development");
+
+    const variable = await client.environments.setVariable("env-1", {
+      key: "API_URL",
+      value: "https://api.dev",
+    });
+    expect(variable.data.key).toBe("API_URL");
+  });
+
+  it("manages release artifacts via SDK", async () => {
+    global.fetch = vi.fn().mockImplementation(async (url, init) => {
+      if (init?.method === "POST") {
+        return { ok: true, status: 201, json: async () => ({ data: { id: "rel-1", releaseNumber: 1, contentHash: "hash123" } }) } as any;
+      }
+      return { ok: true, status: 200, json: async () => ({ data: [{ id: "rel-1", releaseNumber: 1 }] }) } as any;
+    });
+
+    const client = new FlowForgeClient({ apiKey: "ff_live_valid" });
+    const release = await client.releases.create("wf-1", { summary: "Release 1" });
+    expect(release.data.releaseNumber).toBe(1);
+
+    const list = await client.releases.list("wf-1");
+    expect(list.data.length).toBe(1);
+  });
+
+  it("promotes releases and rolls back deployments via SDK", async () => {
+    global.fetch = vi.fn().mockImplementation(async (url, init) => {
+      if (String(url).includes("/rollback")) {
+        return { ok: true, status: 200, json: async () => ({ data: { id: "dep-2", status: "DEPLOYED", rollbackOfDeploymentId: "dep-1" } }) } as any;
+      }
+      return { ok: true, status: 201, json: async () => ({ data: { id: "dep-1", status: "DEPLOYED" } }) } as any;
+    });
+
+    const client = new FlowForgeClient({ apiKey: "ff_live_valid" });
+    const dep = await client.deployments.promote({
+      workflowId: "wf-1",
+      releaseArtifactId: "rel-1",
+      environmentId: "env-prod",
+    });
+    expect(dep.data.status).toBe("DEPLOYED");
+
+    const rollback = await client.deployments.rollback({
+      targetReleaseArtifactId: "rel-prior",
+      environmentId: "env-prod",
+      reason: "Emergency rollback",
+    });
+    expect(rollback.data.rollbackOfDeploymentId).toBe("dep-1");
+  });
+
+  it("creates and executes workflow test cases via SDK", async () => {
+    global.fetch = vi.fn().mockImplementation(async (url, init) => {
+      if (String(url).includes("/run")) {
+        return { ok: true, status: 200, json: async () => ({ data: { testRun: { id: "run-1", status: "PASSED" }, summary: { passedAssertions: 2 } } }) } as any;
+      }
+      return { ok: true, status: 201, json: async () => ({ data: { id: "tc-1", name: "Checkout Test" } }) } as any;
+    });
+
+    const client = new FlowForgeClient({ apiKey: "ff_live_valid" });
+    const tc = await client.tests.create("wf-1", {
+      name: "Checkout Test",
+      assertions: [],
+    });
+    expect(tc.data.id).toBe("tc-1");
+
+    const run = await client.tests.run("tc-1", { mode: "DRY_RUN" });
+    expect(run.data.testRun.status).toBe("PASSED");
+  });
 });

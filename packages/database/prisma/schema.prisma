@@ -130,6 +130,12 @@ model Workspace {
   notifications          Notification[]
   customerFeedback       CustomerFeedback[]
   supportBundles         SupportBundle[]
+  environments           WorkflowEnvironment[]
+  releaseArtifacts       WorkflowReleaseArtifact[]
+  deployments            WorkflowDeployment[]
+  deploymentPolicies     DeploymentPolicy[]
+  testCases              WorkflowTestCase[]
+  testRuns               WorkflowTestRun[]
 
   @@map("workspaces")
 }
@@ -168,6 +174,10 @@ model Workflow {
   webhookReceipts   WebhookEventReceipt[]
   scheduledTriggers ScheduledTrigger[]
   approvals         WorkflowApproval[]
+  releaseArtifacts  WorkflowReleaseArtifact[]
+  deployments       WorkflowDeployment[]
+  testCases         WorkflowTestCase[]
+  testRuns          WorkflowTestRun[]
 
   @@index([workspaceId, status])
   @@index([workspaceId, createdAt])
@@ -187,7 +197,8 @@ model WorkflowVersion {
   createdAt  DateTime @default(now())
 
   workflow   Workflow            @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  executions WorkflowExecution[]
+  executions       WorkflowExecution[]
+  releaseArtifacts WorkflowReleaseArtifact[]
 
   @@unique([workflowId, version])
   @@index([workflowId])
@@ -227,7 +238,8 @@ model ConnectedAccount {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace          Workspace                      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  credentialBindings EnvironmentCredentialBinding[]
 
   @@index([workspaceId])
   @@index([workspaceId, integrationKey])
@@ -291,6 +303,8 @@ model WorkflowExecution {
   id                 String          @id @default(uuid())
   workflowId         String
   versionId          String?
+  environmentId      String?
+  releaseArtifactId  String?
   status             ExecutionStatus @default(PENDING)
   attempt            Int             @default(1)
   maxAttempts        Int             @default(3)
@@ -953,3 +967,203 @@ model SupportBundle {
   @@map("support_bundles")
 }
 
+
+
+// ==========================================
+// PHASE 12: WORKFLOW ENVIRONMENTS & DEPLOYMENTS
+// ==========================================
+
+model WorkflowEnvironment {
+  id                      String   @id @default(uuid())
+  workspaceId             String
+  name                    String
+  slug                    String
+  type                    String   @default("DEVELOPMENT") // DEVELOPMENT, STAGING, PRODUCTION, CUSTOM
+  description             String?
+  isProtected             Boolean  @default(false)
+  requireApproval         Boolean  @default(false)
+  requirePassingTests     Boolean  @default(false)
+  activeReleaseArtifactId String?
+  deployedAt              DateTime?
+  deployedByUserId        String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  workspace               Workspace                      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  variables               EnvironmentVariable[]
+  bindings                EnvironmentCredentialBinding[]
+  deployments             WorkflowDeployment[]
+  testRuns                WorkflowTestRun[]
+  policy                  DeploymentPolicy?
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, type])
+  @@map("workflow_environments")
+}
+
+model EnvironmentVariable {
+  id              String   @id @default(uuid())
+  workspaceId     String
+  environmentId   String
+  key             String
+  value           String   // Plaintext or AES-256-GCM ciphertext
+  isSecret        Boolean  @default(false)
+  description     String?
+  updatedByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  environment     WorkflowEnvironment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+
+  @@unique([environmentId, key])
+  @@index([workspaceId])
+  @@index([environmentId])
+  @@map("environment_variables")
+}
+
+model EnvironmentCredentialBinding {
+  id                 String   @id @default(uuid())
+  workspaceId        String
+  environmentId      String
+  integrationKey     String
+  connectedAccountId String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  environment        WorkflowEnvironment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  connectedAccount   ConnectedAccount    @relation(fields: [connectedAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([environmentId, integrationKey])
+  @@index([workspaceId])
+  @@index([connectedAccountId])
+  @@map("environment_credential_bindings")
+}
+
+model WorkflowReleaseArtifact {
+  id                  String   @id @default(uuid())
+  workspaceId         String
+  workflowId          String
+  workflowVersionId   String?
+  versionNumber       Int
+  releaseNumber       Int
+  formatVersion       String   @default("flowforge.release/v1")
+  contentHash         String
+  canonicalDefinition Json
+  summary             String?
+  status              String   @default("READY") // READY, DEPRECATED
+  createdById         String?
+  createdAt           DateTime @default(now())
+
+  workspace           Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workflow            Workflow             @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflowVersion     WorkflowVersion?     @relation(fields: [workflowVersionId], references: [id], onDelete: SetNull)
+  deployments         WorkflowDeployment[]
+  testRuns            WorkflowTestRun[]
+
+  @@unique([workflowId, releaseNumber])
+  @@index([workspaceId, contentHash])
+  @@index([workflowId, createdAt])
+  @@map("workflow_release_artifacts")
+}
+
+model WorkflowDeployment {
+  id                        String    @id @default(uuid())
+  workspaceId               String
+  workflowId                String
+  releaseArtifactId         String
+  environmentId             String
+  status                    String    @default("PENDING_APPROVAL") // PENDING_APPROVAL, APPROVED, DEPLOYING, DEPLOYED, FAILED, CANCELLED, ROLLED_BACK, SUPERSEDED
+  previousReleaseArtifactId String?
+  diffSummary               Json?
+  validationResults         Json?
+  initiatedByUserId         String
+  approvedByUserId          String?
+  approvedAt                DateTime?
+  rollbackOfDeploymentId    String?
+  deployedAt                DateTime?
+  completedAt               DateTime?
+  failureReason             String?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+
+  workspace                 Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workflow                  Workflow                @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  releaseArtifact           WorkflowReleaseArtifact @relation(fields: [releaseArtifactId], references: [id], onDelete: Cascade)
+  environment               WorkflowEnvironment     @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, environmentId, status])
+  @@index([workflowId, environmentId])
+  @@index([releaseArtifactId])
+  @@map("workflow_deployments")
+}
+
+model DeploymentPolicy {
+  id                   String   @id @default(uuid())
+  workspaceId          String
+  environmentId        String   @unique
+  requireApproval      Boolean  @default(false)
+  requirePassingTests  Boolean  @default(false)
+  preventSelfApproval  Boolean  @default(true)
+  allowedPromoterRoles String[] @default(["OWNER", "ADMIN", "MEMBER"])
+  allowedApproverRoles String[] @default(["OWNER", "ADMIN"])
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  workspace            Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  environment          WorkflowEnvironment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("deployment_policies")
+}
+
+model WorkflowTestCase {
+  id             String   @id @default(uuid())
+  workspaceId    String
+  workflowId     String
+  name           String
+  description    String?
+  triggerPayload Json     @default("{}")
+  mockOutputs    Json     @default("{}")
+  expectedStatus String   @default("SUCCESS") // SUCCESS, FAILED
+  assertions     Json     @default("[]")
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  workspace      Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workflow       Workflow          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  testRuns       WorkflowTestRun[]
+
+  @@index([workflowId])
+  @@index([workspaceId])
+  @@map("workflow_test_cases")
+}
+
+model WorkflowTestRun {
+  id                 String   @id @default(uuid())
+  workspaceId        String
+  workflowId         String
+  testCaseId         String
+  releaseArtifactId  String?
+  releaseContentHash String?
+  environmentId      String?
+  mode               String   @default("DRY_RUN") // DRY_RUN, MOCKED, REAL_INTEGRATION
+  status             String   // PASSED, FAILED, ERROR
+  assertionResults   Json     @default("[]")
+  nodeResults        Json     @default("{}")
+  durationMs         Int      @default(0)
+  errorMessage       String?
+  executedByUserId   String?
+  createdAt          DateTime @default(now())
+
+  workspace          Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workflow           Workflow                 @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  testCase           WorkflowTestCase         @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  releaseArtifact    WorkflowReleaseArtifact? @relation(fields: [releaseArtifactId], references: [id], onDelete: SetNull)
+  environment        WorkflowEnvironment?     @relation(fields: [environmentId], references: [id], onDelete: SetNull)
+
+  @@index([testCaseId, status])
+  @@index([releaseContentHash, status])
+  @@index([workspaceId])
+  @@map("workflow_test_runs")
+}

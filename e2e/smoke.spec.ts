@@ -727,4 +727,92 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     await expect(page.locator("text=Core Platform Components")).toBeVisible();
     await expect(page.locator("text=Past Incident History")).toBeVisible();
   });
+
+  test("31. Phase 12 Environment Management & Configuration", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/environments");
+    await page.waitForLoadState("networkidle");
+
+    // Verify Heading
+    await expect(page.getByRole("heading", { name: "Workflow Environments & Release Promotion" })).toBeVisible();
+
+    // Verify Default Environment Cards
+    await expect(page.locator('[data-testid="card-env-development"]')).toBeVisible();
+    await expect(page.locator('[data-testid="card-env-staging"]')).toBeVisible();
+    await expect(page.locator('[data-testid="card-env-production"]')).toBeVisible();
+
+    // Navigate to Variables Tab
+    const varTab = page.locator('[data-testid="tab-env-variables"]');
+    await expect(varTab).toBeVisible();
+    await varTab.click();
+
+    // Open Add Variable Modal
+    const addVarBtn = page.locator('[data-testid="btn-add-variable"]');
+    await expect(addVarBtn).toBeVisible();
+    await addVarBtn.click();
+
+    // Fill in Variable Details
+    await page.locator('[data-testid="input-var-key"]').fill("PAYMENT_GATEWAY_URL");
+    await page.locator('[data-testid="input-var-value"]').fill("https://mock.gateway.acme.com");
+    await page.locator('[data-testid="checkbox-var-secret"]').check();
+
+    // Save Variable
+    await page.locator('[data-testid="btn-save-variable"]').click();
+
+    // Verify Variable in Table with Secret Redaction
+    await expect(page.locator("text=PAYMENT_GATEWAY_URL")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=[REDACTED SECRET]")).toBeVisible();
+  });
+
+  test("32. Phase 12 Immutable Releases & Automated Pre-Deployment Tests", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/environments");
+    await page.waitForLoadState("networkidle");
+
+    // Navigate to Automated Testing Tab
+    const testTab = page.locator('[data-testid="tab-env-testing"]');
+    await expect(testTab).toBeVisible();
+    await testTab.click();
+
+    // Verify Test Center Header
+    await expect(page.locator("text=Pre-Deployment Automated Test Center")).toBeVisible();
+
+    // Create Release Artifact
+    const createReleaseBtn = page.locator('[data-testid="btn-create-release"]');
+    await expect(createReleaseBtn).toBeVisible();
+    await createReleaseBtn.click();
+
+    // Verify Release Artifact Creation Feedback
+    await expect(
+      page.locator("text=Immutable release artifact created with verified SHA-256 hash.")
+    ).toBeVisible({ timeout: 10000 });
+  });
+
+  test("33. Phase 12 Release Promotion, Validation & Safe Rollback", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/environments");
+    await page.waitForLoadState("networkidle");
+
+    // Open Promotion Modal
+    const promoteBtn = page.locator('[data-testid="btn-open-promote-modal"]');
+    await expect(promoteBtn).toBeVisible();
+    await promoteBtn.click();
+
+    // Verify Promotion Modal Heading
+    await expect(page.locator("text=Promote Release to")).toBeVisible();
+    await expect(page.locator('[data-testid="select-release-candidate"]')).toBeVisible();
+
+    // Close Promotion Modal
+    await page.locator('button:has-text("Cancel")').first().click();
+
+    // Open Rollback Modal
+    const rollbackBtn = page.locator('[data-testid="btn-open-rollback-modal"]');
+    await expect(rollbackBtn).toBeVisible();
+    await rollbackBtn.click();
+
+    // Verify Rollback Modal Heading
+    await expect(page.getByRole("heading", { name: "Rollback Release" })).toBeVisible();
+    await expect(page.locator('[data-testid="select-rollback-release"]')).toBeVisible();
+    await page.locator('button:has-text("Cancel")').first().click();
+  });
 });

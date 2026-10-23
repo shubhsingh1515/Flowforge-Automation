@@ -289,6 +289,112 @@ export class FlowForgeClient {
   // ==========================================
   // SYSTEM HEALTH
   // ==========================================
+  // ==========================================
+  // ENVIRONMENTS RESOURCE
+  // ==========================================
+  public readonly environments = {
+    list: async () => {
+      return this.request<{ data: any[] }>("/environments");
+    },
+    get: async (idOrSlug: string) => {
+      return this.request<{ data: any }>(`/environments/${idOrSlug}`);
+    },
+    create: async (data: { name: string; slug: string; type?: string; description?: string; isProtected?: boolean; requireApproval?: boolean; requirePassingTests?: boolean }) => {
+      return this.request<{ data: any }>("/environments", "POST", data);
+    },
+    update: async (id: string, data: any) => {
+      return this.request<{ data: any }>(`/environments/${id}`, "PATCH", data);
+    },
+    listVariables: async (environmentId: string) => {
+      return this.request<{ data: any[] }>(`/environments/${environmentId}/variables`);
+    },
+    setVariable: async (environmentId: string, data: { key: string; value: string; isSecret?: boolean; description?: string }) => {
+      return this.request<{ data: any }>(`/environments/${environmentId}/variables`, "POST", data);
+    },
+    deleteVariable: async (environmentId: string, key: string) => {
+      return this.request<{ data: any }>(`/environments/${environmentId}/variables/${key}`, "DELETE");
+    },
+    listBindings: async (environmentId: string) => {
+      return this.request<{ data: any[] }>(`/environments/${environmentId}/bindings`);
+    },
+    setBinding: async (environmentId: string, data: { integrationKey: string; connectedAccountId: string }) => {
+      return this.request<{ data: any }>(`/environments/${environmentId}/bindings`, "POST", data);
+    },
+    deleteBinding: async (environmentId: string, integrationKey: string) => {
+      return this.request<{ data: any }>(`/environments/${environmentId}/bindings/${integrationKey}`, "DELETE");
+    },
+  };
+
+  // ==========================================
+  // RELEASES RESOURCE
+  // ==========================================
+  public readonly releases = {
+    list: async (workflowId: string) => {
+      return this.request<{ data: any[] }>(`/workflows/${workflowId}/releases`);
+    },
+    get: async (releaseId: string) => {
+      return this.request<{ data: any }>(`/releases/${releaseId}`);
+    },
+    create: async (workflowId: string, options?: { summary?: string; workflowVersionId?: string }) => {
+      return this.request<{ data: any }>(`/workflows/${workflowId}/releases`, "POST", options || {});
+    },
+  };
+
+  // ==========================================
+  // DEPLOYMENTS RESOURCE
+  // ==========================================
+  public readonly deployments = {
+    list: async (params?: { environmentId?: string; workflowId?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.environmentId) q.set("environmentId", params.environmentId);
+      if (params?.workflowId) q.set("workflowId", params.workflowId);
+      const qs = q.toString();
+      return this.request<{ data: any[] }>(`/deployments${qs ? `?${qs}` : ""}`);
+    },
+    get: async (deploymentId: string) => {
+      return this.request<{ data: any }>(`/deployments/${deploymentId}`);
+    },
+    validate: async (data: { releaseArtifactId: string; environmentId: string }) => {
+      return this.request<{ data: any }>("/deployments/validate", "POST", data);
+    },
+    promote: async (data: { workflowId: string; releaseArtifactId: string; environmentId: string; expectedCurrentReleaseId?: string }, options?: RequestOptions) => {
+      return this.request<{ data: any }>("/deployments/promote", "POST", data, options);
+    },
+    decide: async (deploymentId: string, decision: "APPROVED" | "REJECTED", comment?: string) => {
+      return this.request<{ data: any }>(`/deployments/${deploymentId}/decision`, "POST", { decision, comment });
+    },
+    rollback: async (data: { targetReleaseArtifactId: string; environmentId: string; reason?: string }, options?: RequestOptions) => {
+      return this.request<{ data: any }>("/deployments/rollback", "POST", data, options);
+    },
+  };
+
+  // ==========================================
+  // WORKFLOW TESTING RESOURCE
+  // ==========================================
+  public readonly tests = {
+    list: async (workflowId: string) => {
+      return this.request<{ data: any[] }>(`/workflows/${workflowId}/tests`);
+    },
+    get: async (testCaseId: string) => {
+      return this.request<{ data: any }>(`/tests/${testCaseId}`);
+    },
+    create: async (workflowId: string, data: any) => {
+      return this.request<{ data: any }>(`/workflows/${workflowId}/tests`, "POST", data);
+    },
+    update: async (testCaseId: string, data: any) => {
+      return this.request<{ data: any }>(`/tests/${testCaseId}`, "PATCH", data);
+    },
+    delete: async (testCaseId: string) => {
+      return this.request<{ data: any }>(`/tests/${testCaseId}`, "DELETE");
+    },
+    run: async (testCaseId: string, options?: { mode?: string; releaseArtifactId?: string; environmentId?: string }) => {
+      return this.request<{ data: any }>(`/tests/${testCaseId}/run`, "POST", options || {});
+    },
+    listRuns: async (workflowId: string) => {
+      return this.request<{ data: any[] }>(`/workflows/${workflowId}/test-runs`);
+    },
+  };
+
   public readonly health = {
     check: async () => {
       return this.request<{ status: string; uptime: number; version?: string }>("/health");
