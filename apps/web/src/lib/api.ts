@@ -467,6 +467,26 @@ export const api = {
       const qs = q.toString();
       return request<any>(`/operations/reconciliation/logs${qs ? `?${qs}` : ""}`);
     },
+    getOutbox: () => request<any>("/operations/outbox"),
+    replayOutbox: (body?: any) =>
+      request<any>("/operations/outbox/replay", {
+        method: "POST",
+        body: JSON.stringify(body || {}),
+      }),
+    processOutbox: (limit?: number) =>
+      request<any>("/operations/outbox/process", {
+        method: "POST",
+        body: JSON.stringify({ limit: limit || 50 }),
+      }),
+    getBackupVerifications: (limit?: number) =>
+      request<any>(`/operations/backup/verification${limit ? `?limit=${limit}` : ""}`),
+    verifyBackup: (body?: any) =>
+      request<any>("/operations/backup/verify", {
+        method: "POST",
+        body: JSON.stringify(body || {}),
+      }),
+    getRecoveryLogs: (limit?: number) =>
+      request<any>(`/operations/recovery/logs${limit ? `?limit=${limit}` : ""}`),
   },
 
   // Phase 11: Product Analytics

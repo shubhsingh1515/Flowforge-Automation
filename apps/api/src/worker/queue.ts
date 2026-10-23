@@ -4,6 +4,10 @@ import { config } from "../config.js";
 import { QueueHealthMetricsDto } from "@flowforge/shared";
 
 export const QUEUE_NAME = "workflow-execution";
+export const QUEUE_BACKPRESSURE_THRESHOLD = parseInt(
+  process.env.QUEUE_BACKPRESSURE_THRESHOLD || "5000",
+  10
+);
 
 // Redis connection instance
 export const redisConnection = new Redis(config.redisUrl, {
@@ -39,7 +43,50 @@ export const workflowQueue = new Queue<WorkflowJobData>(QUEUE_NAME, {
   },
 });
 
-export async function enqueueWorkflowExecution(data: WorkflowJobData) {
+/**
+ * Checks whether the workflow queue depth exceeds safe backpressure thresholds.
+ */
+export async function checkQueueBackpressure(): Promise<{
+  isBackpressureActive: boolean;
+  waitingCount: number;
+  threshold: number;
+  retryAfterSeconds: number;
+}> {
+  try {
+    const waitingCount = await workflowQueue.getWaitingCount();
+    const isBackpressureActive = waitingCount >= QUEUE_BACKPRESSURE_THRESHOLD;
+    return {
+      isBackpressureActive,
+      waitingCount,
+      threshold: QUEUE_BACKPRESSURE_THRESHOLD,
+      retryAfterSeconds: isBackpressureActive ? 30 : 0,
+    };
+  } catch (_e) {
+    return {
+      isBackpressureActive: false,
+      waitingCount: 0,
+      threshold: QUEUE_BACKPRESSURE_THRESHOLD,
+      retryAfterSeconds: 0,
+    };
+  }
+}
+
+export async function enqueueWorkflowExecution(
+  data: WorkflowJobData,
+  enforceBackpressure = false
+) {
+  if (enforceBackpressure) {
+    const bp = await checkQueueBackpressure();
+    if (bp.isBackpressureActive) {
+      const err: any = new Error(
+        `Queue backpressure threshold reached (${bp.waitingCount} waiting >= ${bp.threshold}). Load shedding active.`
+      );
+      err.statusCode = 429;
+      err.retryAfterSeconds = bp.retryAfterSeconds;
+      throw err;
+    }
+  }
+
   const jobKey = data.resumeNodeId
     ? `job_${data.executionId}_resume_${Date.now()}`
     : `job_${data.executionId}_att_${data.attempt || 1}`;
@@ -61,6 +108,10 @@ export async function getQueueHealth(): Promise<{
     oldestJobAgeSeconds: number;
   };
   details?: QueueHealthMetricsDto;
+  backpressure?: {
+    isBackpressureActive: boolean;
+    threshold: number;
+  };
   error?: string;
 }> {
   try {
@@ -75,7 +126,10 @@ export async function getQueueHealth(): Promise<{
     ]);
 
     const oldestJob = waitingJobs && waitingJobs[0];
-    const oldestJobAgeSeconds = oldestJob && oldestJob.timestamp ? Math.max(0, Math.round((Date.now() - oldestJob.timestamp) / 1000)) : 0;
+    const oldestJobAgeSeconds =
+      oldestJob && oldestJob.timestamp
+        ? Math.max(0, Math.round((Date.now() - oldestJob.timestamp) / 1000))
+        : 0;
 
     const details: QueueHealthMetricsDto = {
       queueName: QUEUE_NAME,
@@ -102,6 +156,10 @@ export async function getQueueHealth(): Promise<{
         oldestJobAgeSeconds,
       },
       details,
+      backpressure: {
+        isBackpressureActive: waiting >= QUEUE_BACKPRESSURE_THRESHOLD,
+        threshold: QUEUE_BACKPRESSURE_THRESHOLD,
+      },
     };
   } catch (err: any) {
     return {
@@ -114,6 +172,10 @@ export async function getQueueHealth(): Promise<{
         failed: 0,
         delayed: 0,
         oldestJobAgeSeconds: 0,
+      },
+      backpressure: {
+        isBackpressureActive: false,
+        threshold: QUEUE_BACKPRESSURE_THRESHOLD,
       },
       error: err.message,
     };

@@ -1,4 +1,5 @@
 import { outboundWebhookService } from "../services/outboundWebhooks.js";
+import { outboxService } from "../services/outboxService.js";
 import { prisma, ExecutionStatus } from "@flowforge/database";
 import { config } from "../config.js";
 import { workflowExecutionsTotal, workflowExecutionDuration } from "../metrics.js";
@@ -20,6 +21,7 @@ export interface WorkflowRunOptions {
   traceparent?: string;
   attempt?: number;
   resumeNodeId?: string;
+  workerId?: string;
 }
 
 export interface WorkflowRunResult {
@@ -39,25 +41,10 @@ async function executeWorkflowInternal(
   const attempt = options.attempt || 1;
   const traceCtx = tracingService.generateTraceContext(options.traceparent);
 
-  // 1. Fetch current execution record to check if already cancelled
+  // 1. Fetch current execution record to check if already cancelled or invalid
   const initialExecution = await prisma.workflowExecution.findUnique({
     where: { id: options.executionId },
   });
-
-  const timelineMilestones: DiagnosticMilestone[] = [
-    {
-      id: `ms_queued_${options.executionId}`,
-      type: "QUEUED",
-      timestamp: new Date(initialExecution ? initialExecution.createdAt : Date.now()).toISOString(),
-      details: { attempt },
-    },
-    {
-      id: `ms_started_${options.executionId}`,
-      type: "STARTED",
-      timestamp: new Date().toISOString(),
-      details: { correlationId, traceparent: traceCtx.traceparent },
-    },
-  ];
 
   if (!initialExecution) {
     return {
@@ -79,17 +66,75 @@ async function executeWorkflowInternal(
     };
   }
 
-  // 2. Update execution record to RUNNING
-  await prisma.workflowExecution.update({
-    where: { id: options.executionId },
+  const timelineMilestones: DiagnosticMilestone[] = [
+    {
+      id: `ms_queued_${options.executionId}`,
+      type: "QUEUED",
+      timestamp: new Date(initialExecution.createdAt).toISOString(),
+      details: { attempt },
+    },
+    {
+      id: `ms_started_${options.executionId}`,
+      type: "STARTED",
+      timestamp: new Date().toISOString(),
+      details: { correlationId, traceparent: traceCtx.traceparent },
+    },
+  ];
+
+  // Phase 15: Worker Leasing & Monotonically Increasing Fencing Token
+  const workerId = options.workerId || `worker_${process.pid}_${Math.random().toString(36).substring(2, 6)}`;
+  const LEASE_DURATION_MS = 30000; // 30 second heartbeat lease
+  const leaseExpiresAt = new Date(Date.now() + LEASE_DURATION_MS);
+  const nextLeaseToken = (initialExecution.leaseToken || 0) + 1;
+
+  // Atomically acquire lease
+  const leaseAcquisition = await prisma.workflowExecution.updateMany({
+    where: {
+      id: options.executionId,
+      status: { in: [ExecutionStatus.PENDING, ExecutionStatus.RUNNING, ExecutionStatus.WAITING_APPROVAL] },
+      OR: [
+        { leaseExpiresAt: null },
+        { leaseExpiresAt: { lt: new Date() } },
+        { leaseOwner: workerId },
+      ],
+    },
     data: {
       status: ExecutionStatus.RUNNING,
+      leaseOwner: workerId,
+      leaseToken: nextLeaseToken,
+      leaseExpiresAt,
       startedAt: initialExecution.startedAt || new Date(),
       correlationId,
       attempt,
       triggerEvent: options.triggerPayload as any,
     },
   });
+
+  if (leaseAcquisition.count === 0) {
+    return {
+      executionId: options.executionId,
+      status: "FAILED",
+      stepsExecuted: 0,
+      errorSummary: "Concurrent worker lease conflict: execution is currently owned by another worker with an unexpired lease.",
+      errorCategory: "INTERNAL_ERROR",
+      durationMs: Date.now() - startTime,
+    };
+  }
+
+  const currentLeaseToken = nextLeaseToken;
+
+  // Fencing token verification helper
+  const verifyFencing = async (): Promise<boolean> => {
+    const current = await prisma.workflowExecution.findUnique({
+      where: { id: options.executionId },
+      select: { leaseToken: true, status: true },
+    });
+    return !!(
+      current &&
+      current.leaseToken === currentLeaseToken &&
+      current.status !== ExecutionStatus.CANCELLED
+    );
+  };
 
   // 3. Load Workflow and its Version
   const workflow = await prisma.workflow.findUnique({
@@ -125,8 +170,14 @@ async function executeWorkflowInternal(
     };
   }
 
-  // Phase 10: Horizontal Scaling & Concurrency Isolation
-  if (!options.resumeNodeId) {
+  // Phase 10 & 15: Resumption does not count as a new concurrency or quota allocation
+  const isResumingExecution = !!(
+    options.resumeNodeId ||
+    initialExecution.lastCheckpointNodeId ||
+    (initialExecution.recoveryAttempts && initialExecution.recoveryAttempts > 0)
+  );
+
+  if (!isResumingExecution) {
     const concurrentCheck = await entitlementService.canExecuteConcurrentWorkflow(workflow.workspaceId);
     if (!concurrentCheck.allowed) {
       const errorMsg = concurrentCheck.reason || "Concurrent execution quota exceeded for this workspace.";
@@ -152,7 +203,7 @@ async function executeWorkflowInternal(
   }
 
   // Phase 6: Server-authoritative execution quota check
-  if (!options.resumeNodeId) {
+  if (!isResumingExecution) {
     const quotaCheck = await entitlementService.canExecuteWorkflow(workflow.workspaceId);
     if (!quotaCheck.allowed) {
       const errorMsg = quotaCheck.reason || "Monthly execution quota exceeded for this workspace.";
@@ -253,11 +304,46 @@ async function executeWorkflowInternal(
   const skippedNodes = new Set<string>();
   const skippedEdges = new Set<string>();
 
+  // Phase 15 Checkpointing: Load all prior durable step executions
+  const priorSteps = await prisma.workflowStepExecution.findMany({
+    where: { executionId: options.executionId, status: ExecutionStatus.SUCCESS },
+    orderBy: { startedAt: "asc" },
+  });
+  const checkpointedMap = new Map<string, any>(priorSteps.map((s) => [s.nodeId, s]));
+
+  for (const past of priorSteps) {
+    context.steps[past.nodeId] = {
+      input: past.inputData,
+      output: past.outputData,
+      status: "SUCCESS",
+    };
+    visited.add(past.nodeId);
+    if (past.branch) {
+      activeBranches.set(past.nodeId, past.branch);
+    }
+  }
+
   // Determine starting node(s)
   const queue: string[] = [];
   if (options.resumeNodeId) {
-    // If resuming at a specific node
     queue.push(options.resumeNodeId);
+  } else if (priorSteps.length > 0) {
+    // Checkpoint resumption: enqueue unvisited downstream targets from completed steps
+    for (const past of priorSteps) {
+      const outEdges = outgoingEdges.get(past.nodeId) || [];
+      for (const edge of outEdges) {
+        if (past.branch) {
+          const edgeHandle = edge.sourceHandle || (edge.label || "").toLowerCase();
+          if (edgeHandle && edgeHandle !== past.branch) {
+            skippedEdges.add(edge.id);
+            continue;
+          }
+        }
+        if (!visited.has(edge.target) && !queue.includes(edge.target)) {
+          queue.push(edge.target);
+        }
+      }
+    }
   } else if (triggerNode) {
     queue.push(triggerNode.id);
   }
@@ -265,6 +351,17 @@ async function executeWorkflowInternal(
   let stepsExecutedCount = 0;
   const executionTrace: Array<{ nodeId: string; status: string; durationMs: number; branch?: string }> =
     savedState?.executionTrace || [];
+
+  for (const past of priorSteps) {
+    if (!executionTrace.some((t) => t.nodeId === past.nodeId)) {
+      executionTrace.push({
+        nodeId: past.nodeId,
+        status: "SUCCESS",
+        durationMs: past.durationMs || 0,
+        branch: past.branch || undefined,
+      });
+    }
+  }
 
   while (queue.length > 0) {
     // Check if cancellation was requested mid-execution
@@ -341,6 +438,26 @@ async function executeWorkflowInternal(
     }
 
     const currentNodeId = queue.shift()!;
+
+    // Phase 15 Checkpoint Resumption: skip re-running nodes that already succeeded
+    if (checkpointedMap.has(currentNodeId) && currentNodeId !== options.resumeNodeId) {
+      const pastStep = checkpointedMap.get(currentNodeId)!;
+      const outEdges = outgoingEdges.get(currentNodeId) || [];
+      for (const edge of outEdges) {
+        if (pastStep.branch) {
+          const edgeHandle = edge.sourceHandle || (edge.label || "").toLowerCase();
+          if (edgeHandle && edgeHandle !== pastStep.branch) {
+            skippedEdges.add(edge.id);
+            continue;
+          }
+        }
+        if (!visited.has(edge.target)) {
+          queue.push(edge.target);
+        }
+      }
+      continue;
+    }
+
     if (visited.has(currentNodeId) && currentNodeId !== options.resumeNodeId) continue;
     if (skippedNodes.has(currentNodeId)) continue;
 
@@ -353,7 +470,7 @@ async function executeWorkflowInternal(
 
     for (const inEdge of incoming) {
       if (skippedEdges.has(inEdge.id)) {
-        continue; // Upstream branch was not chosen, so don't wait on this edge
+        continue;
       }
 
       if (!visited.has(inEdge.source) && inEdge.source !== options.resumeNodeId) {
@@ -361,7 +478,6 @@ async function executeWorkflowInternal(
         break;
       }
 
-      // Check condition routing from source node
       const sourceBranch = activeBranches.get(inEdge.source);
       if (sourceBranch !== undefined && sourceBranch !== null) {
         const edgeHandle = inEdge.sourceHandle || (inEdge.label || "").toLowerCase();
@@ -373,8 +489,21 @@ async function executeWorkflowInternal(
       }
     }
 
-    if (!canExecute && incoming.length > 0 && currentNodeId !== options.resumeNodeId) {
+    if (!canExecute) {
+      skippedNodes.add(currentNodeId);
       continue;
+    }
+
+    // Phase 15: Verify fencing token before step execution
+    if (!(await verifyFencing())) {
+      return {
+        executionId: options.executionId,
+        status: "FAILED",
+        stepsExecuted: stepsExecutedCount,
+        errorSummary: "Execution fencing rejected: worker lease was preempted or lease expired before step execution.",
+        errorCategory: "INTERNAL_ERROR",
+        durationMs: Date.now() - startTime,
+      };
     }
 
     // Step Execution Record in DB
@@ -464,6 +593,18 @@ async function executeWorkflowInternal(
       };
     }
 
+    // Phase 15: Verify fencing token before committing step results
+    if (!(await verifyFencing())) {
+      return {
+        executionId: options.executionId,
+        status: "FAILED",
+        stepsExecuted: stepsExecutedCount,
+        errorSummary: "Execution fencing rejected: worker lease was preempted during step execution.",
+        errorCategory: "INTERNAL_ERROR",
+        durationMs: Date.now() - startTime,
+      };
+    }
+
     const stepDuration = Date.now() - stepStartTime;
     timelineMilestones.push({
       id: `ms_step_end_${currentNodeId}_${Date.now()}`,
@@ -496,6 +637,9 @@ async function executeWorkflowInternal(
         where: { id: options.executionId },
         data: {
           status: ExecutionStatus.WAITING_APPROVAL,
+          leaseOwner: null,
+          leaseExpiresAt: null,
+          lastCheckpointNodeId: currentNodeId,
           executionState: {
             context,
             visited: Array.from(visited),
@@ -522,6 +666,7 @@ async function executeWorkflowInternal(
         outputData: (result.outputData as any) || null,
         errorMessage: result.errorMessage || null,
         errorCategory: result.errorCategory || null,
+        branch: result.selectedBranch || null,
         finishedAt: new Date(),
         durationMs: stepDuration,
       },
@@ -556,6 +701,20 @@ async function executeWorkflowInternal(
         },
       });
 
+      // Transactional Outbox for failure notification
+      await outboxService.enqueueEvent({
+        workspaceId: workflow.workspaceId,
+        eventType: "execution.failed",
+        payload: {
+          executionId: options.executionId,
+          workflowId: options.workflowId,
+          errorSummary: summary,
+          errorCategory: result.errorCategory || "INTERNAL_ERROR",
+          durationMs: Date.now() - startTime,
+        },
+        idempotencyKey: `exec_fail_${options.executionId}_att_${attempt}`,
+      }).catch(() => {});
+
       return {
         executionId: options.executionId,
         status: "FAILED",
@@ -565,6 +724,15 @@ async function executeWorkflowInternal(
         durationMs: Date.now() - startTime,
       };
     }
+
+    // Phase 15 Checkpoint & Lease Heartbeat update
+    await prisma.workflowExecution.update({
+      where: { id: options.executionId },
+      data: {
+        lastCheckpointNodeId: currentNodeId,
+        leaseExpiresAt: new Date(Date.now() + LEASE_DURATION_MS),
+      },
+    });
 
     // Branching logic for Condition / Decision nodes
     if (result.selectedBranch) {
@@ -578,7 +746,7 @@ async function executeWorkflowInternal(
         const edgeHandle = edge.sourceHandle || (edge.label || "").toLowerCase();
         if (edgeHandle && edgeHandle !== result.selectedBranch) {
           skippedEdges.add(edge.id);
-          continue; // Skip edges that don't match the taken branch
+          continue;
         }
       }
 
@@ -590,20 +758,45 @@ async function executeWorkflowInternal(
 
   // Finalize Workflow Execution as SUCCESS
   const totalDuration = Date.now() - startTime;
-  outboundWebhookService.emitEvent(workflow.workspaceId, "execution.succeeded", {
-    executionId: options.executionId,
-    workflowId: options.workflowId,
-    durationMs: totalDuration,
-  }).catch(() => {});
+
+  // Phase 15: Verify fencing before final state commit
+  if (!(await verifyFencing())) {
+    return {
+      executionId: options.executionId,
+      status: "FAILED",
+      stepsExecuted: stepsExecutedCount,
+      errorSummary: "Execution fencing rejected: worker lease was preempted before final commit.",
+      errorCategory: "INTERNAL_ERROR",
+      durationMs: totalDuration,
+    };
+  }
+
+  // Atomically update execution to SUCCESS
   await prisma.workflowExecution.update({
     where: { id: options.executionId },
     data: {
       status: ExecutionStatus.SUCCESS,
       finishedAt: new Date(),
       durationMs: totalDuration,
+      leaseExpiresAt: null, // Clear active lease
       executionTrace: executionTrace as any,
       executionState: { context, visited: Array.from(visited) } as any,
     },
+  });
+
+  // Enqueue outbox event for reliable asynchronous delivery
+  await outboxService.enqueueEvent({
+    workspaceId: workflow.workspaceId,
+    eventType: "execution.succeeded",
+    payload: {
+      executionId: options.executionId,
+      workflowId: options.workflowId,
+      durationMs: totalDuration,
+      stepsExecuted: stepsExecutedCount,
+    },
+    idempotencyKey: `exec_succ_${options.executionId}_${currentLeaseToken}`,
+  }).catch((err) => {
+    console.warn(`Failed to enqueue outbox event for execution ${options.executionId}: ${err.message}`);
   });
 
   return {

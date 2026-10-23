@@ -332,4 +332,61 @@ describe("FlowForge TypeScript SDK Client Suite", () => {
     const audit = await client.compliance.searchAuditLogs({ keyword: "ORG" });
     expect(audit.logs[0].action).toBe("ORG_CREATE");
   });
+
+  it("supports Phase 15 high availability, outbox, backup verification, and disaster recovery operations", async () => {
+    global.fetch = vi.fn().mockImplementation(async (url: string, init: any) => {
+      const u = url.toString();
+      if (u.includes("/operations/overview")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            overview: {
+              systemStatus: "HEALTHY",
+              workerReliability: { fencingEnabled: true, activeLeases: 2 },
+              outbox: { pendingCount: 0, deliveredCount: 42, deadLetterCount: 0 },
+              disasterRecovery: { lastBackupStatus: "VERIFIED", rtoTargetSeconds: 300, rpoTargetSeconds: 3600 },
+            },
+          }),
+        } as any;
+      }
+      if (u.includes("/operations/outbox/replay")) {
+        return { ok: true, status: 200, json: async () => ({ success: true, replayedCount: 3 }) } as any;
+      }
+      if (u.includes("/operations/outbox")) {
+        return { ok: true, status: 200, json: async () => ({ outbox: { pendingCount: 1, deadLetterCount: 0 } }) } as any;
+      }
+      if (u.includes("/operations/backup/verify")) {
+        return { ok: true, status: 200, json: async () => ({ record: { status: "VERIFIED", checksumSha256: "abc123sha" } }) } as any;
+      }
+      if (u.includes("/operations/backup/verification")) {
+        return { ok: true, status: 200, json: async () => ({ records: [{ id: "rec-1", status: "VERIFIED" }], drStatus: {} }) } as any;
+      }
+      if (u.includes("/operations/recovery/logs")) {
+        return { ok: true, status: 200, json: async () => ({ logs: [{ id: "log-1", operationType: "BACKUP_VERIFICATION" }] }) } as any;
+      }
+      return { ok: true, status: 200, json: async () => ({}) } as any;
+    });
+
+    const client = new FlowForgeClient({ apiKey: "ff_live_valid" });
+
+    const overview = await client.operations.getOverview();
+    expect(overview.overview.systemStatus).toBe("HEALTHY");
+    expect(overview.overview.workerReliability.fencingEnabled).toBe(true);
+
+    const outbox = await client.operations.getOutboxOverview();
+    expect(outbox.outbox.pendingCount).toBe(1);
+
+    const replay = await client.operations.replayOutbox({ limit: 10 });
+    expect(replay.replayedCount).toBe(3);
+
+    const drill = await client.operations.runBackupVerification({ dryRun: true });
+    expect(drill.record.status).toBe("VERIFIED");
+
+    const verifications = await client.operations.listBackupVerifications(5);
+    expect(verifications.records[0].status).toBe("VERIFIED");
+
+    const logs = await client.operations.getRecoveryLogs();
+    expect(logs.logs[0].operationType).toBe("BACKUP_VERIFICATION");
+  });
 });

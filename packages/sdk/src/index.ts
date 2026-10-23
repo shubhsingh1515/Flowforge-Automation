@@ -617,4 +617,34 @@ export class FlowForgeClient {
       return this.request<{ status: string; uptime: number; version?: string }>("/health");
     },
   };
+
+  public readonly operations = {
+    getOverview: async () => {
+      return this.request<{ overview: any }>("/operations/overview");
+    },
+    reconcile: async (data?: { mode?: 'dry-run' | 'execute'; maxAgeMinutes?: number; limit?: number; allowCrashRecovery?: boolean }) => {
+      return this.request<any>("/operations/reconcile", "POST", data || {});
+    },
+    getReconciliationLogs: async (limit?: number) => {
+      return this.request<{ logs: any[] }>("/operations/reconciliation-logs" + (limit ? "?limit=" + limit : ""));
+    },
+    getOutboxOverview: async () => {
+      return this.request<{ outbox: any }>("/operations/outbox");
+    },
+    replayOutbox: async (data?: { eventIds?: string[]; limit?: number }) => {
+      return this.request<{ success: boolean; replayedCount: number }>("/operations/outbox/replay", "POST", data || {});
+    },
+    processOutbox: async (limit?: number) => {
+      return this.request<{ success: boolean; processed: number; delivered: number; failed: number; deadLettered: number }>("/operations/outbox/process", "POST", { limit });
+    },
+    listBackupVerifications: async (limit?: number) => {
+      return this.request<{ records: any[]; drStatus: any }>("/operations/backup/verification" + (limit ? "?limit=" + limit : ""));
+    },
+    runBackupVerification: async (data?: { backupFileName?: string; isolatedDbName?: string; dryRun?: boolean }) => {
+      return this.request<{ record: any }>("/operations/backup/verify", "POST", data || {});
+    },
+    getRecoveryLogs: async (limit?: number) => {
+      return this.request<{ logs: any[] }>("/operations/recovery/logs" + (limit ? "?limit=" + limit : ""));
+    },
+  };
 }

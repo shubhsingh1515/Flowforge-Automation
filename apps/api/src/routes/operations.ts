@@ -1,42 +1,46 @@
 import { FastifyInstance } from "fastify";
-import { ReconciliationRequestSchema } from "@flowforge/shared";
+import { prisma } from "@flowforge/database";
 import { authenticateRequest } from "../plugins/auth.js";
 import { operationsService } from "../services/operations.js";
 import { reconciliationService } from "../services/reconciliation.js";
+import { outboxService } from "../services/outboxService.js";
+import { disasterRecoveryService } from "../services/disasterRecoveryService.js";
 
 export async function operationsRoutes(server: FastifyInstance) {
-  // 1. Get Live Operational Overview & Active Alerts (Admin/Owner)
-  const overviewHandler = async (request: any, reply: any) => {
-    const authUser = request.authUser!;
-    if (authUser.workspaceRole !== "OWNER" && authUser.workspaceRole !== "ADMIN") {
-      return reply.status(403).send({
+  // Helper to check admin/owner privilege
+  const requireAdmin = (request: any, reply: any): boolean => {
+    const authUser = request.authUser;
+    if (!authUser || (authUser.workspaceRole !== "OWNER" && authUser.workspaceRole !== "ADMIN")) {
+      reply.status(403).send({
         error: "Forbidden",
-        message: "Only workspace OWNER or ADMIN roles can access the operations dashboard.",
+        message: "Only workspace OWNER or ADMIN roles can access operational reliability endpoints.",
         statusCode: 403,
       });
+      return false;
     }
+    return true;
+  };
 
-    const overview = await operationsService.getOperationalOverview();
+  // 1. Get Live Operational Overview & Active Alerts (Admin/Owner)
+  const overviewHandler = async (request: any, reply: any) => {
+    if (!requireAdmin(request, reply)) return;
+    const authUser = request.authUser!;
+    const overview = await operationsService.getOperationalOverview(authUser.workspaceId);
     return { overview, ...overview };
   };
 
   server.get("/operations/overview", { preHandler: [authenticateRequest] }, overviewHandler);
 
-  // 2. Trigger Execution Reconciliation (Admin/Owner)
+  // 2. Trigger Execution Reconciliation / Crash Recovery Resumption (Admin/Owner)
   const reconcileHandler = async (request: any, reply: any) => {
+    if (!requireAdmin(request, reply)) return;
     const authUser = request.authUser!;
-    if (authUser.workspaceRole !== "OWNER" && authUser.workspaceRole !== "ADMIN") {
-      return reply.status(403).send({
-        error: "Forbidden",
-        message: "Only workspace OWNER or ADMIN roles can trigger execution reconciliation.",
-        statusCode: 403,
-      });
-    }
 
     const body = request.body || {};
     const mode = body.mode || (body.dryRun === false ? "execute" : "dry-run");
     const maxAgeMinutes = body.maxAgeMinutes || 15;
     const limit = body.limit || 50;
+    const allowCrashRecovery = body.allowCrashRecovery !== false;
 
     const result = await reconciliationService.reconcile({
       workspaceId: authUser.workspaceId,
@@ -44,6 +48,7 @@ export async function operationsRoutes(server: FastifyInstance) {
       maxAgeMinutes,
       limit,
       actorUserId: authUser.id,
+      allowCrashRecovery,
     });
 
     return {
@@ -55,6 +60,7 @@ export async function operationsRoutes(server: FastifyInstance) {
         id: a.executionId,
         startedAt: a.startedAt,
         stuckMinutes: a.minutesInStatus,
+        proposedAction: a.proposedAction,
       })),
     };
   };
@@ -64,15 +70,8 @@ export async function operationsRoutes(server: FastifyInstance) {
 
   // 3. Get Reconciliation Audit Logs
   const logsHandler = async (request: any, reply: any) => {
+    if (!requireAdmin(request, reply)) return;
     const authUser = request.authUser!;
-    if (authUser.workspaceRole !== "OWNER" && authUser.workspaceRole !== "ADMIN") {
-      return reply.status(403).send({
-        error: "Forbidden",
-        message: "Only workspace OWNER or ADMIN roles can view reconciliation logs.",
-        statusCode: 403,
-      });
-    }
-
     const limit = request.query?.limit ? parseInt(request.query.limit, 10) : 50;
     const logs = await reconciliationService.getReconciliationLogs(authUser.workspaceId, limit);
     return { logs };
@@ -80,4 +79,95 @@ export async function operationsRoutes(server: FastifyInstance) {
 
   server.get("/operations/reconciliation-logs", { preHandler: [authenticateRequest] }, logsHandler);
   server.get("/operations/reconciliation/logs", { preHandler: [authenticateRequest] }, logsHandler);
+
+  // 4. Transactional Outbox Overview
+  server.get(
+    "/operations/outbox",
+    { preHandler: [authenticateRequest] },
+    async (request: any, reply: any) => {
+      if (!requireAdmin(request, reply)) return;
+      const authUser = request.authUser!;
+      const outbox = await outboxService.getOutboxOverview(authUser.workspaceId);
+      return { outbox };
+    }
+  );
+
+  // 5. Replay Dead-Letter Outbox Events
+  server.post(
+    "/operations/outbox/replay",
+    { preHandler: [authenticateRequest] },
+    async (request: any, reply: any) => {
+      if (!requireAdmin(request, reply)) return;
+      const authUser = request.authUser!;
+      const body = request.body || {};
+      const result = await outboxService.replayDeadLetterEvents(authUser.workspaceId, body);
+      return { success: true, ...result };
+    }
+  );
+
+  // 6. Process / Sweep Pending Outbox Events
+  server.post(
+    "/operations/outbox/process",
+    { preHandler: [authenticateRequest] },
+    async (request: any, reply: any) => {
+      if (!requireAdmin(request, reply)) return;
+      const body = request.body || {};
+      const result = await outboxService.processPendingEvents(body.limit || 50);
+      return { success: true, ...result };
+    }
+  );
+
+  // 7. Get Backup Verification History
+  server.get(
+    "/operations/backup/verification",
+    { preHandler: [authenticateRequest] },
+    async (request: any, reply: any) => {
+      if (!requireAdmin(request, reply)) return;
+      const limit = request.query?.limit ? parseInt(request.query.limit, 10) : 20;
+      const records = await disasterRecoveryService.listVerificationRecords(limit);
+      const drStatus = await disasterRecoveryService.getDisasterRecoveryStatus();
+      return { records, drStatus };
+    }
+  );
+
+  // 8. Trigger Non-Destructive Backup Verification Drill
+  server.post(
+    "/operations/backup/verify",
+    { preHandler: [authenticateRequest] },
+    async (request: any, reply: any) => {
+      if (!requireAdmin(request, reply)) return;
+      const authUser = request.authUser!;
+      const body = request.body || {};
+      const record = await disasterRecoveryService.runVerificationDrill(body, authUser.id);
+      return { record };
+    }
+  );
+
+  // 9. Get Recovery Audit Logs
+  server.get(
+    "/operations/recovery/logs",
+    { preHandler: [authenticateRequest] },
+    async (request: any, reply: any) => {
+      if (!requireAdmin(request, reply)) return;
+      const authUser = request.authUser!;
+      const limit = request.query?.limit ? parseInt(request.query.limit, 10) : 50;
+
+      const logs = await prisma.recoveryAuditRecord.findMany({
+        where: {
+          OR: [{ workspaceId: authUser.workspaceId }, { workspaceId: null }],
+        },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+      });
+
+      return {
+        logs: logs.map((l) => ({
+          ...l,
+          createdAt: l.createdAt.toISOString(),
+          startedAt: l.startedAt.toISOString(),
+          finishedAt: l.finishedAt ? l.finishedAt.toISOString() : null,
+        })),
+      };
+    }
+  );
 }

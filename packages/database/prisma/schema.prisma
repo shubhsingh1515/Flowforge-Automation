@@ -148,6 +148,9 @@ model Workspace {
   workflowReviews        WorkflowReview[]
   reliabilityObjectives  ReliabilityObjective[]
   complianceExportJobs   ComplianceExportJob[]
+  outboxEvents           TransactionalOutboxEvent[]
+  backupVerifications    BackupVerificationRecord[]
+  recoveryAuditRecords   RecoveryAuditRecord[]
 
   @@map("workspaces")
 }
@@ -346,6 +349,12 @@ model WorkflowExecution {
   cancelledByUserId  String?
   resumedAt          DateTime?
   nextRetryAt        DateTime?
+  // Phase 15: Worker Leasing, Fencing & Checkpoints
+  leaseOwner           String?
+  leaseToken           Int             @default(0)
+  leaseExpiresAt       DateTime?
+  recoveryAttempts     Int             @default(0)
+  lastCheckpointNodeId String?
   startedAt          DateTime        @default(now())
   finishedAt         DateTime?
   durationMs         Int?
@@ -359,6 +368,8 @@ model WorkflowExecution {
   @@index([workflowId, status])
   @@index([workflowId, createdAt])
   @@index([correlationId])
+  @@index([status, leaseExpiresAt])
+  @@index([leaseOwner])
   @@map("workflow_executions")
 }
 
@@ -1376,4 +1387,75 @@ model ComplianceExportJob {
 
   @@index([workspaceId, status])
   @@map("compliance_export_jobs")
+}
+
+
+// ==========================================
+// Phase 15: Enterprise Reliability & Disaster Recovery
+// ==========================================
+
+model TransactionalOutboxEvent {
+  id             String    @id @default(uuid())
+  workspaceId    String
+  eventType      String
+  payload        Json      @default("{}")
+  idempotencyKey String    @unique
+  status         String    @default("PENDING") // PENDING, PROCESSING, DELIVERED, FAILED, DEAD_LETTER
+  attempts       Int       @default(0)
+  maxAttempts    Int       @default(5)
+  nextRetryAt    DateTime?
+  deliveredAt    DateTime?
+  lastError      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([status, nextRetryAt])
+  @@index([status, createdAt])
+  @@map("transactional_outbox_events")
+}
+
+model BackupVerificationRecord {
+  id                 String    @id @default(uuid())
+  workspaceId        String?
+  backupFileName     String
+  checksumSha256     String
+  fileSizeBytes      Int?
+  status             String    // VERIFIED, CORRUPTED, RESTORE_FAILED
+  isolatedTargetDb   String?
+  restoredTableCount Int?
+  verificationReport Json?
+  verifiedAt         DateTime  @default(now())
+  durationMs         Int?
+  errorMessage       String?
+  triggeredByUserId  String?
+  createdAt          DateTime  @default(now())
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([status, verifiedAt])
+  @@index([workspaceId])
+  @@map("backup_verification_records")
+}
+
+model RecoveryAuditRecord {
+  id             String    @id @default(uuid())
+  workspaceId    String?
+  operationType  String    // EXECUTION_RECOVERY, OUTBOX_REPLAY, BACKUP_VERIFICATION, QUEUE_BACKPRESSURE_TRIP
+  targetResource String
+  operatorId     String?   // User ID or SYSTEM
+  isDryRun       Boolean   @default(false)
+  status         String    // SUCCESS, FAILED, PARTIAL
+  details        Json?
+  startedAt      DateTime  @default(now())
+  finishedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([operationType, createdAt])
+  @@index([workspaceId, createdAt])
+  @@map("recovery_audit_records")
 }

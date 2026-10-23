@@ -10,7 +10,7 @@ export async function healthRoutes(server: FastifyInstance) {
     schema: {
       tags: ["System"],
       summary: "Aggregated health check",
-      description: "Returns aggregated health status of API, database, and Redis/BullMQ worker.",
+      description: "Returns aggregated health status of API, database, Redis/BullMQ worker, leases, and outbox.",
     },
     handler: async (_req, reply) => {
       let dbStatus = "connected";
@@ -25,6 +25,19 @@ export async function healthRoutes(server: FastifyInstance) {
       const queueHealth = await getQueueHealth();
       const isHealthy = isDbHealthy && queueHealth.status !== "unhealthy";
 
+      const [activeLeases, pendingOutbox] = await Promise.all([
+        prisma.workflowExecution
+          .count({
+            where: { status: "RUNNING", leaseExpiresAt: { gte: new Date() } },
+          })
+          .catch(() => 0),
+        prisma.transactionalOutboxEvent
+          .count({
+            where: { status: "PENDING" },
+          })
+          .catch(() => 0),
+      ]);
+
       const response = {
         status: isHealthy ? "healthy" : "unhealthy",
         uptime: process.uptime(),
@@ -32,6 +45,11 @@ export async function healthRoutes(server: FastifyInstance) {
         components: {
           database: { status: dbStatus },
           worker: queueHealth,
+          reliability: {
+            activeLeases,
+            pendingOutbox,
+            fencingEnabled: true,
+          },
         },
       };
 

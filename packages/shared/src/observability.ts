@@ -102,7 +102,7 @@ export interface ReconciliationAnomaly {
   startedAt: string;
   minutesInStatus: number;
   reason: string;
-  proposedAction: "MARK_FAILED_TIMEOUT" | "RETRY" | "CANCEL";
+  proposedAction: "MARK_FAILED_TIMEOUT" | "RETRY" | "CANCEL" | "CRASH_RECOVERY_RESUME";
 }
 
 export interface ReconciliationResultDto {

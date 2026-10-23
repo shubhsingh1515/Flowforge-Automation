@@ -1111,4 +1111,35 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     await expect(page.locator("text=Sanitized Compliance Export Evidence")).toBeVisible();
     await page.locator('button:has-text("Close Preview")').click();
   });
+
+  test("40. Phase 15 High Availability Worker Fencing, Transactional Outbox & Disaster Recovery Drills", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/operations");
+    await page.waitForLoadState("networkidle");
+
+    // Verify Phase 15 High Availability & Reliability Widgets
+    await expect(page.getByText("Worker Concurrency & Leases")).toBeVisible();
+    await expect(page.getByText("Workflow Queue Depth & Backpressure")).toBeVisible();
+    await expect(page.getByText("Transactional Outbox", { exact: true })).toBeVisible();
+    await expect(page.getByText("Disaster Recovery & Non-Destructive Restore Drill")).toBeVisible();
+
+    // Verify defined RTO and RPO targets
+    await expect(page.getByText("Target RTO (Recovery Time)")).toBeVisible();
+    await expect(page.getByText("Target RPO (Data Point)")).toBeVisible();
+
+    // Trigger Non-Destructive Disaster Recovery Verification Drill
+    const drillBtn = page.locator('[data-testid="btn-verify-backup-drill"]');
+    await expect(drillBtn).toBeVisible();
+    await drillBtn.click();
+
+    // Verify drill results and SHA-256 confirmation
+    await expect(page.locator("text=Backup drill finished: Checksum SHA-256 verified")).toBeVisible({ timeout: 10000 });
+
+    // Trigger Execution Reconciliation Scan Dry-Run
+    const scanBtn = page.locator('[data-testid="btn-reconcile-dry-run"]');
+    await expect(scanBtn).toBeVisible();
+    await scanBtn.click();
+
+    await expect(page.locator("text=Reconciliation Complete")).toBeVisible({ timeout: 10000 });
+  });
 });

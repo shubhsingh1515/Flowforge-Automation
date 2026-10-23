@@ -1,88 +1,42 @@
-# FlowForge Automation SaaS — Database & State Backup and Disaster Recovery Runbook
+# Database Backup, Checksum Integrity, and Isolated Restore Drills
 
-## 1. Overview & Strategy
-This document establishes standard operating procedures for continuous backup, point-in-time recovery (PITR), retention lifecycle management, and disaster recovery for the FlowForge Automation persistence layer.
+## 1. Backup Strategy Overview
 
-### Persistence Components
-1. **PostgreSQL 16 (Relational Database)**:
-   - Primary system of record: users, workspaces, workflows, version graph, executions, step audit records, connection credentials.
-2. **Redis 7 (In-Memory Execution Broker & Cache)**:
-   - Ephemeral and durable execution queues (BullMQ), scheduled trigger state, rate-limiting buckets.
+FlowForge Automation SaaS persists state in PostgreSQL 16 Alpine (`postgres_prod_data` volume).
+
+### Backup Types & Frequencies
+- **Nightly Snapshot (`pg_dump`)**: Full schema and data snapshot compressed with gzip.
+- **WAL Archiving**: Continuous archiving enabling Point-In-Time Recovery (PITR) up to the minute.
+- **Durable Off-Site Copy**: Backups are copied to encrypted off-host secondary storage (`/backups/flowforge_daily_*.sql.gz`).
 
 ---
 
-## 2. PostgreSQL Backup Procedures
+## 2. Automated Restore Verification Drills
 
-### Recovery Objectives
-- **Recovery Point Objective (RPO)**: < 5 minutes (via Continuous WAL Archiving / pgBackRest).
-- **Recovery Time Objective (RTO)**: < 30 minutes for complete restoration.
+Never test restores against a live production database! FlowForge implements non-destructive verification drills through `disasterRecoveryService`:
 
-### Automated Nightly Logical Backups (`pg_dump`)
+### Drill Steps:
+1. **Archive Checksum Validation**: Computes SHA-256 hash of the target backup archive and matches it against metadata registry.
+2. **Isolated Target Database**: Restores the dump into an ephemeral scratch database (e.g. `flowforge_dr_verify_<timestamp>`) or dedicated staging instance.
+3. **Schema & Consistency Checks**:
+   - Validates existence of all core tables (`users`, `workspaces`, `workflows`, `workflow_executions`, `transactional_outbox_events`, etc.).
+   - Validates referential integrity constraints and foreign keys.
+4. **Verification Report**: Automatically logs record into `BackupVerificationRecord` and `RecoveryAuditRecord` (scrubbing sensitive passwords).
+5. **Clean Up**: Drops the ephemeral scratch database immediately upon drill completion.
+
+---
+
+## 3. Operational CLI Commands
+
+### Manual Full Backup
 ```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-BACKUP_DIR="/var/backups/flowforge"
-TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-BACKUP_FILE="${BACKUP_DIR}/flowforge_db_${TIMESTAMP}.dump"
-ENCRYPTED_FILE="${BACKUP_FILE}.enc"
-
-mkdir -p "${BACKUP_DIR}"
-
-echo "Starting PostgreSQL logical backup..."
-pg_dump -h "${DB_HOST:-localhost}" \
-        -p "${DB_PORT:-5432}" \
-        -U "${DB_USER:-flowforge}" \
-        -d "${DB_NAME:-flowforge_db}" \
-        -F c -b -v -f "${BACKUP_FILE}"
-
-echo "Encrypting backup with AES-256..."
-openssl enc -aes-256-cbc -salt -in "${BACKUP_FILE}" -out "${ENCRYPTED_FILE}" -pass env:BACKUP_PASSPHRASE
-rm -f "${BACKUP_FILE}"
-
-echo "Uploading encrypted backup to off-site object storage (AWS S3 / Cloudflare R2)..."
-aws s3 cp "${ENCRYPTED_FILE}" "s3://${BACKUP_S3_BUCKET}/postgres/${TIMESTAMP}/"
-
-echo "PostgreSQL backup completed successfully."
+docker exec -t flowforge-prod-postgres pg_dump -U flowforge -d flowforge_db -F c -b -v -f /var/lib/postgresql/data/backup_$(date +%Y%m%d_%H%M%S).dump
 ```
 
-### PostgreSQL Restoration Procedure
-1. Stop API backend and worker services to prevent database writes:
-   ```bash
-   docker compose -f docker-compose.prod.yml stop api worker
-   ```
-2. Fetch and decrypt the target backup file:
-   ```bash
-   aws s3 cp "s3://${BACKUP_S3_BUCKET}/postgres/${TARGET_TIMESTAMP}/flowforge_db_${TARGET_TIMESTAMP}.dump.enc" .
-   openssl enc -d -aes-256-cbc -in "flowforge_db_${TARGET_TIMESTAMP}.dump.enc" -out restore.dump -pass env:BACKUP_PASSPHRASE
-   ```
-3. Drop and recreate the public schema (or target database):
-   ```bash
-   psql -U flowforge -d flowforge_db -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-   ```
-4. Restore database dump using `pg_restore`:
-   ```bash
-   pg_restore -U flowforge -d flowforge_db --no-owner --role=flowforge -v restore.dump
-   ```
-5. Run Prisma migration status check:
-   ```bash
-   npm run --workspace=@flowforge/database migrate status
-   ```
-6. Restart application services:
-   ```bash
-   docker compose -f docker-compose.prod.yml start api worker
-   ```
-
----
-
-## 3. Redis Backup & AOF Persistence
-
-FlowForge configures Redis with Append-Only File (AOF) persistence enabled (`--appendonly yes`) with `appendfsync everysec`.
-- Snapshots (`dump.rdb`) are generated every 15 minutes.
-- In disaster recovery scenarios, copy the latest `dump.rdb` or `appendonly.aof` file into the Redis container volume `/data`.
-
----
-
-## 4. Disaster Recovery Testing Cadence
-- **Automated Verification**: Daily automated restore drill in an isolated staging environment.
-- **Manual Drill**: Quarterly failover simulation ensuring RTO and RPO metrics meet compliance requirements.
+### Manual Non-Destructive Verification Drill
+```bash
+curl -X POST http://localhost:4000/api/v1/operations/backup/verify \
+  -H "Authorization: Bearer <ADMIN_JWT>" \
+  -H "Content-Type: application/json" \
+  -d '{"dryRun": true}'
+```

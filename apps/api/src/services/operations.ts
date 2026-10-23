@@ -1,12 +1,20 @@
 import { prisma, ExecutionStatus } from "@flowforge/database";
 import { OperationalAlertDto, OperationalOverviewDto, QueueHealthMetricsDto } from "@flowforge/shared";
-import { redisConnection, getQueueHealth } from "../worker/queue.js";
+import { redisConnection, getQueueHealth, QUEUE_BACKPRESSURE_THRESHOLD } from "../worker/queue.js";
+import { outboxService } from "./outboxService.js";
+import { disasterRecoveryService } from "./disasterRecoveryService.js";
+import { config } from "../config.js";
 
 export class OperationsService {
   /**
-   * Builds a live, comprehensive operational overview of platform health, queue backlogs, and metrics.
+   * Builds a live, comprehensive operational overview of platform health, queue backlogs,
+   * high availability worker leases, transactional outbox status, and disaster recovery.
    */
-  public async getOperationalOverview(): Promise<OperationalOverviewDto> {
+  public async getOperationalOverview(workspaceId?: string): Promise<OperationalOverviewDto & {
+    outbox: any;
+    disasterRecovery: any;
+    workerReliability: any;
+  }> {
     const startTime = Date.now();
 
     // 1. Database Health Check & Latency
@@ -48,15 +56,33 @@ export class OperationsService {
 
     // 4. Execution Metrics in Last 1 Hour
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-    const [lastHourTotal, lastHourSuccess, lastHourFailed, avgDurationAgg] = await Promise.all([
-      prisma.workflowExecution.count({ where: { createdAt: { gte: oneHourAgo } } }),
-      prisma.workflowExecution.count({ where: { createdAt: { gte: oneHourAgo }, status: ExecutionStatus.SUCCESS } }),
-      prisma.workflowExecution.count({ where: { createdAt: { gte: oneHourAgo }, status: ExecutionStatus.FAILED } }),
-      prisma.workflowExecution.aggregate({
-        where: { createdAt: { gte: oneHourAgo }, durationMs: { not: null } },
-        _avg: { durationMs: true },
-      }),
-    ]);
+    const executionWhere: any = { createdAt: { gte: oneHourAgo } };
+    if (workspaceId) {
+      executionWhere.workflow = { workspaceId };
+    }
+
+    const [lastHourTotal, lastHourSuccess, lastHourFailed, avgDurationAgg, activeLeasesCount, outboxData, drStatus] =
+      await Promise.all([
+        prisma.workflowExecution.count({ where: executionWhere }),
+        prisma.workflowExecution.count({
+          where: { ...executionWhere, status: ExecutionStatus.SUCCESS },
+        }),
+        prisma.workflowExecution.count({
+          where: { ...executionWhere, status: ExecutionStatus.FAILED },
+        }),
+        prisma.workflowExecution.aggregate({
+          where: { ...executionWhere, durationMs: { not: null } },
+          _avg: { durationMs: true },
+        }),
+        prisma.workflowExecution.count({
+          where: {
+            status: ExecutionStatus.RUNNING,
+            leaseExpiresAt: { gte: new Date() },
+          },
+        }),
+        outboxService.getOutboxOverview(workspaceId),
+        disasterRecoveryService.getDisasterRecoveryStatus(),
+      ]);
 
     const failureRatePercent =
       lastHourTotal > 0 ? Math.round((lastHourFailed / lastHourTotal) * 100) : 0;
@@ -104,7 +130,20 @@ export class OperationsService {
       });
     }
 
-    // Rule D: Infrastructure Degradation
+    // Rule D: Outbox Dead-Letter Alert
+    if (outboxData.deadLetterCount > 0) {
+      alerts.push({
+        id: "alert_outbox_dead_letter",
+        metric: "outbox.deadLetterCount",
+        currentValue: outboxData.deadLetterCount,
+        threshold: 0,
+        severity: outboxData.deadLetterCount >= 10 ? "CRITICAL" : "WARNING",
+        message: `${outboxData.deadLetterCount} events in transactional outbox dead-letter queue require operator review.`,
+        triggeredAt: new Date().toISOString(),
+      });
+    }
+
+    // Rule E: Infrastructure Degradation
     if (dbStatus === "unhealthy" || redisStatus === "unhealthy") {
       alerts.push({
         id: "alert_infra_degraded",
@@ -137,7 +176,11 @@ export class OperationsService {
         status: redisStatus,
         latencyMs: redisLatencyMs,
       },
-      queue: queueMetrics,
+      queue: {
+        ...queueMetrics,
+        isBackpressureActive: queueMetrics.waitingCount >= QUEUE_BACKPRESSURE_THRESHOLD,
+        backpressureThreshold: QUEUE_BACKPRESSURE_THRESHOLD,
+      } as any,
       executions: {
         lastHourTotal,
         lastHourSuccess,
@@ -146,6 +189,14 @@ export class OperationsService {
         averageDurationMs,
       },
       activeAlerts: alerts,
+      outbox: outboxData,
+      disasterRecovery: drStatus,
+      workerReliability: {
+        activeLeases: activeLeasesCount,
+        workerConcurrency: config.workerConcurrency,
+        fencingEnabled: true,
+        checkpointResumptionEnabled: true,
+      },
     };
   }
 }
