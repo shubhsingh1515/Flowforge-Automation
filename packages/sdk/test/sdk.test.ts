@@ -1008,4 +1008,98 @@ describe("FlowForge TypeScript SDK Client Suite", () => {
     expect(slaRes.data.targetDurationMs).toBe(60000);
   });
 
+  it("supports Phase 22 Enterprise Event-Driven Integration Fabric namespaces", async () => {
+    global.fetch = vi.fn().mockImplementation(async (url: string, init: any) => {
+      const u = url.toString();
+
+      if (u.includes("/events/ingest/batch")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: { total: 2, accepted: 2, duplicates: 0, rejected: 0, results: [] },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/events/ingest")) {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({
+            data: { eventId: "evt-999", eventType: "order.placed", status: "ACCEPTED", dispatchedDeliveriesCount: 1 },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/events/schemas")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: { eventType: "order.placed", compatibilityMode: "BACKWARD", activeVersionNumber: 1 },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/events/subscriptions")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: { id: "sub-123", name: "Order Fulfillment Listener", status: "ACTIVE" },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/events/metrics")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: { ingestedCount: 50, deliveredCount: 48, deadLetterCount: 2, medianLatencyMs: 140 },
+          }),
+        } as any;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ data: { success: true } }),
+      } as any;
+    });
+
+    const client = new FlowForgeClient({ apiKey: "ff_live_valid" });
+
+    // Single Ingest
+    const singleRes = await client.events.ingest({
+      eventType: "order.placed",
+      data: { orderId: "ord-101", amount: 99 },
+    });
+    expect(singleRes.data.eventId).toBe("evt-999");
+    expect(singleRes.data.status).toBe("ACCEPTED");
+
+    // Batch Ingest
+    const batchRes = await client.events.ingestBatch([
+      { eventType: "order.placed", data: { id: "1" } },
+      { eventType: "order.placed", data: { id: "2" } },
+    ]);
+    expect(batchRes.data.total).toBe(2);
+    expect(batchRes.data.accepted).toBe(2);
+
+    // Schema
+    const schemaRes = await client.events.getSchema("order.placed");
+    expect(schemaRes.data.eventType).toBe("order.placed");
+    expect(schemaRes.data.compatibilityMode).toBe("BACKWARD");
+
+    // Subscription
+    const subRes = await client.events.getSubscription("sub-123");
+    expect(subRes.data.name).toBe("Order Fulfillment Listener");
+
+    // Metrics
+    const metricsRes = await client.events.getMetrics(24);
+    expect(metricsRes.data.deliveredCount).toBe(48);
+    expect(metricsRes.data.deadLetterCount).toBe(2);
+  });
+
 });

@@ -33,6 +33,7 @@ import {
   GitBranch,
   CheckCircle2,
   Building2,
+  Radio,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -100,6 +101,7 @@ export function AppShell({ children, title, description, action }: AppShellProps
     { label: "Plans & Pricing", href: "/pricing", icon: Sparkles },
     { label: "Environments", href: "/environments", icon: GitBranch },
     { label: "Business Processes", href: "/processes", icon: Layers },
+    { label: "Event Fabric", href: "/events", icon: Radio },
     { label: "Enterprise Governance", href: "/governance", icon: Building2 },
     { label: "Operations", href: "/operations", icon: Activity },
     { label: "System Status", href: "/status", icon: CheckCircle2 },

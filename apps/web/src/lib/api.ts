@@ -999,4 +999,61 @@ export const api = {
       request<any>(`/processes/${id}/sla-policies`),
   },
 
+  // ==========================================
+  // PHASE 22: ENTERPRISE EVENT-DRIVEN INTEGRATION FABRIC
+  // ==========================================
+
+  events: {
+    ingest: (body: any) =>
+      request<any>("/events/ingest", { method: "POST", body: JSON.stringify(body) }),
+    ingestBatch: (events: any[]) =>
+      request<any>("/events/ingest/batch", { method: "POST", body: JSON.stringify({ events }) }),
+    list: (query?: { eventType?: string; correlationId?: string; source?: string; limit?: number; offset?: number }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return request<any>(`/events${q ? "?" + q : ""}`);
+    },
+    get: (id: string) =>
+      request<any>(`/events/${id}`),
+    createSchema: (body: any) =>
+      request<any>("/events/schemas", { method: "POST", body: JSON.stringify(body) }),
+    listSchemas: (query?: { businessDomain?: string; status?: string; search?: string }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return request<any>(`/events/schemas${q ? "?" + q : ""}`);
+    },
+    getSchema: (eventType: string) =>
+      request<any>(`/events/schemas/${eventType}`),
+    createSchemaVersion: (eventType: string, body: any) =>
+      request<any>(`/events/schemas/${eventType}/versions`, { method: "POST", body: JSON.stringify(body) }),
+    publishSchemaVersion: (eventType: string, version: number) =>
+      request<any>(`/events/schemas/${eventType}/versions/${version}/publish`, { method: "POST" }),
+    createSubscription: (body: any) =>
+      request<any>("/events/subscriptions", { method: "POST", body: JSON.stringify(body) }),
+    listSubscriptions: (query?: { status?: string; destinationType?: string }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return request<any>(`/events/subscriptions${q ? "?" + q : ""}`);
+    },
+    getSubscription: (id: string) =>
+      request<any>(`/events/subscriptions/${id}`),
+    updateSubscription: (id: string, body: any) =>
+      request<any>(`/events/subscriptions/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    pauseSubscription: (id: string) =>
+      request<any>(`/events/subscriptions/${id}/pause`, { method: "POST" }),
+    resumeSubscription: (id: string) =>
+      request<any>(`/events/subscriptions/${id}/resume`, { method: "POST" }),
+    listDeliveries: (query?: { status?: string; subscriptionId?: string; limit?: number; offset?: number }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return request<any>(`/events/deliveries${q ? "?" + q : ""}`);
+    },
+    getDelivery: (id: string) =>
+      request<any>(`/events/deliveries/${id}`),
+    replayDelivery: (id: string) =>
+      request<any>(`/events/deliveries/${id}/replay`, { method: "POST" }),
+    createReplayJob: (body: any) =>
+      request<any>("/events/replay-jobs", { method: "POST", body: JSON.stringify(body) }),
+    getReplayJob: (id: string) =>
+      request<any>(`/events/replay-jobs/${id}`),
+    getMetrics: (timeRangeHours = 24) =>
+      request<any>(`/events/metrics?timeRangeHours=${timeRangeHours}`),
+  },
+
 };

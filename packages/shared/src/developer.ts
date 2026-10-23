@@ -27,6 +27,11 @@ export const API_KEY_SCOPES = [
   "governance:write",
   "reviews:write",
   "slo:manage",
+  "events:read",
+  "events:publish",
+  "events:manage",
+  "events:subscribe",
+  "events:deliver",
 ] as const;
 
 export type ApiKeyScope = (typeof API_KEY_SCOPES)[number];

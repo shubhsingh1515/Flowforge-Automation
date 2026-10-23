@@ -1054,6 +1054,80 @@ export class FlowForgeClient {
     },
   };
 
+  // ==========================================
+  // PHASE 22: ENTERPRISE EVENT-DRIVEN INTEGRATION FABRIC
+  // ==========================================
+
+  public readonly events = {
+    ingest: async (event: any, options?: RequestOptions) => {
+      return this.request<any>("/events/ingest", "POST", event, options);
+    },
+    ingestBatch: async (events: any[], options?: RequestOptions) => {
+      return this.request<any>("/events/ingest/batch", "POST", { events }, options);
+    },
+    list: async (query?: { eventType?: string; correlationId?: string; source?: string; limit?: number; offset?: number }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return this.request<any>(`/events${q ? "?" + q : ""}`);
+    },
+    get: async (id: string) => {
+      return this.request<any>(`/events/${id}`);
+    },
+    createSchema: async (data: any) => {
+      return this.request<any>("/events/schemas", "POST", data);
+    },
+    listSchemas: async (query?: { businessDomain?: string; status?: string; search?: string }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return this.request<any>(`/events/schemas${q ? "?" + q : ""}`);
+    },
+    getSchema: async (eventType: string) => {
+      return this.request<any>(`/events/schemas/${eventType}`);
+    },
+    createSchemaVersion: async (eventType: string, data: any) => {
+      return this.request<any>(`/events/schemas/${eventType}/versions`, "POST", data);
+    },
+    publishSchemaVersion: async (eventType: string, version: number) => {
+      return this.request<any>(`/events/schemas/${eventType}/versions/${version}/publish`, "POST");
+    },
+    createSubscription: async (data: any) => {
+      return this.request<any>("/events/subscriptions", "POST", data);
+    },
+    listSubscriptions: async (query?: { status?: string; destinationType?: string }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return this.request<any>(`/events/subscriptions${q ? "?" + q : ""}`);
+    },
+    getSubscription: async (id: string) => {
+      return this.request<any>(`/events/subscriptions/${id}`);
+    },
+    updateSubscription: async (id: string, data: any) => {
+      return this.request<any>(`/events/subscriptions/${id}`, "PATCH", data);
+    },
+    pauseSubscription: async (id: string) => {
+      return this.request<any>(`/events/subscriptions/${id}/pause`, "POST");
+    },
+    resumeSubscription: async (id: string) => {
+      return this.request<any>(`/events/subscriptions/${id}/resume`, "POST");
+    },
+    listDeliveries: async (query?: { status?: string; subscriptionId?: string; limit?: number; offset?: number }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return this.request<any>(`/events/deliveries${q ? "?" + q : ""}`);
+    },
+    getDelivery: async (id: string) => {
+      return this.request<any>(`/events/deliveries/${id}`);
+    },
+    replayDelivery: async (id: string) => {
+      return this.request<any>(`/events/deliveries/${id}/replay`, "POST");
+    },
+    createReplayJob: async (data: any) => {
+      return this.request<any>("/events/replay-jobs", "POST", data);
+    },
+    getReplayJob: async (id: string) => {
+      return this.request<any>(`/events/replay-jobs/${id}`);
+    },
+    getMetrics: async (timeRangeHours = 24) => {
+      return this.request<any>(`/events/metrics?timeRangeHours=${timeRangeHours}`);
+    },
+  };
+
 }
 
 export * from "@flowforge/connector-sdk";

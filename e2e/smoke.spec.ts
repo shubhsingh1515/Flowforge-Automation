@@ -1484,4 +1484,72 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
       page.locator("text=INSUFFICIENT_DATA").or(page.locator("text=SUFFICIENT DATA"))
     ).toBeVisible();
   });
+
+  test("47. Phase 22 Enterprise Event-Driven Integration Fabric, Subscriptions & Dead-Letter Console", async ({
+    page,
+  }) => {
+    // 1. Login
+    await loginAsDemo(page);
+
+    // 2. Navigate to Event Fabric
+    await page.goto("/events");
+    await page.waitForLoadState("networkidle");
+
+    // 3. Verify Event Fabric Header
+    await expect(page.locator("text=Event-Driven Integration Fabric")).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.locator("text=Real-time business event ingestion, schema governance")
+    ).toBeVisible();
+
+    // 4. Register a New Event Schema
+    const registerSchemaBtn = page.locator('[data-testid="btn-register-schema"]');
+    await expect(registerSchemaBtn).toBeVisible();
+    await registerSchemaBtn.click();
+
+    const schemaEventInput = page.locator('[data-testid="input-schema-event-type"]');
+    await expect(schemaEventInput).toBeVisible({ timeout: 5000 });
+    const uniqueEventType = `e2e.order.${Date.now()}`;
+    await schemaEventInput.fill(uniqueEventType);
+
+    const submitSchemaBtn = page.locator('[data-testid="btn-submit-schema"]');
+    await submitSchemaBtn.click();
+    await expect(page.locator(`text=Event schema '${uniqueEventType}' registered and published!`)).toBeVisible({
+      timeout: 10000,
+    });
+
+    // 5. Ingest a Business Event
+    const openIngestBtn = page.locator('[data-testid="btn-open-ingest-modal"]');
+    await expect(openIngestBtn).toBeVisible();
+    await openIngestBtn.click();
+
+    const ingestEventTypeInput = page.locator('[data-testid="input-ingest-event-type"]');
+    await expect(ingestEventTypeInput).toBeVisible({ timeout: 5000 });
+    await ingestEventTypeInput.fill(uniqueEventType);
+
+    const submitIngestBtn = page.locator('[data-testid="btn-submit-ingest"]');
+    await submitIngestBtn.click();
+    await expect(page.locator("text=Event ingested successfully!")).toBeVisible({ timeout: 10000 });
+
+    // 6. Test Tab Navigation
+    const eventsTab = page.locator('[data-testid="tab-events"]');
+    await expect(eventsTab).toBeVisible();
+    await eventsTab.click();
+    await expect(page.locator("text=Recent Platform Events Stream")).toBeVisible();
+
+    const subsTab = page.locator('[data-testid="tab-subscriptions"]');
+    await expect(subsTab).toBeVisible();
+    await subsTab.click();
+    await expect(page.locator("text=Event Subscriptions & Declarative Routing")).toBeVisible();
+
+    const deliveriesTab = page.locator('[data-testid="tab-deliveries"]');
+    await expect(deliveriesTab).toBeVisible();
+    await deliveriesTab.click();
+    await expect(page.locator("text=Event Deliveries & Dead-Letter Replay")).toBeVisible();
+
+    const healthTab = page.locator('[data-testid="tab-health"]');
+    await expect(healthTab).toBeVisible();
+    await healthTab.click();
+    await expect(page.locator("text=Event Fabric Operational Health")).toBeVisible();
+    await expect(page.locator("text=Loop Protection Gate")).toBeVisible();
+  });
 });

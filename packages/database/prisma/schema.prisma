@@ -181,6 +181,12 @@ model Workspace {
   processDefinitions     BusinessProcessDefinition[]
   processInstances       BusinessProcessInstance[]
   processSlaPolicies     ProcessSlaPolicy[]
+  // Phase 22: Enterprise Event-Driven Integration Fabric
+  eventSchemaDefinitions EventSchemaDefinition[]
+  platformEvents         PlatformEvent[]
+  eventSubscriptions     EventSubscription[]
+  eventDeliveries        EventDelivery[]
+  eventReplayJobs        EventReplayJob[]
 
   @@map("workspaces")
 }
@@ -2149,4 +2155,180 @@ model ProcessSlaEvaluation {
   @@index([instanceId])
   @@index([workspaceId, status])
   @@map("process_sla_evaluations")
+}
+
+
+// ==========================================
+// PHASE 22: ENTERPRISE EVENT-DRIVEN INTEGRATION FABRIC
+// ==========================================
+
+model EventSchemaDefinition {
+  id                  String   @id @default(uuid())
+  workspaceId         String
+  eventType           String   // e.g. "order.placed", "invoice.generated"
+  description         String?
+  businessDomain      String   @default("OPERATIONS")
+  dataClassification  String   @default("INTERNAL") // PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED
+  compatibilityMode   String   @default("BACKWARD") // BACKWARD, FORWARD, FULL, NONE
+  activeVersionNumber Int      @default(1)
+  status              String   @default("ACTIVE") // ACTIVE, DEPRECATED, RETIRED
+  ownerUserId         String?
+  metadata            Json     @default("{}")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  workspace           Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  versions            EventSchemaVersion[]
+  events              PlatformEvent[]
+
+  @@unique([workspaceId, eventType])
+  @@index([workspaceId, status])
+  @@map("event_schema_definitions")
+}
+
+model EventSchemaVersion {
+  id                 String   @id @default(uuid())
+  schemaDefinitionId String
+  versionNumber      Int
+  jsonSchema         Json     // standard JSON schema specification
+  samplePayload      Json?
+  contentHash        String   // canonical SHA-256 hash
+  status             String   @default("DRAFT") // DRAFT, PUBLISHED, DEPRECATED
+  changeSummary      String?
+  isBreaking         Boolean  @default(false)
+  publishedAt        DateTime?
+  createdById        String?
+  createdAt          DateTime @default(now())
+
+  schemaDefinition   EventSchemaDefinition @relation(fields: [schemaDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([schemaDefinitionId, versionNumber])
+  @@index([schemaDefinitionId, status])
+  @@map("event_schema_versions")
+}
+
+model PlatformEvent {
+  id                 String   @id @default(uuid())
+  workspaceId        String
+  schemaDefinitionId String?
+  eventId            String   // globally unique immutable event ID (evt_...)
+  eventType          String
+  schemaVersion      Int      @default(1)
+  source             String   // originating system, connector, workflow, API
+  correlationId      String?
+  causationId        String?
+  traceparent        String?
+  subject            String?
+  data               Json     // validated payload
+  metadata           Json     @default("{}")
+  classification     String   @default("INTERNAL")
+  deliveryKey        String?  // idempotency key
+  occurredAt         DateTime @default(now())
+  recordedAt         DateTime @default(now())
+
+  workspace          Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  schemaDefinition   EventSchemaDefinition? @relation(fields: [schemaDefinitionId], references: [id], onDelete: SetNull)
+  deliveries         EventDelivery[]
+
+  @@unique([workspaceId, eventId])
+  @@index([workspaceId, eventType, recordedAt])
+  @@index([workspaceId, correlationId])
+  @@index([workspaceId, deliveryKey])
+  @@map("platform_events")
+}
+
+model EventSubscription {
+  id                String   @id @default(uuid())
+  workspaceId       String
+  name              String
+  description       String?
+  eventTypes        String[] // ["order.created", "invoice.*"]
+  filterExpression  Json     @default("{}") // Declarative filter AST
+  destinationType   String   // WORKFLOW_TRIGGER, PROCESS_MILESTONE, OUTBOUND_WEBHOOK, CONNECTOR_ACTION, INTERNAL
+  destinationConfig Json     // { workflowId?: string, processDefinitionId?: string, milestoneId?: string, webhookUrl?: string }
+  status            String   @default("ACTIVE") // ACTIVE, PAUSED, DISABLED
+  maxAttempts       Int      @default(5)
+  backoffMs         Int      @default(2000)
+  timeoutMs         Int      @default(10000)
+  concurrencyLimit  Int      @default(10)
+  signingSecret     String?
+  createdById       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  workspace         Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  deliveries        EventDelivery[]
+
+  @@index([workspaceId, status])
+  @@map("event_subscriptions")
+}
+
+model EventDelivery {
+  id                String   @id @default(uuid())
+  workspaceId       String
+  eventId           String
+  subscriptionId    String
+  status            String   @default("PENDING") // PENDING, PROCESSING, DELIVERED, RETRY_SCHEDULED, DEAD_LETTER, CANCELLED
+  attemptCount      Int      @default(0)
+  maxAttempts       Int      @default(5)
+  nextAttemptAt     DateTime?
+  deliveredAt       DateTime?
+  lastError         String?
+  lastErrorCategory String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  workspace         Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  event             PlatformEvent          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  subscription      EventSubscription      @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  attempts          EventDeliveryAttempt[]
+
+  @@unique([subscriptionId, eventId])
+  @@index([workspaceId, status, nextAttemptAt])
+  @@index([subscriptionId, status])
+  @@map("event_deliveries")
+}
+
+model EventDeliveryAttempt {
+  id            String    @id @default(uuid())
+  deliveryId    String
+  attemptNumber Int
+  status        String    // SUCCESS, FAILED, TIMEOUT, SSRF_BLOCKED, RATE_LIMITED
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+  durationMs    Int?
+  statusCode    Int?
+  errorMessage  String?
+  errorCategory String?
+  workerId      String?
+  fencingToken  BigInt?
+
+  delivery      EventDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryId, attemptNumber])
+  @@map("event_delivery_attempts")
+}
+
+model EventReplayJob {
+  id              String    @id @default(uuid())
+  workspaceId     String
+  name            String
+  status          String    @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED, CANCELLED
+  filterCriteria  Json      // { subscriptionId?, eventType?, status?, fromDate?, toDate? }
+  isDryRun        Boolean   @default(false)
+  totalEvents     Int       @default(0)
+  processedEvents Int       @default(0)
+  succeededEvents Int       @default(0)
+  failedEvents    Int       @default(0)
+  errorMessage    String?
+  createdById     String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@map("event_replay_jobs")
 }
