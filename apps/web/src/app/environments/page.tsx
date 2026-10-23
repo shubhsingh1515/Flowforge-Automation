@@ -28,6 +28,7 @@ import {
   Check,
   X,
   ExternalLink,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -218,6 +219,42 @@ export default function EnvironmentsPage() {
       setTimeout(() => setActionSuccess(null), 4000);
     },
     onError: (err: any) => setActionError(err.message || "Test run failed"),
+  });
+
+  const generateTestsMutation = useMutation({
+    mutationFn: async (wfId: string) => {
+      const res = await api.ai.generateTests(wfId);
+      const testCases = res.data || [];
+      const defaultNodeId = workflows.find((w: any) => w.id === wfId)?.versions?.[0]?.nodes?.[0]?.id || "node-1";
+      for (const tc of testCases) {
+        const mappedAssertions = (tc.assertions || []).map((a: any) => {
+          const parts = (a.target || "status").split(".");
+          const nId = a.nodeId || (parts.length > 1 ? parts[0] : defaultNodeId);
+          const fPath = a.fieldPath || (parts.length > 1 ? parts.slice(1).join(".") : a.target || "status");
+          return {
+            nodeId: nId,
+            fieldPath: fPath,
+            operator: a.operator === "NOT_EMPTY" ? "EXISTS" : a.operator || "EQUALS",
+            expectedValue: a.expectedValue !== undefined ? a.expectedValue : a.expected !== undefined ? a.expected : "SUCCESS",
+          };
+        });
+
+        await api.tests.create(wfId, {
+          name: tc.name,
+          description: tc.description,
+          triggerPayload: tc.mockPayload,
+          assertions: mappedAssertions,
+          expectedStatus: "SUCCESS",
+        });
+      }
+      return testCases;
+    },
+    onSuccess: (testCases: any[]) => {
+      refetchTests();
+      setActionSuccess(`AI generated ${testCases.length} automated test cases with verified assertions!`);
+      setTimeout(() => setActionSuccess(null), 5000);
+    },
+    onError: (err: any) => setActionError(err.message || "Failed to generate tests with AI"),
   });
 
   const currentVariables = envDetails?.data?.variables || [];
@@ -659,6 +696,19 @@ export default function EnvironmentsPage() {
                     <option key={wf.id} value={wf.id}>{wf.name}</option>
                   ))}
                 </select>
+
+                <button
+                  data-testid="btn-ai-generate-tests"
+                  onClick={() => {
+                    const targetWf = selectedWorkflowId || workflows[0]?.id;
+                    if (targetWf) generateTestsMutation.mutate(targetWf);
+                  }}
+                  disabled={generateTestsMutation.isPending || workflows.length === 0}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors shadow-2xs disabled:opacity-50"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+                  <span>{generateTestsMutation.isPending ? "Generating..." : "Generate Tests with AI"}</span>
+                </button>
               </div>
             </div>
 

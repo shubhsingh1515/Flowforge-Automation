@@ -82,6 +82,7 @@ export function AppShell({ children, title, description, action }: AppShellProps
   const navItems = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { label: "Workflows", href: "/workflows", icon: Workflow },
+    { label: "AI Builder", href: "/workflows/ai-builder", icon: Sparkles, badge: "AI" },
     { label: "Create Workflow", href: "/workflows/new", icon: PlusCircle, highlight: true },
     {
       label: "Approvals",

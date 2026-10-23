@@ -395,6 +395,39 @@ export class FlowForgeClient {
     },
   };
 
+  // ==========================================
+  // AI AUTOMATION RESOURCE
+  // ==========================================
+  public readonly ai = {
+    status: async () => {
+      return this.request<{ data: any }>("/ai/status");
+    },
+    generateWorkflow: async (data: { prompt: string; workflowName?: string }, options?: RequestOptions) => {
+      return this.request<{ data: any }>("/ai/generate-workflow", "POST", data, options);
+    },
+    refineWorkflow: async (data: { prompt: string; currentNodes: any[]; currentEdges: any[]; workflowId?: string }, options?: RequestOptions) => {
+      return this.request<{ data: any }>("/ai/refine-workflow", "POST", data, options);
+    },
+    explainWorkflow: async (data: { nodes: any[]; edges: any[]; name?: string; workflowId?: string }, options?: RequestOptions) => {
+      return this.request<{ data: any }>("/ai/explain-workflow", "POST", data, options);
+    },
+    debugExecution: async (executionId: string, options?: RequestOptions) => {
+      return this.request<{ data: any }>(`/ai/debug-execution/${executionId}`, "POST", {}, options);
+    },
+    optimizeWorkflow: async (workflowId: string, params?: { days?: number }, options?: RequestOptions) => {
+      const q = new URLSearchParams();
+      if (params?.days) q.set("days", params.days.toString());
+      const qs = q.toString();
+      return this.request<{ data: any }>(`/ai/optimize-workflow/${workflowId}${qs ? `?${qs}` : ""}`, "POST", {}, options);
+    },
+    generateTests: async (workflowId: string, params?: { count?: number }, options?: RequestOptions) => {
+      const q = new URLSearchParams();
+      if (params?.count) q.set("count", params.count.toString());
+      const qs = q.toString();
+      return this.request<{ data: any }>(`/ai/generate-tests/${workflowId}${qs ? `?${qs}` : ""}`, "POST", {}, options);
+    },
+  };
+
   public readonly health = {
     check: async () => {
       return this.request<{ status: string; uptime: number; version?: string }>("/health");

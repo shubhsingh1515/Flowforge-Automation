@@ -16,7 +16,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   const token = typeof window !== "undefined" ? localStorage.getItem("flowforge_token") : null;
 
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(options.body ? { "Content-Type": "application/json" } : {}),
     ...(options.headers as Record<string, string>),
   };
 
@@ -617,5 +617,37 @@ export const api = {
         body: JSON.stringify(body),
       }),
     listRuns: (workflowId: string) => request<{ data: any[] }>(`/workflows/${workflowId}/test-runs`),
+  },
+
+  // Phase 13: AI Automation, Debugging & Optimization
+  ai: {
+    status: () => request<{ data: any }>("/ai/status"),
+    generateWorkflow: (body: { prompt: string; workflowName?: string }) =>
+      request<{ data: any }>("/ai/generate-workflow", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    refineWorkflow: (body: { prompt: string; currentNodes: any[]; currentEdges: any[]; workflowId?: string }) =>
+      request<{ data: any }>("/ai/refine-workflow", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    explainWorkflow: (body: { nodes: any[]; edges: any[]; name?: string; workflowId?: string }) =>
+      request<{ data: any }>("/ai/explain-workflow", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    debugExecution: (executionId: string) =>
+      request<{ data: any }>(`/ai/debug-execution/${executionId}`, {
+        method: "POST",
+      }),
+    optimizeWorkflow: (workflowId: string, days = 14) =>
+      request<{ data: any }>(`/ai/optimize-workflow/${workflowId}?days=${days}`, {
+        method: "POST",
+      }),
+    generateTests: (workflowId: string, count = 3) =>
+      request<{ data: any }>(`/ai/generate-tests/${workflowId}?count=${count}`, {
+        method: "POST",
+      }),
   },
 };

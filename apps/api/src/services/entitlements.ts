@@ -23,6 +23,7 @@ export interface WorkspaceEntitlements {
     activeWorkflows: QuotaCheckResult;
     members: QuotaCheckResult;
     connectedAccounts: QuotaCheckResult;
+    aiRequests?: QuotaCheckResult;
   };
   features: PlanFeatures;
 }
@@ -301,15 +302,75 @@ export class EntitlementService {
   /**
    * Generates a comprehensive entitlements and usage report for the workspace dashboard.
    */
+  /**
+   * Calculates AI request usage for the current billing period.
+   */
+  async getCurrentAiUsage(workspaceId: string, periodStart: Date): Promise<number> {
+    const result = await prisma.usageRecord.aggregate({
+      where: {
+        workspaceId,
+        metricType: "AI_REQUEST",
+        createdAt: { gte: periodStart },
+      },
+      _sum: {
+        quantity: true,
+      },
+    });
+
+    return result._sum.quantity || 0;
+  }
+
+  /**
+   * Checks whether a new AI automation operation is permitted under workspace plan quota.
+   */
+  async canExecuteAiRequest(workspaceId: string): Promise<QuotaCheckResult> {
+    const { plan, subscription } = await this.getEffectivePlan(workspaceId);
+    const periodStart = subscription.currentPeriodStart || new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+    const currentUsage = await this.getCurrentAiUsage(workspaceId, periodStart);
+    const limit = plan.maxAiRequestsPerMonth || (plan.tier === "BUSINESS" ? 2500 : plan.tier === "PRO" ? 250 : 20);
+    const remaining = Math.max(0, limit - currentUsage);
+    const allowed = currentUsage < limit;
+
+    return {
+      allowed,
+      current: currentUsage,
+      limit,
+      remaining,
+      reason: allowed
+        ? undefined
+        : `Monthly AI automation quota of ${limit} requests reached for ${plan.name} plan. Please upgrade to continue using AI features.`,
+    };
+  }
+
+  /**
+   * Records an AI operation in usage records for billing and quota accounting.
+   */
+  async recordAiUsage(workspaceId: string, operation: string, idempotencyKey?: string): Promise<void> {
+    try {
+      await prisma.usageRecord.create({
+        data: {
+          workspaceId,
+          metricType: "AI_REQUEST",
+          quantity: 1,
+          idempotencyKey: idempotencyKey || `ai_${workspaceId}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        },
+      });
+    } catch {
+      // Idempotency or duplicate check catch
+    }
+  }
+
   async getWorkspaceEntitlements(workspaceId: string): Promise<WorkspaceEntitlements> {
     const { plan, subscription } = await this.getEffectivePlan(workspaceId);
     const periodStart = subscription.currentPeriodStart || new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
-    const [executionQuota, activeWorkflows, members, connectedAccounts] = await Promise.all([
+    const [executionQuota, activeWorkflows, members, connectedAccounts, aiRequests] = await Promise.all([
       this.canExecuteWorkflow(workspaceId),
       this.canActivateWorkflow(workspaceId),
       this.canAddWorkspaceMember(workspaceId),
       this.canConnectAccount(workspaceId),
+      this.canExecuteAiRequest(workspaceId),
     ]);
 
     return {
@@ -326,6 +387,7 @@ export class EntitlementService {
         activeWorkflows,
         members,
         connectedAccounts,
+        aiRequests,
       },
       features: plan.features,
     };

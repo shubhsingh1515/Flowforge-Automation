@@ -26,6 +26,7 @@ import {
   X,
   FileJson,
   CheckCircle2,
+  Sparkles,
 } from "lucide-react";
 import { cn, formatRelativeTime } from "../../lib/utils";
 
@@ -170,6 +171,14 @@ export default function WorkflowsPage() {
             <span>Import JSON</span>
           </button>
           <Link
+            href="/workflows/ai-builder"
+            data-testid="link-ai-builder"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 shadow-2xs hover:bg-indigo-100 transition-colors mr-2"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+            <span>AI Builder</span>
+          </Link>
+          <Link
             href="/workflows/new"
             className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
           >
@@ -232,7 +241,15 @@ export default function WorkflowsPage() {
             </p>
             <div className="mt-5 flex justify-center gap-3">
               <Link
-                href="/workflows/new"
+                href="/workflows/ai-builder"
+            data-testid="link-ai-builder"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 shadow-2xs hover:bg-indigo-100 transition-colors mr-2"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+            <span>AI Builder</span>
+          </Link>
+          <Link
+            href="/workflows/new"
                 className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700"
               >
                 <PlusCircle className="h-4 w-4" />

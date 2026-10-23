@@ -8,6 +8,7 @@ export interface PlanFeatures {
   sla: boolean;
   enterpriseGovernance: boolean;
   marketplacePublishing: boolean;
+  aiAssistant: boolean;
 }
 
 export interface PlanDefinition {
@@ -26,6 +27,7 @@ export interface PlanDefinition {
   maxCustomIntegrations?: number;
   maxAuditRetentionDays?: number;
   maxDataExportsPerMonth?: number;
+  maxAiRequestsPerMonth?: number;
   features: PlanFeatures;
   highlights: string[];
 }
@@ -46,6 +48,7 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
     maxCustomIntegrations: 1,
     maxAuditRetentionDays: 7,
     maxDataExportsPerMonth: 1,
+    maxAiRequestsPerMonth: 20,
     features: {
       advancedFlowControl: false,
       approvalWorkflows: false,
@@ -54,6 +57,7 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
       sla: false,
       enterpriseGovernance: false,
       marketplacePublishing: false,
+      aiAssistant: true,
     },
     highlights: [
       "100 workflow executions / month",
@@ -79,6 +83,7 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
     maxCustomIntegrations: 10,
     maxAuditRetentionDays: 30,
     maxDataExportsPerMonth: 10,
+    maxAiRequestsPerMonth: 250,
     features: {
       advancedFlowControl: true,
       approvalWorkflows: false,
@@ -87,6 +92,7 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
       sla: false,
       enterpriseGovernance: true,
       marketplacePublishing: false,
+      aiAssistant: true,
     },
     highlights: [
       "10,000 workflow executions / month",
@@ -114,6 +120,7 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
     maxCustomIntegrations: 50,
     maxAuditRetentionDays: 365,
     maxDataExportsPerMonth: 100,
+    maxAiRequestsPerMonth: 2500,
     features: {
       advancedFlowControl: true,
       approvalWorkflows: true,
@@ -122,6 +129,7 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
       sla: true,
       enterpriseGovernance: true,
       marketplacePublishing: true,
+      aiAssistant: true,
     },
     highlights: [
       "100,000 workflow executions / month",

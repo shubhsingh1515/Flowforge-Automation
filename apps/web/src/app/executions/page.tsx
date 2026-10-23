@@ -21,6 +21,7 @@ import {
   Ban,
   ShieldCheck,
   AlertTriangle,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { cn, formatDate } from "../../lib/utils";
@@ -29,6 +30,20 @@ export default function ExecutionsPage() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [selectedExecutionId, setSelectedExecutionId] = useState<string | null>(null);
   const [retryNotice, setRetryNotice] = useState<string | null>(null);
+  const [aiDebugReport, setAiDebugReport] = useState<any | null>(null);
+  const [isDebugLoading, setIsDebugLoading] = useState(false);
+
+  const handleRunAiDebug = async (execId: string) => {
+    setIsDebugLoading(true);
+    try {
+      const res = await api.ai.debugExecution(execId);
+      setAiDebugReport(res.data);
+    } catch (err: any) {
+      setAiDebugReport({ conciseSummary: `Failed to analyze execution: ${err.message}` });
+    } finally {
+      setIsDebugLoading(false);
+    }
+  };
 
   const queryClient = useQueryClient();
 
@@ -405,6 +420,72 @@ export default function ExecutionsPage() {
                 <p className="font-mono text-[11px] leading-relaxed">
                   {detailData.execution.errorSummary}
                 </p>
+              </div>
+            )}
+
+            {/* Phase 13: Intelligent Execution Failure Analysis */}
+            {detailData.execution.status === "FAILED" && (
+              <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/50 p-3.5 space-y-3" data-testid="ai-debug-container">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 rounded bg-indigo-100 text-indigo-700">
+                      <Sparkles className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">Intelligent Failure Analysis</h4>
+                      <p className="text-[10px] text-slate-500">AI evaluates error classification, verified steps, and suggests remediation.</p>
+                    </div>
+                  </div>
+                  {!aiDebugReport && (
+                    <button
+                      data-testid="btn-ai-debug-failure"
+                      onClick={() => handleRunAiDebug(detailData.execution.id)}
+                      disabled={isDebugLoading}
+                      className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-semibold flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      <span>{isDebugLoading ? "Analyzing..." : "Analyze Failure with AI"}</span>
+                    </button>
+                  )}
+                </div>
+
+                {aiDebugReport && (
+                  <div className="space-y-2.5 pt-1 text-xs" data-testid="ai-debug-report">
+                    <div className="rounded-lg bg-white border border-indigo-100 p-3 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-900">Probable Root Cause</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-indigo-100 text-indigo-800">
+                          Confidence: {aiDebugReport.uncertaintyLevel === "LOW" ? "High" : aiDebugReport.uncertaintyLevel}
+                        </span>
+                      </div>
+                      <p className="text-slate-700 leading-relaxed text-2xs">{aiDebugReport.probableCause}</p>
+                    </div>
+
+                    {aiDebugReport.supportingEvidence?.length > 0 && (
+                      <div className="rounded-lg bg-white border border-slate-200 p-2.5 space-y-1">
+                        <span className="font-bold text-slate-800 text-2xs block">Supporting Evidence from Logs:</span>
+                        {aiDebugReport.supportingEvidence.map((ev: string, idx: number) => (
+                          <p key={idx} className="text-2xs text-slate-600 flex items-start gap-1.5">
+                            <span className="text-indigo-600">•</span>
+                            <span>{ev}</span>
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
+                    {aiDebugReport.remediationSteps?.length > 0 && (
+                      <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-2.5 space-y-1 text-emerald-900">
+                        <span className="font-bold text-2xs block">Recommended Remediation:</span>
+                        {aiDebugReport.remediationSteps.map((step: string, idx: number) => (
+                          <p key={idx} className="text-2xs flex items-start gap-1.5">
+                            <span className="text-emerald-600">✓</span>
+                            <span>{step}</span>
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

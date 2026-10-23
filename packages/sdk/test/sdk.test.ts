@@ -230,4 +230,55 @@ describe("FlowForge TypeScript SDK Client Suite", () => {
     const run = await client.tests.run("tc-1", { mode: "DRY_RUN" });
     expect(run.data.testRun.status).toBe("PASSED");
   });
+
+  it("interacts with Phase 13 AI automation endpoints via SDK", async () => {
+    global.fetch = vi.fn().mockImplementation(async (url, init) => {
+      const u = String(url);
+      if (u.includes("/ai/status")) {
+        return { ok: true, status: 200, json: async () => ({ data: { enabled: true, provider: "mock", isConfigured: true } }) } as any;
+      }
+      if (u.includes("/ai/generate-workflow")) {
+        return { ok: true, status: 200, json: async () => ({ data: { name: "Generated Lead Router", nodes: [{ id: "n1" }], edges: [] } }) } as any;
+      }
+      if (u.includes("/ai/refine-workflow")) {
+        return { ok: true, status: 200, json: async () => ({ data: { summary: "Refined with filter", diff: { addedNodes: [{ id: "n2" }] } } }) } as any;
+      }
+      if (u.includes("/ai/explain-workflow")) {
+        return { ok: true, status: 200, json: async () => ({ data: { summary: "Workflow explanation", mainExecutionPath: ["step 1"] } }) } as any;
+      }
+      if (u.includes("/ai/debug-execution")) {
+        return { ok: true, status: 200, json: async () => ({ data: { conciseSummary: "Token expired", probableCause: "Auth error" } }) } as any;
+      }
+      if (u.includes("/ai/optimize-workflow")) {
+        return { ok: true, status: 200, json: async () => ({ data: { recommendations: [{ id: "opt_1", title: "Add retry" }] } }) } as any;
+      }
+      if (u.includes("/ai/generate-tests")) {
+        return { ok: true, status: 200, json: async () => ({ data: [{ name: "Generated Test 1", assertions: [] }] }) } as any;
+      }
+      return { ok: true, status: 200, json: async () => ({}) } as any;
+    });
+
+    const client = new FlowForgeClient({ apiKey: "ff_live_valid" });
+
+    const status = await client.ai.status();
+    expect(status.data.enabled).toBe(true);
+
+    const proposal = await client.ai.generateWorkflow({ prompt: "Route leads from webhook to Slack" });
+    expect(proposal.data.name).toBe("Generated Lead Router");
+
+    const refined = await client.ai.refineWorkflow({ prompt: "Add filter", currentNodes: [], currentEdges: [] });
+    expect(refined.data.diff.addedNodes.length).toBe(1);
+
+    const explained = await client.ai.explainWorkflow({ nodes: [], edges: [] });
+    expect(explained.data.summary).toBe("Workflow explanation");
+
+    const debugged = await client.ai.debugExecution("exec-failed-1");
+    expect(debugged.data.probableCause).toBe("Auth error");
+
+    const optimized = await client.ai.optimizeWorkflow("wf-1", { days: 7 });
+    expect(optimized.data.recommendations.length).toBe(1);
+
+    const tests = await client.ai.generateTests("wf-1", { count: 2 });
+    expect(tests.data.length).toBe(1);
+  });
 });

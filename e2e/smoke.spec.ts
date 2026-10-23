@@ -1,4 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
+import { prisma } from "@flowforge/database";
 
 async function loginAsDemo(page: Page) {
   await page.goto("/login");
@@ -804,7 +805,6 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
 
     // Close Promotion Modal
     await page.locator('button:has-text("Cancel")').first().click();
-
     // Open Rollback Modal
     const rollbackBtn = page.locator('[data-testid="btn-open-rollback-modal"]');
     await expect(rollbackBtn).toBeVisible();
@@ -814,5 +814,148 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     await expect(page.getByRole("heading", { name: "Rollback Release" })).toBeVisible();
     await expect(page.locator('[data-testid="select-rollback-release"]')).toBeVisible();
     await page.locator('button:has-text("Cancel")').first().click();
+  });
+
+  test("34. Phase 13 Natural-Language Workflow Builder and Refinement", async ({ page }) => {
+    // Ensure demo workspace has PRO plan for AI quota
+    const demoUser = await prisma.user.findUnique({
+      where: { email: "demo@flowforge.dev" },
+      include: { memberships: true },
+    });
+    if (demoUser?.memberships[0]?.workspaceId) {
+      await prisma.workspaceSubscription.updateMany({
+        where: { workspaceId: demoUser.memberships[0].workspaceId },
+        data: { planTier: "PRO" },
+      });
+    }
+
+    await loginAsDemo(page);
+    await page.goto("/workflows/ai-builder");
+    await page.waitForLoadState("networkidle");
+
+    // Verify AI Builder Header & Status
+    await expect(page.locator('[data-testid="ai-builder-page"]')).toBeVisible();
+    await expect(page.locator("text=AI-Assisted Workflow Builder")).toBeVisible();
+
+    // Fill natural-language prompt
+    const promptInput = page.locator('[data-testid="ai-prompt-input"]');
+    await expect(promptInput).toBeVisible();
+    await promptInput.fill("When a payment is received in Stripe, verify amount and send a message to Slack");
+
+    // Generate proposal
+    const generateBtn = page.locator('[data-testid="btn-generate-workflow"]');
+    await expect(generateBtn).toBeVisible();
+    await generateBtn.click();
+
+    // Verify DAG validation & Proposal card
+    await expect(page.locator('[data-testid="proposal-preview"]')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("text=DAG Validated")).toBeVisible();
+    await expect(page.locator("text=Proposed Graph Execution Pipeline")).toBeVisible();
+
+    // Conversational Refinement
+    const refineInput = page.locator('[data-testid="input-refine-prompt"]');
+    await expect(refineInput).toBeVisible();
+    await refineInput.fill("Add a filter node to ignore transactions under $10");
+
+    const refineBtn = page.locator('[data-testid="btn-refine-proposal"]');
+    await expect(refineBtn).toBeVisible();
+    await refineBtn.click();
+
+    // Verify Structural Diff Viewer
+    await expect(page.locator('[data-testid="structural-diff-viewer"]')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("text=Structural Diff: Refinement Applied")).toBeVisible();
+
+    // Save as Draft
+    const saveDraftBtn = page.locator('[data-testid="btn-save-draft"]');
+    await expect(saveDraftBtn).toBeVisible();
+    await saveDraftBtn.click();
+
+    // Verify Draft saved feedback
+    await expect(page.locator("text=Workflow saved as DRAFT!")).toBeVisible({ timeout: 10000 });
+  });
+
+  test("35. Phase 13 Intelligent Failure Debugging and Root Cause Analysis", async ({ page }) => {
+    // Ensure at least one FAILED execution exists for the demo workspace
+    const demoUser = await prisma.user.findUnique({
+      where: { email: "demo@flowforge.dev" },
+      include: { memberships: true },
+    });
+    const workspaceId = demoUser?.memberships[0]?.workspaceId;
+    if (workspaceId) {
+      const wf = await prisma.workflow.findFirst({ where: { workspaceId } });
+      if (wf) {
+        await prisma.workflowExecution.create({
+          data: {
+            workflowId: wf.id,
+            status: "FAILED",
+            errorCategory: "API_UNAUTHORIZED",
+            errorSummary: "HTTP 401 Unauthorized from destination endpoint",
+            steps: {
+              create: {
+                nodeId: "node-2",
+                nodeName: "HTTP API Call",
+                nodeType: "HTTP_REQUEST",
+                status: "FAILED",
+                errorMessage: "401 Unauthorized: Invalid API Key",
+                startedAt: new Date(),
+                finishedAt: new Date(),
+              },
+            },
+          },
+        });
+      }
+    }
+
+    await loginAsDemo(page);
+    await page.goto("/executions");
+    await page.waitForLoadState("networkidle");
+
+    // Click on 'Failed' filter pill or Logs on the first row
+    const failedFilter = page.locator('button:has-text("Failed")');
+    if (await failedFilter.isVisible()) {
+      await failedFilter.click();
+      await page.waitForTimeout(500);
+    }
+
+    const logsBtn = page.locator('button:has-text("Logs")').first();
+    await expect(logsBtn).toBeVisible({ timeout: 10000 });
+    await logsBtn.click();
+
+    // Verify Diagnostics Drawer is open
+    await expect(page.locator("text=Execution Run Diagnostics")).toBeVisible();
+
+    // Verify AI Failure Analysis section and trigger button
+    const aiDebugBtn = page.locator('[data-testid="btn-ai-debug-failure"]');
+    await expect(aiDebugBtn).toBeVisible({ timeout: 10000 });
+    await aiDebugBtn.click();
+
+    // Verify AI Debug Report output
+    await expect(page.locator('[data-testid="ai-debug-report"]')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("text=Probable Root Cause")).toBeVisible();
+    await expect(page.locator("text=Recommended Remediation:")).toBeVisible();
+  });
+
+  test("36. Phase 13 AI-Generated Test Suites in Environments", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/environments");
+    await page.waitForLoadState("networkidle");
+
+    // Navigate to Automated Testing Tab
+    const testTab = page.locator('[data-testid="tab-env-testing"]');
+    await expect(testTab).toBeVisible();
+    await testTab.click();
+
+    // Verify Test Center Header
+    await expect(page.locator("text=Pre-Deployment Automated Test Center")).toBeVisible();
+
+    // Generate Tests with AI
+    const aiTestBtn = page.locator('[data-testid="btn-ai-generate-tests"]');
+    await expect(aiTestBtn).toBeVisible();
+    await expect(aiTestBtn).toBeEnabled({ timeout: 10000 });
+    await aiTestBtn.click();
+
+    // Verify AI Test Generation Feedback & Generated Test in Table
+    await expect(page.locator("text=AI generated").first()).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("text=Valid Payload Smoke Test").first()).toBeVisible({ timeout: 10000 });
   });
 });

@@ -12,3 +12,4 @@ export * from "./observability";
 export * from "./analytics";
 
 export * from "./environments.js";
+export * from "./ai.js";

@@ -19,6 +19,9 @@ export const API_KEY_SCOPES = [
   "deployments:approve",
   "deployments:rollback",
   "tests:run",
+  "ai:generate",
+  "ai:analyze",
+  "ai:optimize",
 ] as const;
 
 export type ApiKeyScope = (typeof API_KEY_SCOPES)[number];

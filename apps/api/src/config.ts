@@ -26,6 +26,13 @@ const envSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   STRIPE_PRICE_PRO: z.string().default("price_pro_monthly"),
   STRIPE_PRICE_BUSINESS: z.string().default("price_business_monthly"),
+  AI_ENABLED: z.coerce.boolean().default(true),
+  AI_PROVIDER: z.enum(["mock", "openai", "anthropic", "custom"]).default("mock"),
+  AI_API_KEY: z.string().optional(),
+  AI_MODEL: z.string().default("gpt-4o-mini"),
+  AI_API_ENDPOINT: z.string().optional(),
+  AI_MAX_REQUESTS_PER_MINUTE: z.coerce.number().default(30),
+  AI_TIMEOUT_MS: z.coerce.number().default(30000),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -79,4 +86,11 @@ export const config = {
   stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET,
   stripePricePro: env.STRIPE_PRICE_PRO,
   stripePriceBusiness: env.STRIPE_PRICE_BUSINESS,
+  aiEnabled: env.AI_ENABLED,
+  aiProvider: env.AI_PROVIDER,
+  aiApiKey: env.AI_API_KEY,
+  aiModel: env.AI_MODEL,
+  aiApiEndpoint: env.AI_API_ENDPOINT,
+  aiMaxRequestsPerMinute: env.AI_MAX_REQUESTS_PER_MINUTE,
+  aiTimeoutMs: env.AI_TIMEOUT_MS,
 };
