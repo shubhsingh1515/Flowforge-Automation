@@ -37,7 +37,11 @@ export default function EnvironmentsPage() {
 
   // State
   const [selectedEnvId, setSelectedEnvId] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<"deployments" | "variables" | "bindings" | "testing">("deployments");
+  const [activeTab, setActiveTab] = useState<"deployments" | "variables" | "bindings" | "testing" | "simulations" | "chaos">("deployments");
+  const [selectedFaultType, setSelectedFaultType] = useState<string>("NONE");
+  const [lastSimulationRun, setLastSimulationRun] = useState<any>(null);
+  const [chaosFaultType, setChaosFaultType] = useState<string>("WORKER_LOSS");
+  const [chaosDuration, setChaosDuration] = useState<number>(60);
 
   // Modals state
   const [showPromoteModal, setShowPromoteModal] = useState(false);
@@ -257,6 +261,81 @@ export default function EnvironmentsPage() {
     onError: (err: any) => setActionError(err.message || "Failed to generate tests with AI"),
   });
 
+  // Phase 20: Digital Twin Simulations & Chaos queries
+  const { data: chaosExperimentsData, refetch: refetchChaos } = useQuery({
+    queryKey: ["chaos-experiments"],
+    queryFn: () => api.chaos.listExperiments(),
+  });
+  const chaosExperiments = chaosExperimentsData?.data || [];
+
+  const runSimulationMutation = useMutation({
+    mutationFn: async ({ workflowId, faultType }: { workflowId: string; faultType: string }) => {
+      const faults = faultType !== "NONE" ? [{ type: faultType }] : [];
+      const res = await api.simulations.run(workflowId, {
+        injectedFaults: faults,
+        syntheticTrigger: { test: true, timestamp: Date.now() },
+      });
+      return res.data;
+    },
+    onSuccess: (res: any) => {
+      setLastSimulationRun(res);
+      setActionSuccess(`Digital Twin simulation completed: ${res.simulationRun.status} (${res.summary.virtualDurationMs}ms virtual duration)`);
+      setTimeout(() => setActionSuccess(null), 5000);
+    },
+    onError: (err: any) => setActionError(err.message || "Simulation failed"),
+  });
+
+  const createChaosMutation = useMutation({
+    mutationFn: async () => {
+      if (currentEnv?.type === "PRODUCTION") {
+        throw new Error("Chaos experiments are strictly prohibited on PRODUCTION environments");
+      }
+      return api.chaos.createExperiment({
+        name: `Chaos Drill: ${chaosFaultType} on ${currentEnv?.name}`,
+        targetEnvironmentId: activeEnvId,
+        faultType: chaosFaultType,
+        targetScope: { durationSeconds: chaosDuration },
+        maxDurationSeconds: chaosDuration,
+      });
+    },
+    onSuccess: () => {
+      refetchChaos();
+      setActionSuccess("Chaos experiment registered in PENDING_APPROVAL state!");
+      setTimeout(() => setActionSuccess(null), 5000);
+    },
+    onError: (err: any) => setActionError(err.message || "Failed to create chaos experiment"),
+  });
+
+  const approveChaosMutation = useMutation({
+    mutationFn: (expId: string) => api.chaos.approveExperiment(expId),
+    onSuccess: () => {
+      refetchChaos();
+      setActionSuccess("Chaos experiment APPROVED for non-production execution!");
+      setTimeout(() => setActionSuccess(null), 5000);
+    },
+    onError: (err: any) => setActionError(err.message || "Approval failed"),
+  });
+
+  const startChaosMutation = useMutation({
+    mutationFn: (expId: string) => api.chaos.startExperiment(expId),
+    onSuccess: () => {
+      refetchChaos();
+      setActionSuccess("Chaos experiment completed with verified automatic cleanup!");
+      setTimeout(() => setActionSuccess(null), 5000);
+    },
+    onError: (err: any) => setActionError(err.message || "Experiment run failed"),
+  });
+
+  const stopChaosMutation = useMutation({
+    mutationFn: (expId: string) => api.chaos.stopExperiment(expId),
+    onSuccess: () => {
+      refetchChaos();
+      setActionSuccess("Chaos experiment aborted and resources cleaned up.");
+      setTimeout(() => setActionSuccess(null), 5000);
+    },
+    onError: (err: any) => setActionError(err.message || "Emergency stop failed"),
+  });
+
   const currentVariables = envDetails?.data?.variables || [];
   const currentBindings = envDetails?.data?.bindings || [];
   const currentDeployments = deploymentsData?.data || [];
@@ -427,6 +506,34 @@ export default function EnvironmentsPage() {
           >
             <Play className="h-4 w-4" />
             <span>Automated Testing & Gates</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("simulations")}
+            data-testid="tab-env-simulations"
+            className={cn(
+              "pb-3 border-b-2 flex items-center gap-2 transition",
+              activeTab === "simulations"
+                ? "border-indigo-600 text-indigo-600"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            )}
+          >
+            <Sparkles className="h-4 w-4" />
+            <span>Digital Twin Simulations</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("chaos")}
+            data-testid="tab-env-chaos"
+            className={cn(
+              "pb-3 border-b-2 flex items-center gap-2 transition",
+              activeTab === "chaos"
+                ? "border-indigo-600 text-indigo-600"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            )}
+          >
+            <ShieldAlert className="h-4 w-4" />
+            <span>Chaos Engineering</span>
           </button>
         </div>
 
@@ -756,6 +863,272 @@ export default function EnvironmentsPage() {
                     <tr>
                       <td colSpan={5} className="p-8 text-center text-slate-400">
                         No test cases defined for this workflow yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: DIGITAL TWIN SIMULATION */}
+        {activeTab === "simulations" && (
+          <div className="space-y-4" data-testid="simulations-view">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Workflow Digital Twin & Deterministic Simulation</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Simulate workflow graph traversal with virtual elapsed time and 100% side-effect isolation.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedWorkflowId || workflows[0]?.id || ""}
+                  onChange={(e) => setSelectedWorkflowId(e.target.value)}
+                  data-testid="select-simulation-workflow"
+                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-800 bg-white"
+                >
+                  {workflows.map((wf: any) => (
+                    <option key={wf.id} value={wf.id}>{wf.name}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedFaultType}
+                  onChange={(e) => setSelectedFaultType(e.target.value)}
+                  data-testid="select-simulation-fault"
+                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-800 bg-white"
+                >
+                  <option value="NONE">No Injected Fault (Clean Run)</option>
+                  <option value="HTTP_429">HTTP 429 Rate Limit</option>
+                  <option value="HTTP_5XX">HTTP 502 Upstream Provider Failure</option>
+                  <option value="TIMEOUT">Network Timeout (30s)</option>
+                  <option value="EXPIRED_CREDENTIALS">Expired / Revoked Credentials</option>
+                  <option value="RESIDENCY_VIOLATION">Cross-Region Residency Boundary</option>
+                </select>
+
+                <button
+                  data-testid="btn-run-simulation"
+                  onClick={() => {
+                    const targetWf = selectedWorkflowId || workflows[0]?.id;
+                    if (targetWf) runSimulationMutation.mutate({ workflowId: targetWf, faultType: selectedFaultType });
+                  }}
+                  disabled={runSimulationMutation.isPending || workflows.length === 0}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors shadow-2xs disabled:opacity-50"
+                >
+                  <Play className="h-3.5 w-3.5" />
+                  <span>{runSimulationMutation.isPending ? "Simulating..." : "Run Digital Twin"}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Simulation Results Banner */}
+            {lastSimulationRun && (
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 space-y-3" data-testid="simulation-summary-card">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      "px-2.5 py-1 rounded-full text-[11px] font-bold uppercase",
+                      lastSimulationRun.simulationRun.status === "SIMULATED_SUCCESS"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-rose-100 text-rose-800"
+                    )} data-testid="sim-status-badge">
+                      {lastSimulationRun.simulationRun.status}
+                    </span>
+                    <span className="text-xs text-slate-700 font-medium">
+                      Virtual Time: {lastSimulationRun.summary.virtualDurationMs}ms (Real: {lastSimulationRun.summary.realDurationMs}ms)
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 font-mono">
+                    Artifact Hash: {lastSimulationRun.summary.workflowArtifactHash.slice(0, 16)}...
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-3 text-xs bg-white rounded-lg p-3 border border-indigo-100">
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Steps Executed</span>
+                    <span className="font-bold text-slate-800">{lastSimulationRun.summary.executedNodeCount} / {lastSimulationRun.summary.nodeCount}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Side Effects Blocked</span>
+                    <span className="font-bold text-emerald-600">100% Guaranteed Safe</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Assertions Passed</span>
+                    <span className="font-bold text-slate-800">{lastSimulationRun.summary.assertionsPassed} / {lastSimulationRun.summary.assertionCount}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Unsimulatable Nodes</span>
+                    <span className="font-bold text-slate-800">{lastSimulationRun.summary.unsimulatableNodeCount}</span>
+                  </div>
+                </div>
+
+                {/* Node-by-node simulated outcomes */}
+                <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-[10px] text-slate-400 uppercase font-semibold border-b border-slate-200">
+                      <tr>
+                        <th className="py-2 px-3">Step</th>
+                        <th className="py-2 px-3">Type</th>
+                        <th className="py-2 px-3">Status</th>
+                        <th className="py-2 px-3">Virtual Latency</th>
+                        <th className="py-2 px-3">Details / Output</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                      {Object.values(lastSimulationRun.simulationRun.nodeOutcomes || {}).map((outcome: any) => (
+                        <tr key={outcome.nodeId} className="hover:bg-slate-50/50">
+                          <td className="py-2 px-3 font-semibold text-slate-800">{outcome.nodeName}</td>
+                          <td className="py-2 px-3 text-slate-500">{outcome.nodeType}</td>
+                          <td className="py-2 px-3">
+                            <span className={cn(
+                              "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                              outcome.status === "SIMULATED_SUCCESS"
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : outcome.status === "SKIPPED"
+                                ? "bg-slate-100 text-slate-600"
+                                : "bg-rose-50 text-rose-700 border border-rose-200"
+                            )}>
+                              {outcome.status}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-slate-600">{outcome.durationMs}ms</td>
+                          <td className="py-2 px-3 text-slate-500 truncate max-w-xs">
+                            {outcome.error ? outcome.error : JSON.stringify(outcome.output || {})}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 6: CHAOS ENGINEERING */}
+        {activeTab === "chaos" && (
+          <div className="space-y-4" data-testid="chaos-view">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Controlled Chaos Engineering</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Inject bounded synthetic faults into non-production environments with guaranteed automatic cleanup.
+                </p>
+              </div>
+
+              {currentEnv?.type === "PRODUCTION" ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs font-semibold">
+                  <ShieldAlert className="h-4 w-4" />
+                  <span>Chaos Prohibited on PRODUCTION</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <select
+                    value={chaosFaultType}
+                    onChange={(e) => setChaosFaultType(e.target.value)}
+                    data-testid="select-chaos-fault"
+                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-800 bg-white"
+                  >
+                    <option value="WORKER_LOSS">Simulated Worker Crash (Failover)</option>
+                    <option value="QUEUE_BACKPRESSURE">Queue Backpressure Surge</option>
+                    <option value="TRANSIENT_5XX">Transient 503 Provider Blips</option>
+                    <option value="RATE_LIMITING">Rate Limit Throttling</option>
+                    <option value="DATABASE_LATENCY">Simulated DB Latency Injection</option>
+                  </select>
+
+                  <button
+                    data-testid="btn-create-chaos"
+                    onClick={() => createChaosMutation.mutate()}
+                    disabled={createChaosMutation.isPending}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors shadow-2xs disabled:opacity-50"
+                  >
+                    <ShieldAlert className="h-3.5 w-3.5" />
+                    <span>{createChaosMutation.isPending ? "Registering..." : "Register Chaos Drill"}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* List of Chaos Experiments */}
+            <div className="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 text-slate-400 font-semibold text-[11px] bg-slate-50/50">
+                    <th className="py-2.5 px-4">Drill Name</th>
+                    <th className="py-2.5 px-4">Fault Type</th>
+                    <th className="py-2.5 px-4">Status</th>
+                    <th className="py-2.5 px-4">Cleanup Status</th>
+                    <th className="py-2.5 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {chaosExperiments.length > 0 ? (
+                    chaosExperiments.map((exp: any) => (
+                      <tr key={exp.id} className="hover:bg-slate-50/50" data-testid={`chaos-row-${exp.id}`}>
+                        <td className="py-3 px-4 font-semibold text-slate-900">{exp.name}</td>
+                        <td className="py-3 px-4 font-mono text-slate-600">{exp.faultType}</td>
+                        <td className="py-3 px-4">
+                          <span className={cn(
+                            "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                            exp.status === "COMPLETED"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : exp.status === "APPROVED"
+                              ? "bg-blue-50 text-blue-700 border border-blue-200"
+                              : exp.status === "RUNNING"
+                              ? "bg-amber-50 text-amber-700 border border-amber-200 animate-pulse"
+                              : "bg-slate-100 text-slate-600"
+                          )}>
+                            {exp.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={cn(
+                            "px-2 py-0.5 rounded text-[10px] font-semibold",
+                            exp.cleanupStatus === "CLEANED_UP"
+                              ? "bg-emerald-50 text-emerald-600"
+                              : "text-slate-400"
+                          )}>
+                            {exp.cleanupStatus}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right space-x-1.5">
+                          {exp.status === "PENDING_APPROVAL" && (
+                            <button
+                              onClick={() => approveChaosMutation.mutate(exp.id)}
+                              data-testid={`btn-approve-chaos-${exp.id}`}
+                              className="px-2.5 py-1 rounded bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 text-xs font-semibold"
+                            >
+                              Approve
+                            </button>
+                          )}
+                          {exp.status === "APPROVED" && (
+                            <button
+                              onClick={() => startChaosMutation.mutate(exp.id)}
+                              data-testid={`btn-start-chaos-${exp.id}`}
+                              className="px-2.5 py-1 rounded bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 text-xs font-semibold"
+                            >
+                              Execute
+                            </button>
+                          )}
+                          {exp.status === "RUNNING" && (
+                            <button
+                              onClick={() => stopChaosMutation.mutate(exp.id)}
+                              data-testid={`btn-stop-chaos-${exp.id}`}
+                              className="px-2.5 py-1 rounded bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 text-xs font-semibold"
+                            >
+                              Stop
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="p-8 text-center text-slate-400">
+                        No chaos drills executed in this environment yet.
                       </td>
                     </tr>
                   )}

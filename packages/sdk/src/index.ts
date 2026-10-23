@@ -933,6 +933,76 @@ export class FlowForgeClient {
     },
   };
 
+  // ==========================================
+  // PHASE 20: DIGITAL TWIN SIMULATION, CHAOS & OPTIMIZATION
+  // ==========================================
+
+  public readonly simulations = {
+    createScenario: async (workflowId: string, data: any) => {
+      return this.request<any>(`/workflows/${workflowId}/simulations/scenarios`, "POST", data);
+    },
+    listScenarios: async (workflowId: string) => {
+      return this.request<any[]>(`/workflows/${workflowId}/simulations/scenarios`);
+    },
+    getScenario: async (scenarioId: string) => {
+      return this.request<any>(`/simulations/scenarios/${scenarioId}`);
+    },
+    deleteScenario: async (scenarioId: string) => {
+      return this.request<any>(`/simulations/scenarios/${scenarioId}`, "DELETE");
+    },
+    run: async (workflowId: string, data?: any) => {
+      return this.request<any>(`/workflows/${workflowId}/simulations/run`, "POST", data || {});
+    },
+    listRuns: async (workflowId: string) => {
+      return this.request<any[]>(`/workflows/${workflowId}/simulations/runs`);
+    },
+    getRun: async (runId: string) => {
+      return this.request<any>(`/simulations/runs/${runId}`);
+    },
+    checkStale: async (runId: string, contentHash: string) => {
+      return this.request<{ isStale: boolean }>(`/simulations/runs/${runId}/stale-check?contentHash=${encodeURIComponent(contentHash)}`);
+    },
+    evaluateReleaseGates: async (releaseArtifactId: string, environmentId: string) => {
+      return this.request<any>(`/releases/${releaseArtifactId}/simulation-gates/${environmentId}`);
+    },
+  };
+
+  public readonly chaos = {
+    createExperiment: async (data: any) => {
+      return this.request<any>("/chaos/experiments", "POST", data);
+    },
+    listExperiments: async () => {
+      return this.request<any[]>("/chaos/experiments");
+    },
+    getExperiment: async (experimentId: string) => {
+      return this.request<any>(`/chaos/experiments/${experimentId}`);
+    },
+    approveExperiment: async (experimentId: string) => {
+      return this.request<any>(`/chaos/experiments/${experimentId}/approve`, "POST");
+    },
+    startExperiment: async (experimentId: string) => {
+      return this.request<any>(`/chaos/experiments/${experimentId}/start`, "POST");
+    },
+    stopExperiment: async (experimentId: string) => {
+      return this.request<any>(`/chaos/experiments/${experimentId}/stop`, "POST");
+    },
+  };
+
+  public readonly optimizations = {
+    compareAndCreateCandidate: async (workflowId: string, data: any) => {
+      return this.request<any>(`/workflows/${workflowId}/optimizations/candidates`, "POST", data);
+    },
+    listCandidates: async (workflowId: string) => {
+      return this.request<any[]>(`/workflows/${workflowId}/optimizations/candidates`);
+    },
+    getCandidate: async (candidateId: string) => {
+      return this.request<any>(`/optimizations/candidates/${candidateId}`);
+    },
+    promoteCandidate: async (candidateId: string) => {
+      return this.request<any>(`/optimizations/candidates/${candidateId}/promote`, "POST");
+    },
+  };
+
 }
 
 export * from "@flowforge/connector-sdk";

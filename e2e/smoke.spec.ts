@@ -1350,4 +1350,56 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     // Verify publish notification
     await expect(page.locator("text=Connector published to marketplace with immutable SHA-256 verification!")).toBeVisible({ timeout: 10000 });
   });
+
+  test("45. Phase 20 Workflow Digital Twin, Deterministic Simulation & Chaos Engineering Console", async ({
+    page,
+  }) => {
+    // 1. Login
+    await loginAsDemo(page);
+
+    // 2. Navigate to Environments & Pre-Deployment Management
+    await page.goto("/environments");
+    await page.waitForLoadState("networkidle");
+
+    // 3. Switch to Digital Twin Simulations Tab
+    const simTab = page.locator('[data-testid="tab-env-simulations"]');
+    await expect(simTab).toBeVisible({ timeout: 10000 });
+    await simTab.click();
+
+    // Verify Digital Twin Simulation View
+    const simView = page.locator('[data-testid="simulations-view"]');
+    await expect(simView).toBeVisible({ timeout: 5000 });
+    await expect(page.locator("text=Workflow Digital Twin & Deterministic Simulation")).toBeVisible();
+
+    // 4. Run Deterministic Digital Twin Simulation
+    const runSimBtn = page.locator('[data-testid="btn-run-simulation"]');
+    await expect(runSimBtn).toBeVisible();
+    await runSimBtn.click();
+
+    // 5. Verify Simulation Summary Card & Node Timeline
+    const summaryCard = page.locator('[data-testid="simulation-summary-card"]');
+    await expect(summaryCard).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('[data-testid="sim-status-badge"]')).toBeVisible();
+    await expect(page.locator("text=100% Guaranteed Safe")).toBeVisible();
+    await expect(page.locator("text=Virtual Time:")).toBeVisible();
+
+    // 6. Switch to Controlled Chaos Engineering Tab
+    const chaosTab = page.locator('[data-testid="tab-env-chaos"]');
+    await expect(chaosTab).toBeVisible();
+    await chaosTab.click();
+
+    // Verify Chaos Engineering View
+    const chaosView = page.locator('[data-testid="chaos-view"]');
+    await expect(chaosView).toBeVisible({ timeout: 5000 });
+    await expect(page.locator("text=Controlled Chaos Engineering")).toBeVisible();
+
+    // 7. Register Non-Production Chaos Drill if non-prod, or verify safety restriction
+    const createChaosBtn = page.locator('[data-testid="btn-create-chaos"]');
+    if (await createChaosBtn.isVisible()) {
+      await createChaosBtn.click();
+      await expect(page.locator("text=Chaos experiment registered in PENDING_APPROVAL state!")).toBeVisible({ timeout: 10000 });
+    } else {
+      await expect(page.locator("text=Chaos Prohibited on PRODUCTION")).toBeVisible();
+    }
+  });
 });

@@ -172,6 +172,11 @@ model Workspace {
   // Phase 19: Enterprise Integration Developer Platform & Connector SDK
   connectorArtifacts     ConnectorReleaseArtifact[]
   connectorMetrics       ConnectorExecutionMetric[]
+  // Phase 20: Enterprise Digital Twin, Simulation, Chaos & Optimization
+  simulationScenarios    WorkflowSimulationScenario[]
+  simulationRuns         WorkflowSimulationRun[]
+  chaosExperiments       ChaosExperiment[]
+  optimizationCandidates WorkflowOptimizationCandidate[]
 
   @@map("workspaces")
 }
@@ -225,6 +230,10 @@ model Workflow {
   owningTeam        Team?                  @relation("TeamWorkflows", fields: [owningTeamId], references: [id], onDelete: SetNull)
   reviews           WorkflowReview[]
   reliabilityObjectives ReliabilityObjective[]
+  // Phase 20
+  simulationScenarios    WorkflowSimulationScenario[]
+  simulationRuns         WorkflowSimulationRun[]
+  optimizationCandidates WorkflowOptimizationCandidate[]
 
   @@index([workspaceId, status])
   @@index([workspaceId, createdAt])
@@ -1068,6 +1077,7 @@ model WorkflowEnvironment {
   deployments             WorkflowDeployment[]
   testRuns                WorkflowTestRun[]
   policy                  DeploymentPolicy?
+  chaosExperiments        ChaosExperiment[]
 
   @@unique([workspaceId, slug])
   @@index([workspaceId, type])
@@ -1132,6 +1142,7 @@ model WorkflowReleaseArtifact {
   workflowVersion     WorkflowVersion?     @relation(fields: [workflowVersionId], references: [id], onDelete: SetNull)
   deployments         WorkflowDeployment[]
   testRuns            WorkflowTestRun[]
+  simulationRuns      WorkflowSimulationRun[]
 
   @@unique([workflowId, releaseNumber])
   @@index([workspaceId, contentHash])
@@ -1176,7 +1187,10 @@ model DeploymentPolicy {
   environmentId        String   @unique
   requireApproval      Boolean  @default(false)
   requirePassingTests  Boolean  @default(false)
-  preventSelfApproval  Boolean  @default(true)
+  preventSelfApproval            Boolean  @default(true)
+  requireSimulationCoverage      Boolean  @default(false)
+  prohibitUnsimulatableNodes     Boolean  @default(false)
+  requireChaosExperimentEvidence Boolean  @default(false)
   allowedPromoterRoles String[] @default(["OWNER", "ADMIN", "MEMBER"])
   allowedApproverRoles String[] @default(["OWNER", "ADMIN"])
   createdAt            DateTime @default(now())
@@ -1870,4 +1884,118 @@ model ConnectorExecutionMetric {
   @@index([connectorKey, version])
   @@index([workspaceId, createdAt])
   @@map("connector_execution_metrics")
+}
+
+// ==========================================
+// PHASE 20: ENTERPRISE WORKFLOW DIGITAL TWIN, SIMULATION & CHAOS
+// ==========================================
+
+model WorkflowSimulationScenario {
+  id               String   @id @default(uuid())
+  workspaceId      String
+  workflowId       String
+  name             String
+  description      String?
+  injectedFaults   Json     @default("[]")
+  syntheticTrigger Json     @default("{}")
+  mockOutputs      Json     @default("{}")
+  expectedOutcome  String   @default("SIMULATED_SUCCESS") // SIMULATED_SUCCESS, SIMULATED_FAILURE, SIMULATED_TIMEOUT
+  assertions       Json     @default("[]")
+  createdById      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  workspace        Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workflow         Workflow                @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  runs             WorkflowSimulationRun[]
+
+  @@index([workflowId])
+  @@index([workspaceId])
+  @@map("workflow_simulation_scenarios")
+}
+
+model WorkflowSimulationRun {
+  id                      String   @id @default(uuid())
+  workspaceId             String
+  workflowId              String
+  scenarioId              String?
+  workflowArtifactHash    String   // Bound SHA-256 canonical hash
+  releaseArtifactId       String?
+  engineVersion           String   @default("digital-twin/v1")
+  status                  String   // SIMULATED_SUCCESS, SIMULATED_FAILURE, SIMULATED_TIMEOUT, BLOCKED_BY_POLICY
+  virtualDurationMs       Int      @default(0)
+  realDurationMs          Int      @default(0)
+  nodeOutcomes            Json     @default("{}")
+  timeline                Json     @default("[]")
+  assertionResults        Json     @default("[]")
+  allAssertionsPassed     Boolean  @default(true)
+  unsimulatableNodeCount  Int      @default(0)
+  sideEffectsBlockedCount Int      @default(0)
+  executedByUserId        String?
+  createdAt               DateTime @default(now())
+
+  workspace               Workspace                   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workflow                Workflow                    @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  scenario                WorkflowSimulationScenario? @relation(fields: [scenarioId], references: [id], onDelete: SetNull)
+  releaseArtifact         WorkflowReleaseArtifact?    @relation(fields: [releaseArtifactId], references: [id], onDelete: SetNull)
+
+  @@index([workflowArtifactHash, status])
+  @@index([workflowId, createdAt])
+  @@index([workspaceId])
+  @@map("workflow_simulation_runs")
+}
+
+model ChaosExperiment {
+  id                  String   @id @default(uuid())
+  workspaceId         String
+  name                String
+  description         String?
+  targetEnvironmentId String
+  faultType           String   // WORKER_LOSS, QUEUE_BACKPRESSURE, TRANSIENT_5XX, RATE_LIMITING, DATABASE_LATENCY, OUTBOX_DELIVERY_FAILURE, WORKER_HEARTBEAT_EXPIRY
+  targetScope         Json     @default("{}")
+  status              String   @default("PENDING_APPROVAL") // PENDING_APPROVAL, APPROVED, RUNNING, COMPLETED, ABORTED, CLEANED_UP
+  maxDurationSeconds  Int      @default(60)
+  authorizedByUserId  String?
+  authorizedAt        DateTime?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  cleanupStatus       String   @default("PENDING") // PENDING, CLEANED_UP, FAILED
+  cleanupAt           DateTime?
+  recoveryMetrics     Json?
+  createdById         String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  workspace           Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  targetEnvironment   WorkflowEnvironment @relation(fields: [targetEnvironmentId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@index([targetEnvironmentId])
+  @@map("chaos_experiments")
+}
+
+model WorkflowOptimizationCandidate {
+  id                     String   @id @default(uuid())
+  workspaceId            String
+  workflowId             String
+  baselineArtifactHash   String
+  candidateArtifactHash  String
+  title                  String
+  summary                String
+  proposedChanges        Json     @default("{}")
+  structuralDiff         Json     @default("{}")
+  baselineMetrics        Json     @default("{}")
+  candidateMetrics       Json     @default("{}")
+  recommendations        Json     @default("[]")
+  status                 String   @default("DRAFT") // DRAFT, REVIEWED, PROMOTED, DISCARDED
+  createdById            String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  workspace              Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workflow               Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId, status])
+  @@index([workspaceId])
+  @@map("workflow_optimization_candidates")
 }

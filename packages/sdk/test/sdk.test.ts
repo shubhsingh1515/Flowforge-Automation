@@ -821,4 +821,88 @@ describe("FlowForge TypeScript SDK Client Suite", () => {
     expect(pub.status).toBe("PUBLISHED");
   });
 
+  it("should support Phase 20 digital twin simulations, chaos experiments, and optimizations", async () => {
+    (global as any).fetch = vi.fn().mockImplementation(async (url: string, opts: any) => {
+      const u = String(url);
+      if (u.includes("/workflows/wf-1/simulations/run")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              simulationRun: { id: "sim-123", status: "SIMULATED_SUCCESS", workflowArtifactHash: "hash-abc" },
+              summary: { status: "SIMULATED_SUCCESS", virtualDurationMs: 80, allAssertionsPassed: true },
+            },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/releases/rel-1/simulation-gates/env-1")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: { valid: true, artifactHash: "hash-abc", simulationPassed: true, reasons: [] },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/chaos/experiments")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: { id: "chaos-123", status: "PENDING_APPROVAL", faultType: "WORKER_LOSS" },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/workflows/wf-1/optimizations/candidates")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: { id: "opt-123", title: "Merge Transforms", status: "DRAFT" },
+          }),
+        } as any;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ data: { success: true } }),
+      } as any;
+    });
+
+    const client = new FlowForgeClient({ apiKey: "ff_live_valid" });
+
+    // Run digital twin simulation
+    const simRes = await client.simulations.run("wf-1", { syntheticTrigger: { user: "alice" } });
+    expect(simRes.data.simulationRun.id).toBe("sim-123");
+    expect(simRes.data.simulationRun.status).toBe("SIMULATED_SUCCESS");
+
+    // Evaluate release gates
+    const gateRes = await client.simulations.evaluateReleaseGates("rel-1", "env-1");
+    expect(gateRes.data.valid).toBe(true);
+    expect(gateRes.data.simulationPassed).toBe(true);
+
+    // Create chaos experiment
+    const chaosRes = await client.chaos.createExperiment({
+      name: "Worker resilience drill",
+      targetEnvironmentId: "env-staging-123",
+      faultType: "WORKER_LOSS",
+    });
+    expect(chaosRes.data.id).toBe("chaos-123");
+
+    // Create optimization candidate
+    const optRes = await client.optimizations.compareAndCreateCandidate("wf-1", {
+      title: "Consolidate linear transformations",
+      summary: "Merge transform steps into single mapping",
+      candidateNodes: [],
+      candidateEdges: [],
+    });
+    expect(optRes.data.id).toBe("opt-123");
+    expect(optRes.data.status).toBe("DRAFT");
+  });
+
 });

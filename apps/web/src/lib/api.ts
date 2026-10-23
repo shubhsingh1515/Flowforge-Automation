@@ -897,4 +897,67 @@ export const api = {
     getAnalytics: (key: string) => request<any>(`/connectors/${key}/analytics`),
   },
 
+  // ==========================================
+  // PHASE 20: DIGITAL TWIN SIMULATION, CHAOS & OPTIMIZATION
+  // ==========================================
+
+  simulations: {
+    createScenario: (workflowId: string, body: any) =>
+      request<any>(`/workflows/${workflowId}/simulations/scenarios`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    listScenarios: (workflowId: string) =>
+      request<any>(`/workflows/${workflowId}/simulations/scenarios`),
+    getScenario: (scenarioId: string) =>
+      request<any>(`/simulations/scenarios/${scenarioId}`),
+    deleteScenario: (scenarioId: string) =>
+      request<any>(`/simulations/scenarios/${scenarioId}`, { method: "DELETE" }),
+    run: (workflowId: string, body?: any) =>
+      request<any>(`/workflows/${workflowId}/simulations/run`, {
+        method: "POST",
+        body: JSON.stringify(body || {}),
+      }),
+    listRuns: (workflowId: string) =>
+      request<any>(`/workflows/${workflowId}/simulations/runs`),
+    getRun: (runId: string) =>
+      request<any>(`/simulations/runs/${runId}`),
+    checkStale: (runId: string, contentHash: string) =>
+      request<{ isStale: boolean }>(`/simulations/runs/${runId}/stale-check?contentHash=${encodeURIComponent(contentHash)}`),
+    evaluateReleaseGates: (releaseArtifactId: string, environmentId: string) =>
+      request<any>(`/releases/${releaseArtifactId}/simulation-gates/${environmentId}`),
+  },
+
+  chaos: {
+    createExperiment: (body: any) =>
+      request<any>("/chaos/experiments", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    listExperiments: () =>
+      request<any>("/chaos/experiments"),
+    getExperiment: (id: string) =>
+      request<any>(`/chaos/experiments/${id}`),
+    approveExperiment: (id: string) =>
+      request<any>(`/chaos/experiments/${id}/approve`, { method: "POST" }),
+    startExperiment: (id: string) =>
+      request<any>(`/chaos/experiments/${id}/start`, { method: "POST" }),
+    stopExperiment: (id: string) =>
+      request<any>(`/chaos/experiments/${id}/stop`, { method: "POST" }),
+  },
+
+  optimizations: {
+    compareAndCreateCandidate: (workflowId: string, body: any) =>
+      request<any>(`/workflows/${workflowId}/optimizations/candidates`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    listCandidates: (workflowId: string) =>
+      request<any>(`/workflows/${workflowId}/optimizations/candidates`),
+    getCandidate: (candidateId: string) =>
+      request<any>(`/optimizations/candidates/${candidateId}`),
+    promoteCandidate: (candidateId: string) =>
+      request<any>(`/optimizations/candidates/${candidateId}/promote`, { method: "POST" }),
+  },
+
 };

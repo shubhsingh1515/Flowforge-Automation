@@ -171,4 +171,5 @@ export interface ValidationResult {
   requiredIntegrations: string[];
   missingBindings: string[];
   testGatePassed?: boolean;
+  simulationGateEvaluation?: any;
 }

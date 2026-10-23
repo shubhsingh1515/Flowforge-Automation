@@ -10,6 +10,7 @@ import { environmentService } from "./environments.js";
 import { auditLogService } from "./auditLog.js";
 import { outboundWebhookService } from "./outboundWebhooks.js";
 import { governanceService } from "./governance.js";
+import { simulationGateService } from "./simulationGateService.js";
 
 export class DeploymentService {
   /**
@@ -191,6 +192,20 @@ export class DeploymentService {
       }
     }
 
+    // 5. Phase 20: Digital Twin Simulation & Chaos Release Gates
+    const gateEval = await simulationGateService.evaluateReleaseGates(
+      workspaceId,
+      releaseArtifactId,
+      environmentId
+    );
+    if (!gateEval.valid) {
+      for (const reason of gateEval.reasons) {
+        if (!errors.includes(reason)) {
+          errors.push(reason);
+        }
+      }
+    }
+
     return {
       valid: errors.length === 0,
       errors,
@@ -200,6 +215,7 @@ export class DeploymentService {
       requiredIntegrations,
       missingBindings,
       testGatePassed,
+      simulationGateEvaluation: gateEval,
     };
   }
 
