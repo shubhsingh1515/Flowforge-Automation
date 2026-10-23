@@ -781,4 +781,62 @@ export const api = {
     rotate: (body?: any) => request<any>("/cmek/rotate", { method: "POST", body: JSON.stringify(body || {}) }),
     revoke: (body: any) => request<any>("/cmek/revoke", { method: "POST", body: JSON.stringify(body) }),
   },
+
+  // Phase 18: Operational Incidents
+  incidents: {
+    list: (params?: { status?: string; severity?: string; category?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.status) q.set("status", params.status);
+      if (params?.severity) q.set("severity", params.severity);
+      if (params?.category) q.set("category", params.category);
+      const qs = q.toString();
+      return request<{ data: any[] }>(`/incidents${qs ? `?${qs}` : ""}`);
+    },
+    get: (id: string) => request<{ data: any }>(`/incidents/${id}`),
+    updateStatus: (id: string, body: { status: string; note?: string }) =>
+      request<{ data: any }>(`/incidents/${id}/status`, { method: "POST", body: JSON.stringify(body) }),
+    assign: (id: string, body: { assignedToUserId: string | null; note?: string }) =>
+      request<{ data: any }>(`/incidents/${id}/assign`, { method: "POST", body: JSON.stringify(body) }),
+    addNote: (id: string, body: { note: string }) =>
+      request<{ data: any }>(`/incidents/${id}/notes`, { method: "POST", body: JSON.stringify(body) }),
+    analyzeRootCause: (id: string) =>
+      request<{ data: any }>(`/incidents/${id}/root-cause`, { method: "POST" }),
+    simulate: (body: any) =>
+      request<{ data: any }>("/incidents/simulate", { method: "POST", body: JSON.stringify(body) }),
+  },
+
+  // Phase 18: Remediation & Self-Healing Engine
+  remediations: {
+    getPolicy: () => request<{ data: any }>("/remediation/policy"),
+    updatePolicy: (body: any) =>
+      request<{ data: any }>("/remediation/policy", { method: "PUT", body: JSON.stringify(body) }),
+    listOperations: (params?: { status?: string; incidentId?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.status) q.set("status", params.status);
+      if (params?.incidentId) q.set("incidentId", params.incidentId);
+      const qs = q.toString();
+      return request<{ data: any[] }>(`/remediation/operations${qs ? `?${qs}` : ""}`);
+    },
+    getOperation: (id: string) => request<{ data: any }>(`/remediation/operations/${id}`),
+    requestAction: (body: any) =>
+      request<{ data: any }>("/remediation/operations", { method: "POST", body: JSON.stringify(body) }),
+    approve: (id: string, body: { approved: boolean; reason?: string }) =>
+      request<{ data: any }>(`/remediation/operations/${id}/approve`, { method: "POST", body: JSON.stringify(body) }),
+    verify: (id: string) =>
+      request<{ data: any }>(`/remediation/operations/${id}/verify`, { method: "POST" }),
+  },
+
+  // Phase 18: Unified Health & Observability 2.0
+  observability: {
+    getUnifiedHealth: () => request<{ data: any }>("/observability/unified-health"),
+    getWarnings: (isResolved?: boolean) => {
+      const qs = isResolved !== undefined ? `?isResolved=${isResolved}` : "";
+      return request<{ data: any[] }>(`/observability/warnings${qs}`);
+    },
+    evaluateWarnings: (body?: { regionKey?: string }) =>
+      request<{ data: any[] }>("/observability/warnings/evaluate", { method: "POST", body: JSON.stringify(body || {}) }),
+    getSlos: () => request<{ data: any[] }>("/observability/slos"),
+    evaluateSlos: () => request<{ data: any[] }>("/observability/slos/evaluate", { method: "POST" }),
+  },
+
 };

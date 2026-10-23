@@ -620,4 +620,116 @@ describe("FlowForge TypeScript SDK Client Suite", () => {
     const hold = await client.compliance.setLegalHold({ legalHold: true, reason: "Litigation investigation" });
     expect(hold.policy.legalHold).toBe(true);
   });
+
+  it("supports Phase 18 Operational Incidents, Remediations, and Unified Health Observability", async () => {
+    global.fetch = vi.fn().mockImplementation(async (url, init) => {
+      const urlStr = url.toString();
+      const method = init?.method || "GET";
+
+      if (urlStr.includes("/incidents") && method === "GET") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: [
+              {
+                id: "inc-1",
+                title: "SLO BREACH: P95 Latency",
+                severity: "CRITICAL",
+                status: "OPEN",
+                category: "SLO_BREACH",
+              },
+            ],
+          }),
+        } as any;
+      }
+
+      if (urlStr.includes("/incidents/simulate") && method === "POST") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: { id: "inc-sim-1", title: "Test Incident", severity: "HIGH", status: "OPEN" },
+          }),
+        } as any;
+      }
+
+      if (urlStr.includes("/remediation/policy") && method === "GET") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              autonomyMode: "OBSERVE_ONLY",
+              allowedActions: ["RETRY_RETRYABLE_EXECUTION"],
+            },
+          }),
+        } as any;
+      }
+
+      if (urlStr.includes("/remediation/operations") && method === "POST") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              id: "op-1",
+              actionKey: "RETRY_RETRYABLE_EXECUTION",
+              status: "PENDING_APPROVAL",
+            },
+          }),
+        } as any;
+      }
+
+      if (urlStr.includes("/observability/unified-health")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              overallStatus: "HEALTHY",
+              sloAttainmentPct: 100,
+              services: {
+                workers: { status: "HEALTHY", activeWorkers: 1 },
+                queues: { status: "HEALTHY", depth: 0 },
+                executionEngine: { status: "HEALTHY", successRate24h: 99.8 },
+                outbox: { status: "HEALTHY", pendingCount: 0, deadLetterCount: 0 },
+                database: { status: "HEALTHY" },
+                regions: { authoritativeRegion: "us-east-1" },
+              },
+            },
+          }),
+        } as any;
+      }
+
+      return { ok: true, status: 200, json: async () => ({ data: {} }) } as any;
+    });
+
+    const client = new FlowForgeClient({ apiKey: "ff_live_valid" });
+
+    // 1. Incidents
+    const incidents = await client.incidents.list({ status: "OPEN" });
+    expect(incidents.data.length).toBe(1);
+    expect(incidents.data[0].severity).toBe("CRITICAL");
+
+    const sim = await client.incidents.simulate({ title: "Test Incident", severity: "HIGH" });
+    expect(sim.data.id).toBe("inc-sim-1");
+
+    // 2. Remediations
+    const policy = await client.remediations.getPolicy();
+    expect(policy.data.autonomyMode).toBe("OBSERVE_ONLY");
+
+    const op = await client.remediations.requestAction({
+      actionKey: "RETRY_RETRYABLE_EXECUTION",
+      targetType: "EXECUTION",
+      targetId: "exec-123",
+    });
+    expect(op.data.status).toBe("PENDING_APPROVAL");
+
+    // 3. Unified Health Observability
+    const health = await client.observability.getUnifiedHealth();
+    expect(health.data.overallStatus).toBe("HEALTHY");
+    expect(health.data.services.workers.status).toBe("HEALTHY");
+  });
+
 });

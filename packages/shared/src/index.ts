@@ -17,3 +17,4 @@ export * from "./collaboration.js";
 export * from "./reliability.js";
 export * from "./scale.js";
 export * from "./compliance-p17.js";
+export * from "./observability-p18.js";

@@ -774,4 +774,109 @@ export class FlowForgeClient {
       }>("/cmek/revoke", "POST", data);
     },
   };
+
+  /**
+   * Phase 18: Operational Incidents Namespace
+   */
+  public readonly incidents = {
+    list: async (filters?: { status?: string; severity?: string; category?: string }) => {
+      const params = new URLSearchParams();
+      if (filters?.status) params.append("status", filters.status);
+      if (filters?.severity) params.append("severity", filters.severity);
+      if (filters?.category) params.append("category", filters.category);
+      const query = params.toString() ? `?${params.toString()}` : "";
+      return this.request<{ data: any[] }>(`/incidents${query}`);
+    },
+    get: async (id: string) => {
+      return this.request<{ data: any }>(`/incidents/${id}`);
+    },
+    updateStatus: async (id: string, data: { status: string; note?: string }) => {
+      return this.request<{ data: any }>(`/incidents/${id}/status`, "POST", data);
+    },
+    assign: async (id: string, data: { assignedToUserId: string | null; note?: string }) => {
+      return this.request<{ data: any }>(`/incidents/${id}/assign`, "POST", data);
+    },
+    addNote: async (id: string, data: { note: string }) => {
+      return this.request<{ data: any }>(`/incidents/${id}/notes`, "POST", data);
+    },
+    analyzeRootCause: async (id: string) => {
+      return this.request<{ data: any }>(`/incidents/${id}/root-cause`, "POST");
+    },
+    simulate: async (data: {
+      title: string;
+      severity?: string;
+      category?: string;
+      sourceService?: string;
+      affectedWorkflows?: string[];
+      affectedRegions?: string[];
+    }) => {
+      return this.request<{ data: any }>("/incidents/simulate", "POST", data);
+    },
+  };
+
+  /**
+   * Phase 18: Self-Healing & Remediation Engine Namespace
+   */
+  public readonly remediations = {
+    getPolicy: async () => {
+      return this.request<{ data: any }>("/remediation/policy");
+    },
+    updatePolicy: async (data: {
+      name?: string;
+      autonomyMode?: "OBSERVE_ONLY" | "APPROVAL_REQUIRED" | "POLICY_AUTOMATED";
+      allowedActions?: string[];
+      maxAutomatedActionsPerIncident?: number;
+      cooldownMinutes?: number;
+    }) => {
+      return this.request<{ data: any }>("/remediation/policy", "PUT", data);
+    },
+    listOperations: async (filters?: { status?: string; incidentId?: string }) => {
+      const params = new URLSearchParams();
+      if (filters?.status) params.append("status", filters.status);
+      if (filters?.incidentId) params.append("incidentId", filters.incidentId);
+      const query = params.toString() ? `?${params.toString()}` : "";
+      return this.request<{ data: any[] }>(`/remediation/operations${query}`);
+    },
+    getOperation: async (id: string) => {
+      return this.request<{ data: any }>(`/remediation/operations/${id}`);
+    },
+    requestAction: async (data: {
+      actionKey: string;
+      targetType: string;
+      targetId: string;
+      parameters?: Record<string, any>;
+      incidentId?: string;
+    }) => {
+      return this.request<{ data: any }>("/remediation/operations", "POST", data);
+    },
+    approve: async (id: string, data: { approved: boolean; reason?: string }) => {
+      return this.request<{ data: any }>(`/remediation/operations/${id}/approve`, "POST", data);
+    },
+    verify: async (id: string) => {
+      return this.request<{ data: any }>(`/remediation/operations/${id}/verify`, "POST");
+    },
+  };
+
+  /**
+   * Phase 18: Unified Health & Observability 2.0 Namespace
+   */
+  public readonly observability = {
+    getUnifiedHealth: async () => {
+      return this.request<{ data: any }>("/observability/unified-health");
+    },
+    getWarnings: async (filters?: { isResolved?: boolean }) => {
+      const query = filters?.isResolved !== undefined ? `?isResolved=${filters.isResolved}` : "";
+      return this.request<{ data: any[] }>(`/observability/warnings${query}`);
+    },
+    evaluateWarnings: async (data?: { regionKey?: string }) => {
+      return this.request<{ data: any[] }>("/observability/warnings/evaluate", "POST", data || {});
+    },
+    getSlos: async () => {
+      return this.request<{ data: any[] }>("/observability/slos");
+    },
+    evaluateSlos: async () => {
+      return this.request<{ data: any[] }>("/observability/slos/evaluate", "POST");
+    },
+  };
+
 }

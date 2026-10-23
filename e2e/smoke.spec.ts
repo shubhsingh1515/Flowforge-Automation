@@ -1212,4 +1212,52 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     await dryRunBtn.click();
     await expect(page.locator("text=Dry-Run Retention Simulation:")).toBeVisible({ timeout: 10000 });
   });
+
+  test("43. Phase 18 Enterprise Observability 2.0, Unified Health & Self-Healing Operations", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/operations");
+    await page.waitForLoadState("networkidle");
+
+    // 1. Verify Unified Service Health Scorecard & Subsystems
+    const healthPanel = page.locator('[data-testid="panel-unified-health"]');
+    await expect(healthPanel).toBeVisible({ timeout: 15000 });
+
+    const overallBadge = page.locator('[data-testid="badge-overall-health"]');
+    await expect(overallBadge).toBeVisible();
+
+    await expect(page.locator('[data-testid="health-subsystem-workers"]')).toBeVisible();
+    await expect(page.locator('[data-testid="health-subsystem-queues"]')).toBeVisible();
+    await expect(page.locator('[data-testid="health-subsystem-executions"]')).toBeVisible();
+    await expect(page.locator('[data-testid="health-subsystem-outbox"]')).toBeVisible();
+    await expect(page.locator('[data-testid="health-subsystem-database"]')).toBeVisible();
+    await expect(page.locator('[data-testid="health-subsystem-regions"]')).toBeVisible();
+
+    // 2. Verify Incidents Panel & Simulate Drill Incident
+    const incidentsPanel = page.locator('[data-testid="panel-incidents"]');
+    await expect(incidentsPanel).toBeVisible();
+
+    const simulateBtn = page.locator('[data-testid="btn-simulate-incident"]');
+    await expect(simulateBtn).toBeVisible();
+    await simulateBtn.click();
+    await expect(page.locator("text=Simulated incident reported:")).toBeVisible({ timeout: 10000 });
+
+    // 3. Verify Safe Self-Healing Policy & Switch Autonomy Mode
+    const remediationPanel = page.locator('[data-testid="panel-remediation"]');
+    await expect(remediationPanel).toBeVisible();
+
+    const approvalModeBtn = page.locator('[data-testid="btn-autonomy-APPROVAL_REQUIRED"]');
+    await expect(approvalModeBtn).toBeVisible();
+    await approvalModeBtn.click();
+    await expect(page.locator("text=Self-healing autonomy mode updated to: APPROVAL_REQUIRED")).toBeVisible({ timeout: 10000 });
+
+    // 4. Verify Predictive Capacity Early Warnings & Evaluation
+    const predictivePanel = page.locator('[data-testid="panel-predictive-warnings"]');
+    await expect(predictivePanel).toBeVisible();
+
+    const evalPredictiveBtn = page.locator('[data-testid="btn-evaluate-predictive"]');
+    await expect(evalPredictiveBtn).toBeVisible();
+    await evalPredictiveBtn.click();
+    await expect(page.locator("text=Predictive capacity signals evaluated")).toBeVisible({ timeout: 10000 });
+  });
+
 });

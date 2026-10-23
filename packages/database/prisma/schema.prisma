@@ -164,6 +164,11 @@ model Workspace {
   cmekRotationJobs       CmekRotationJob[]
   residencyAuditRecords  ResidencyAuditRecord[]
   complianceEvidence     ComplianceEvidenceRecord[]
+  // Phase 18: Enterprise Observability 2.0 & Self-Healing
+  operationalIncidents   OperationalIncident[]
+  remediationPolicy      RemediationPolicy?
+  remediationOperations  RemediationOperation[]
+  capacityWarnings       OperationalCapacityWarning[]
 
   @@map("workspaces")
 }
@@ -1654,4 +1659,122 @@ model ComplianceEvidenceRecord {
   @@index([workspaceId, evidenceType])
   @@index([createdAt])
   @@map("compliance_evidence_records")
+}
+
+
+// ==========================================
+// PHASE 18: OBSERVABILITY 2.0 & SELF-HEALING
+// ==========================================
+
+model OperationalIncident {
+  id                      String    @id @default(uuid())
+  workspaceId             String
+  title                   String
+  severity                String    @default("MEDIUM") // CRITICAL, HIGH, MEDIUM, LOW
+  status                  String    @default("OPEN")   // OPEN, ACKNOWLEDGED, INVESTIGATING, MITIGATING, RESOLVED, CLOSED
+  category                String    @default("SLO_BREACH") // SLO_BREACH, WORKER_FAILURE, QUEUE_SATURATION, INTEGRATION_ERROR, OUTBOX_BACKLOG, REGIONAL_DEGRADATION
+  sourceService           String    @default("EXECUTION_ENGINE")
+  correlationKey          String
+  rootCauseSummary        String?
+  candidateCauses         Json?
+  suggestedAction         String?
+  affectedWorkflows       String[]  @default([])
+  affectedRegions         String[]  @default([])
+  assignedToUserId        String?
+  acknowledgedAt          DateTime?
+  resolvedAt              DateTime?
+  closedAt                DateTime?
+  metadata                Json?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  workspace               Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  timelineEvents          OperationalIncidentTimelineEvent[]
+  remediationOperations   RemediationOperation[]
+
+  @@index([workspaceId, status])
+  @@index([correlationKey])
+  @@index([createdAt])
+  @@map("operational_incidents")
+}
+
+model OperationalIncidentTimelineEvent {
+  id          String   @id @default(uuid())
+  incidentId  String
+  eventType   String   // ALERT_TRIGGERED, STATUS_CHANGED, NOTE_ADDED, REMEDIATION_TRIGGERED, REMEDIATION_COMPLETED, REMEDIATION_FAILED, ESCALATION_SENT
+  actorId     String?
+  actorType   String   @default("SYSTEM") // SYSTEM, USER, WORKER
+  details     Json?
+  createdAt   DateTime @default(now())
+
+  incident    OperationalIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId, createdAt])
+  @@map("operational_incident_timeline_events")
+}
+
+model RemediationPolicy {
+  id                             String   @id @default(uuid())
+  workspaceId                    String   @unique
+  name                           String   @default("Default Safe Self-Healing Policy")
+  autonomyMode                   String   @default("OBSERVE_ONLY") // OBSERVE_ONLY, APPROVAL_REQUIRED, POLICY_AUTOMATED
+  allowedActions                 String[] @default(["RETRY_RETRYABLE_EXECUTION", "REPLAY_FAILED_OUTBOX_EVENT"])
+  maxAutomatedActionsPerIncident Int      @default(3)
+  cooldownMinutes                Int      @default(15)
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
+
+  workspace                      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("remediation_policies")
+}
+
+model RemediationOperation {
+  id                String    @id @default(uuid())
+  workspaceId       String
+  incidentId        String?
+  actionKey         String    // RETRY_RETRYABLE_EXECUTION, REQUEUE_ABANDONED_JOB, REPLAY_FAILED_OUTBOX_EVENT, PAUSE_FAILING_DEPLOYMENT, SCALE_CONCURRENCY_BACKPRESSURE
+  status            String    @default("PENDING_APPROVAL") // PENDING_APPROVAL, APPROVED, EXECUTING, COMPLETED, FAILED, REJECTED, VERIFIED, UNVERIFIED
+  riskLevel         String    @default("LOW") // LOW, MEDIUM, HIGH
+  targetType        String    // EXECUTION, OUTBOX_EVENT, QUEUE_JOB, DEPLOYMENT, CONCURRENCY
+  targetId          String
+  parameters        Json?
+  requestedByUserId String?
+  approvedByUserId  String?
+  approvedAt        DateTime?
+  executedAt        DateTime?
+  verifiedAt        DateTime?
+  resultSummary     String?
+  error             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  workspace         Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  incident          OperationalIncident? @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status])
+  @@index([targetType, targetId])
+  @@map("remediation_operations")
+}
+
+model OperationalCapacityWarning {
+  id              String    @id @default(uuid())
+  workspaceId     String?
+  regionKey       String    @default("us-east-1")
+  signalType      String    // QUEUE_AGE_SPIKE, DRAIN_TIME_DETERIORATION, OUTBOX_ACCUMULATION, WORKER_LEASE_SATURATION, DB_POOL_PRESSURE
+  severity        String    @default("WARNING") // WARNING, CRITICAL
+  currentValue    Float
+  baselineValue   Float
+  thresholdValue  Float
+  confidence      String    @default("HIGH") // HIGH, MEDIUM, LOW, INSUFFICIENT_DATA
+  recommendation  String
+  isResolved      Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  resolvedAt      DateTime?
+
+  workspace       Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([regionKey, isResolved])
+  @@index([workspaceId, signalType])
+  @@map("operational_capacity_warnings")
 }
