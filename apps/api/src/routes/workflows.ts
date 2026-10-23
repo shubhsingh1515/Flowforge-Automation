@@ -267,7 +267,7 @@ export async function workflowRoutes(server: FastifyInstance) {
       const { id } = request.params as { id: string };
       const data = UpdateWorkflowSchema.parse(request.body);
 
-      const { userId } = request.authUser!;
+      const { id: userId } = request.authUser!;
       // Verify ownership
       const existing = await prisma.workflow.findFirst({
         where: { id, workspaceId },
@@ -863,7 +863,7 @@ export async function workflowRoutes(server: FastifyInstance) {
     },
     preHandler: [requireScope("workflows:write")],
     handler: async (request, reply) => {
-      const { workspaceId, userId } = request.authUser!;
+      const { workspaceId, id: userId } = request.authUser!;
       const { id, version } = request.params as { id: string; version: number };
 
       try {
@@ -906,7 +906,7 @@ export async function workflowRoutes(server: FastifyInstance) {
     },
     preHandler: [requireScope("workflows:write")],
     handler: async (request, reply) => {
-      const { workspaceId, userId } = request.authUser!;
+      const { workspaceId, id: userId } = request.authUser!;
       const body = request.body;
 
       try {

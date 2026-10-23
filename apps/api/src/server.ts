@@ -30,6 +30,10 @@ import { onboardingRoutes } from "./routes/onboarding.js";
 import { apiKeyRoutes } from "./routes/apiKeys.js";
 import { outboundWebhookRoutes } from "./routes/outboundWebhooks.js";
 import { customIntegrationRoutes } from "./routes/customIntegrations.js";
+import { marketplaceRoutes } from "./routes/marketplace.js";
+import { governanceRoutes } from "./routes/governance.js";
+import { dataRetentionRoutes } from "./routes/dataRetention.js";
+import { readinessRoutes } from "./routes/readiness.js";
 import { startWorker, stopWorker } from "./worker/worker.js";
 import { startOutboundWebhookWorker, stopOutboundWebhookWorker } from "./worker/outboundWebhookWorker.js";
 import { workflowScheduler } from "./worker/scheduler.js";
@@ -232,6 +236,10 @@ export async function buildServer(options: BuildServerOptions = {}) {
       await api.register(apiKeyRoutes);
       await api.register(outboundWebhookRoutes);
       await api.register(customIntegrationRoutes);
+      await api.register(marketplaceRoutes);
+      await api.register(governanceRoutes);
+      await api.register(dataRetentionRoutes);
+      await api.register(readinessRoutes);
     },
     { prefix: config.apiPrefix }
   );

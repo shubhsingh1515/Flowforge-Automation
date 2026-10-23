@@ -6,6 +6,8 @@ export interface PlanFeatures {
   priorityQueue: boolean;
   customWebhooks: boolean;
   sla: boolean;
+  enterpriseGovernance: boolean;
+  marketplacePublishing: boolean;
 }
 
 export interface PlanDefinition {
@@ -19,6 +21,11 @@ export interface PlanDefinition {
   maxActiveWorkflows: number;
   maxWorkspaceMembers: number;
   maxConnectedAccounts: number;
+  maxApiKeys?: number;
+  maxOutboundWebhooks?: number;
+  maxCustomIntegrations?: number;
+  maxAuditRetentionDays?: number;
+  maxDataExportsPerMonth?: number;
   features: PlanFeatures;
   highlights: string[];
 }
@@ -34,12 +41,19 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
     maxActiveWorkflows: 3,
     maxWorkspaceMembers: 2,
     maxConnectedAccounts: 2,
+    maxApiKeys: 2,
+    maxOutboundWebhooks: 2,
+    maxCustomIntegrations: 1,
+    maxAuditRetentionDays: 7,
+    maxDataExportsPerMonth: 1,
     features: {
       advancedFlowControl: false,
       approvalWorkflows: false,
       priorityQueue: false,
       customWebhooks: false,
       sla: false,
+      enterpriseGovernance: false,
+      marketplacePublishing: false,
     },
     highlights: [
       "100 workflow executions / month",
@@ -60,12 +74,19 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
     maxActiveWorkflows: 25,
     maxWorkspaceMembers: 10,
     maxConnectedAccounts: 15,
+    maxApiKeys: 10,
+    maxOutboundWebhooks: 10,
+    maxCustomIntegrations: 10,
+    maxAuditRetentionDays: 30,
+    maxDataExportsPerMonth: 10,
     features: {
       advancedFlowControl: true,
       approvalWorkflows: false,
       priorityQueue: true,
       customWebhooks: true,
       sla: false,
+      enterpriseGovernance: true,
+      marketplacePublishing: false,
     },
     highlights: [
       "10,000 workflow executions / month",
@@ -88,12 +109,19 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
     maxActiveWorkflows: 500,
     maxWorkspaceMembers: 50,
     maxConnectedAccounts: 100,
+    maxApiKeys: 50,
+    maxOutboundWebhooks: 50,
+    maxCustomIntegrations: 50,
+    maxAuditRetentionDays: 365,
+    maxDataExportsPerMonth: 100,
     features: {
       advancedFlowControl: true,
       approvalWorkflows: true,
       priorityQueue: true,
       customWebhooks: true,
       sla: true,
+      enterpriseGovernance: true,
+      marketplacePublishing: true,
     },
     highlights: [
       "100,000 workflow executions / month",

@@ -315,4 +315,85 @@ export const api = {
         body: JSON.stringify(body),
       }),
   },
+  // Phase 9: Integration Marketplace
+  marketplace: {
+    list: (params?: { category?: string; search?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.category) q.set("category", params.category);
+      if (params?.search) q.set("search", params.search);
+      const qs = q.toString();
+      return request<any[]>(`/marketplace${qs ? `?${qs}` : ""}`);
+    },
+    get: (idOrSlug: string) => request<any>(`/marketplace/${idOrSlug}`),
+    install: (id: string, version?: number) =>
+      request<any>(`/marketplace/${id}/install`, {
+        method: "POST",
+        body: JSON.stringify({ version }),
+      }),
+    uninstall: (id: string) =>
+      request<{ success: boolean; message: string }>(`/marketplace/${id}/install`, {
+        method: "DELETE",
+      }),
+    submit: (body: any) =>
+      request<any>("/marketplace", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    review: (id: string, body: { decision: "APPROVE" | "REJECT"; rejectionReason?: string }) =>
+      request<any>(`/marketplace/${id}/review`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    deprecate: (id: string) =>
+      request<any>(`/marketplace/${id}/deprecate`, {
+        method: "POST",
+      }),
+  },
+
+  // Phase 9: Enterprise Governance
+  governance: {
+    getPolicy: () => request<any>("/governance/policy"),
+    updatePolicy: (body: any) =>
+      request<any>("/governance/policy", {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    getAuditLogs: (params?: { page?: number; limit?: number; action?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.page) q.set("page", String(params.page));
+      if (params?.limit) q.set("limit", String(params.limit));
+      if (params?.action) q.set("action", params.action);
+      const qs = q.toString();
+      return request<{ data: any[]; pagination: any }>(`/governance/audit-logs${qs ? `?${qs}` : ""}`);
+    },
+  },
+
+  // Phase 9: Customer Data Rights & Retention
+  dataRetention: {
+    getPolicy: () => request<any>("/data-retention/policy"),
+    updatePolicy: (body: any) =>
+      request<any>("/data-retention/policy", {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    cleanup: () =>
+      request<any>("/data-retention/cleanup", {
+        method: "POST",
+      }),
+    requestExport: (body?: any) =>
+      request<any>("/data-retention/exports", {
+        method: "POST",
+        body: JSON.stringify(body || {}),
+      }),
+    requestDeletion: (body: { reason: string; confirmationPhrase: string }) =>
+      request<any>("/data-retention/delete-workspace", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+  },
+
+  // Phase 9: Launch Readiness Diagnostics
+  readiness: {
+    check: () => request<any>("/health/readiness-check"),
+  },
 };

@@ -5,6 +5,7 @@ import { apiKeyService } from "../services/apiKeys.js";
 
 export interface AuthenticatedUser {
   id: string;
+  userId?: string;
   email: string;
   name: string;
   workspaceId: string;
@@ -59,6 +60,7 @@ export async function authenticateRequest(
 
       const authUser: AuthenticatedUser = {
         id: apiKey.id,
+        userId: apiKey.id,
         email: `apikey_${apiKey.keyPrefix}@workspace.local`,
         name: apiKey.name,
         workspaceId: apiKey.workspaceId,
@@ -113,6 +115,7 @@ export async function authenticateRequest(
 
     const authUser: AuthenticatedUser = {
       id: user.id,
+      userId: user.id,
       email: user.email,
       name: user.name,
       workspaceId: activeMembership.workspaceId,

@@ -5,3 +5,5 @@ export * from "./schemas/integration";
 export * from "./schemas/execution";
 export * from "./plans";
 export * from "./developer";
+export * from "./marketplace";
+export * from "./governance";

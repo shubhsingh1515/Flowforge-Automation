@@ -149,7 +149,7 @@ export async function templateRoutes(server: FastifyInstance) {
     },
     preHandler: [authenticateRequest],
     handler: async (request, reply) => {
-      const { workspaceId, userId } = request.authUser!;
+      const { workspaceId, id: userId } = request.authUser!;
       const { id } = request.params as { id: string };
       const body = (request.body as any) || {};
 

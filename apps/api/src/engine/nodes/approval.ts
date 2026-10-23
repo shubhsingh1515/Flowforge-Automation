@@ -87,7 +87,7 @@ export const approvalHandler: NodeHandler<ApprovalNodeConfig> = {
     };
 
     // Create pending approval record
-    outboundWebhookService.emitEvent(workflow.workspaceId, "approval.requested", {
+    if (workspaceId) outboundWebhookService.emitEvent(workspaceId, "approval.requested", {
       approvalId: ctx.executionId,
       workflowId: ctx.workflowId,
       executionId: ctx.executionId,

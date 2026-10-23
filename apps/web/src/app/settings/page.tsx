@@ -28,13 +28,17 @@ import {
 import { ApiKeysTab } from "../../components/developer/ApiKeysTab";
 import { OutboundWebhooksTab } from "../../components/developer/OutboundWebhooksTab";
 import { CustomIntegrationsTab } from "../../components/developer/CustomIntegrationsTab";
+import { GovernanceTab } from "../../components/enterprise/GovernanceTab";
+import { AuditLogTab } from "../../components/enterprise/AuditLogTab";
+import { DataPrivacyTab } from "../../components/enterprise/DataPrivacyTab";
+import { ShieldAlert, FileText, Database } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<"profile" | "workspace" | "members" | "billing" | "security" | "api-keys" | "webhooks" | "custom-integrations">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "workspace" | "members" | "billing" | "security" | "api-keys" | "webhooks" | "custom-integrations" | "governance" | "audit-logs" | "data-privacy">("profile");
 
   const [name, setName] = useState(user?.name || "");
   const [workspaceName, setWorkspaceName] = useState(user?.workspaceName || "");
@@ -282,6 +286,48 @@ export default function SettingsPage() {
         >
           <Code2 className="h-4 w-4" />
           <span>Custom Integrations</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveTab("governance"); setActionError(null); }}
+          data-testid="tab-governance"
+          className={cn(
+            "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
+            activeTab === "governance"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          )}
+        >
+          <ShieldAlert className="h-4 w-4" />
+          <span>Governance</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveTab("audit-logs"); setActionError(null); }}
+          data-testid="tab-audit-log"
+          className={cn(
+            "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
+            activeTab === "audit-logs"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          )}
+        >
+          <FileText className="h-4 w-4" />
+          <span>Audit Log</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveTab("data-privacy"); setActionError(null); }}
+          data-testid="tab-data-privacy"
+          className={cn(
+            "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
+            activeTab === "data-privacy"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          )}
+        >
+          <Database className="h-4 w-4" />
+          <span>Data & Privacy</span>
         </button>
       </div>
 
@@ -817,6 +863,15 @@ export default function SettingsPage() {
 
       {/* 8. Developer Platform: Custom Integrations Tab */}
       {activeTab === "custom-integrations" && <CustomIntegrationsTab />}
+
+      {/* 9. Enterprise Governance Tab */}
+      {activeTab === "governance" && <GovernanceTab />}
+
+      {/* 10. Workspace Audit Trail Tab */}
+      {activeTab === "audit-logs" && <AuditLogTab />}
+
+      {/* 11. Customer Data Rights & Retention Tab */}
+      {activeTab === "data-privacy" && <DataPrivacyTab />}
     </AppShell>
   );
 }

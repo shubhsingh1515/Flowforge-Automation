@@ -112,6 +112,12 @@ model Workspace {
   outboundWebhooks   OutboundWebhook[]
   customIntegrations CustomIntegration[]
   auditLogs          WorkspaceAuditLog[]
+  marketplaceListings    MarketplaceListing[] @relation("WorkspaceMarketplaceListings")
+  marketplaceInstalls    MarketplaceInstallation[]
+  governancePolicy       WorkspaceGovernancePolicy?
+  retentionPolicy        WorkspaceRetentionPolicy?
+  dataExportRequests     DataExportRequest[]
+  deletionRequests       WorkspaceDeletionRequest[]
 
   @@map("workspaces")
 }
@@ -447,6 +453,9 @@ model WorkflowTemplate {
   nodes                Json     @default("[]")
   edges                Json     @default("[]")
   isPlatform           Boolean  @default(false)
+  reviewStatus         String   @default("PUBLISHED")
+  publisherName        String?
+  version              Int      @default(1)
   workspaceId          String?
   createdById          String?
   createdAt            DateTime @default(now())
@@ -593,4 +602,126 @@ model WorkspaceAuditLog {
 
   @@index([workspaceId, createdAt])
   @@map("workspace_audit_logs")
+}
+
+
+// ==========================================
+// PHASE 9: MARKETPLACE & GOVERNANCE MODELS
+// ==========================================
+
+model MarketplaceListing {
+  id                    String   @id @default(uuid())
+  slug                  String   @unique
+  title                 String
+  description           String
+  category              String   @default("Productivity")
+  iconName              String   @default("Puzzle")
+  accentColor           String   @default("#6366f1")
+  publisherName         String   @default("FlowForge Platform")
+  publisherWorkspaceId  String?
+  integrationKey        String?
+  customIntegrationId   String?
+  currentVersion        Int      @default(1)
+  visibility            String   @default("PUBLIC") // PUBLIC, WORKSPACE, PRIVATE
+  reviewStatus          String   @default("PUBLISHED") // DRAFT, IN_REVIEW, PUBLISHED, REJECTED, DEPRECATED, UNPUBLISHED
+  rejectionReason       String?
+  capabilities          String[] @default([])
+  supportedTriggers     String[] @default([])
+  supportedActions      String[] @default([])
+  authRequirements      String   @default("OAuth 2.0 or API Key")
+  documentationUrl      String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  publisherWorkspace    Workspace? @relation("WorkspaceMarketplaceListings", fields: [publisherWorkspaceId], references: [id], onDelete: SetNull)
+  installations         MarketplaceInstallation[]
+
+  @@index([category])
+  @@index([reviewStatus])
+  @@index([visibility])
+  @@map("marketplace_listings")
+}
+
+model MarketplaceInstallation {
+  id               String   @id @default(uuid())
+  workspaceId      String
+  listingId        String
+  installedVersion Int      @default(1)
+  status           String   @default("ACTIVE") // ACTIVE, DISABLED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  workspace Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  listing   MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, listingId])
+  @@index([workspaceId])
+  @@map("marketplace_installations")
+}
+
+model WorkspaceGovernancePolicy {
+  id                          String   @id @default(uuid())
+  workspaceId                 String   @unique
+  allowCustomIntegrations     Boolean  @default(true)
+  allowMarketplacePublishing  Boolean  @default(false)
+  allowCommunityTemplates     Boolean  @default(true)
+  requireHttpsWebhooks        Boolean  @default(true)
+  maxApiKeyLifetimeDays       Int?     @default(365)
+  restrictIntegrationsToAdmin Boolean  @default(false)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("workspace_governance_policies")
+}
+
+model WorkspaceRetentionPolicy {
+  id                           String   @id @default(uuid())
+  workspaceId                  String   @unique
+  executionRetentionDays       Int      @default(30)
+  webhookDeliveryRetentionDays  Int      @default(14)
+  auditLogRetentionDays        Int      @default(90)
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("workspace_retention_policies")
+}
+
+model DataExportRequest {
+  id            String    @id @default(uuid())
+  workspaceId   String
+  requestedById String
+  status        String    @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  downloadUrl   String?
+  fileSizeBytes Int?
+  recordCount   Int?
+  errorMessage  String?
+  expiresAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@map("data_export_requests")
+}
+
+model WorkspaceDeletionRequest {
+  id                  String    @id @default(uuid())
+  workspaceId         String
+  requestedById       String
+  status              String    @default("PENDING") // PENDING, CONFIRMED, PROCESSING, COMPLETED, CANCELLED
+  confirmationToken   String?
+  reason              String?
+  scheduledDeletionAt DateTime?
+  confirmedAt         DateTime?
+  createdAt           DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@map("workspace_deletion_requests")
 }

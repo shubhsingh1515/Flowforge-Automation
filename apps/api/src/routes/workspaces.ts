@@ -112,7 +112,7 @@ export async function workspaceRoutes(server: FastifyInstance) {
         where: { id: userId },
         data: {
           name: body.name,
-          avatarUrl: body.avatarUrl,
+          avatarUrl: (body as any).avatarUrl,
         },
       });
 

@@ -467,4 +467,100 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     // Close Modal
     await page.click('button:has-text("Cancel")');
   });
+
+        test("22. Phase 9 Marketplace: Integration Catalog and Recipe Browsing", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/marketplace");
+    await page.waitForLoadState("networkidle");
+
+    // Verify Marketplace Header
+    await expect(page.locator("text=Integration Marketplace")).toBeVisible();
+    await expect(page.locator('input[placeholder*="Search by name"]')).toBeVisible();
+
+    // Verify Category Filter Buttons
+    await expect(page.locator('[data-testid="category-filter-all"]')).toBeVisible();
+
+    // Verify Listings Cards exist
+    const listingCard = page.locator('[data-testid^="marketplace-card-"]').first();
+    await expect(listingCard).toBeVisible({ timeout: 10000 });
+
+    // Open Inspect Modal on first listing
+    const inspectBtn = page.locator('[data-testid^="inspect-listing-btn-"]').first();
+    await expect(inspectBtn).toBeVisible();
+    await inspectBtn.click();
+
+    // Verify Modal Details
+    await expect(page.locator("text=Authentication Method")).toBeVisible();
+    await page.click('button:has-text("Close")');
+
+    // Switch to Automation Recipes tab
+    const recipesTab = page.locator('button:has-text("Automation Recipes")');
+    await expect(recipesTab).toBeVisible();
+    await recipesTab.click();
+
+    // Inspect first recipe
+    const inspectRecipeBtn = page.locator('button:has-text("Inspect Recipe")').first();
+    await expect(inspectRecipeBtn).toBeVisible();
+    await inspectRecipeBtn.click();
+
+    // Verify Recipe Modal Details
+    await expect(page.locator("text=Workflow Graph Summary")).toBeVisible();
+    await page.click('button:has-text("Cancel")');
+  });
+
+  test("23. Phase 9 Enterprise Governance: Policy Management", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/settings");
+    await page.waitForLoadState("networkidle");
+
+    // Click Governance Tab
+    const tab = page.locator('[data-testid="tab-governance"]');
+    await expect(tab).toBeVisible({ timeout: 10000 });
+    await tab.click();
+
+    // Verify Header & Sections
+    await expect(page.getByRole("heading", { name: "Enterprise Governance & Security Guardrails" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Marketplace Publishing" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Enforce HTTPS on Outbound Webhooks" })).toBeVisible();
+
+    // Verify Save Button
+    const saveBtn = page.locator('[data-testid="save-governance-btn"]');
+    await expect(saveBtn).toBeVisible();
+    await saveBtn.click();
+
+    // Verify success confirmation
+    await expect(page.locator("text=Governance policies updated and recorded in audit log.")).toBeVisible({ timeout: 10000 });
+  });
+
+  test("24. Phase 9 Data Retention & Privacy: Audit Logs and Data Rights", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/settings");
+    await page.waitForLoadState("networkidle");
+
+    // Click Audit Log Tab
+    const auditTab = page.locator('[data-testid="tab-audit-log"]');
+    await expect(auditTab).toBeVisible({ timeout: 10000 });
+    await auditTab.click();
+
+    // Verify Audit Log Header
+    await expect(page.locator("text=Workspace Audit Trail & Event History")).toBeVisible();
+
+    // Click Data & Privacy Tab
+    const dataTab = page.locator('[data-testid="tab-data-privacy"]');
+    await expect(dataTab).toBeVisible({ timeout: 10000 });
+    await dataTab.click();
+
+    // Verify Data & Privacy Header & Policies
+    await expect(page.locator("text=Customer Data Rights, Retention & Privacy")).toBeVisible();
+    await expect(page.locator("text=Automated Record Retention Windows")).toBeVisible();
+    await expect(page.locator("text=Export Workspace Data (GDPR / CCPA)")).toBeVisible();
+
+    // Click Export Data Button
+    const exportBtn = page.locator('[data-testid="request-export-btn"]');
+    await expect(exportBtn).toBeVisible();
+    await exportBtn.click();
+
+    // Verify export feedback (either newly generated export or plan limit reached message)
+    await expect(page.locator('text=/Data export completed|Monthly data export limit/')).toBeVisible({ timeout: 10000 });
+  });
 });
