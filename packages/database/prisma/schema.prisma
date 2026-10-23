@@ -187,6 +187,11 @@ model Workspace {
   eventSubscriptions     EventSubscription[]
   eventDeliveries        EventDelivery[]
   eventReplayJobs        EventReplayJob[]
+  // Phase 23: Enterprise Data Intelligence Platform & Governed Data Products
+  dataProducts           DataProductDefinition[]
+  dataSources            DataSourceRegistration[]
+  dataPipelines          DataPipelineDefinition[]
+  dataQualityRules       DataQualityRule[]
 
   @@map("workspaces")
 }
@@ -2331,4 +2336,293 @@ model EventReplayJob {
 
   @@index([workspaceId, status])
   @@map("event_replay_jobs")
+}
+
+// ==========================================
+// PHASE 23: ENTERPRISE DATA INTELLIGENCE PLATFORM
+// ==========================================
+
+model DataProductDefinition {
+  id                     String    @id @default(uuid())
+  workspaceId            String
+  slug                   String
+  name                   String
+  description            String?
+  businessDomain         String    @default("GENERAL") // GENERAL, SALES, MARKETING, OPERATIONS, FINANCE, SECURITY
+  criticality            String    @default("MEDIUM") // LOW, MEDIUM, HIGH, MISSION_CRITICAL
+  ownerUserId            String?
+  owningTeamId           String?
+  stewardUserId          String?
+  lifecycleStatus        String    @default("DRAFT") // DRAFT, IN_REVIEW, PUBLISHED, DEPRECATED, RETIRED
+  dataClassification     String    @default("INTERNAL") // PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED
+  currentVersion         Int       @default(1)
+  refreshStrategy        String    @default("ON_DEMAND") // ON_DEMAND, SCHEDULED, EVENT_TRIGGERED
+  refreshIntervalMinutes Int?
+  targetFreshnessMinutes Int?
+  qualityStatus          String    @default("INSUFFICIENT_DATA") // PASS, WARN, FAIL, INSUFFICIENT_DATA
+  lastEvaluatedAt        DateTime?
+  lastMaterializedAt     DateTime?
+  retentionDays          Int?
+  canonicalHash          String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  workspace              Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  versions               DataProductVersion[]
+  snapshots              DataProductSnapshot[]
+  pipelines              DataPipelineDefinition[]
+  qualityRules           DataQualityRule[]
+  qualityEvaluations     DataQualityEvaluation[]
+  accessGrants           DataProductAccessGrant[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, lifecycleStatus])
+  @@index([workspaceId, businessDomain])
+  @@map("data_product_definitions")
+}
+
+model DataProductVersion {
+  id                 String    @id @default(uuid())
+  workspaceId        String
+  dataProductId      String
+  version            Int
+  status             String    @default("DRAFT") // DRAFT, IN_REVIEW, PUBLISHED, DEPRECATED, RETIRED
+  schemaDefinition   Json
+  canonicalHash      String
+  changeSummary      String?
+  isBreaking         Boolean   @default(false)
+  publishedAt        DateTime?
+  publishedById      String?
+  reviewNotes        String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  dataProduct        DataProductDefinition     @relation(fields: [dataProductId], references: [id], onDelete: Cascade)
+  snapshots          DataProductSnapshot[]
+  qualityEvaluations DataQualityEvaluation[]
+
+  @@unique([dataProductId, version])
+  @@index([workspaceId, status])
+  @@map("data_product_versions")
+}
+
+model DataProductSnapshot {
+  id             String    @id @default(uuid())
+  workspaceId    String
+  dataProductId  String
+  versionId      String
+  pipelineRunId  String?
+  recordCount    Int       @default(0)
+  byteSize       Int       @default(0)
+  records        Json
+  schemaVersion  Int       @default(1)
+  watermark      Json?
+  status         String    @default("MATERIALIZED") // MATERIALIZED, EXPIRED, INVALIDATED
+  materializedAt DateTime  @default(now())
+  expiresAt      DateTime?
+
+  dataProduct    DataProductDefinition @relation(fields: [dataProductId], references: [id], onDelete: Cascade)
+  productVersion DataProductVersion    @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([dataProductId, materializedAt])
+  @@index([workspaceId, status])
+  @@map("data_product_snapshots")
+}
+
+model DataSourceRegistration {
+  id                 String    @id @default(uuid())
+  workspaceId        String
+  name               String
+  slug               String
+  description        String?
+  sourceType         String    // WORKFLOW_EXECUTION, PROCESS_INSTANCE, PLATFORM_EVENT, CONNECTOR_EXECUTION, OPERATIONAL_METRICS, CUSTOM_ADAPTER
+  resourceReference  String
+  schemaContract     Json?
+  dataClassification String    @default("INTERNAL")
+  allowedRegions     Json?
+  refreshStrategy    String    @default("BATCH")
+  status             String    @default("ACTIVE") // ACTIVE, PAUSED, REVOKED
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  workspace          Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  pipelines          DataPipelineDefinition[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, sourceType, status])
+  @@map("data_source_registrations")
+}
+
+model DataPipelineDefinition {
+  id             String    @id @default(uuid())
+  workspaceId    String
+  name           String
+  slug           String
+  description    String?
+  dataProductId  String
+  sourceId       String?
+  status         String    @default("ACTIVE") // ACTIVE, PAUSED, ARCHIVED
+  currentVersion Int       @default(1)
+  refreshMode    String    @default("FULL_REFRESH") // FULL_REFRESH, INCREMENTAL
+  scheduleCron   String?
+  timeoutSeconds Int       @default(300)
+  maxRecordLimit Int       @default(50000)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  workspace      Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  dataProduct    DataProductDefinition    @relation(fields: [dataProductId], references: [id], onDelete: Cascade)
+  source         DataSourceRegistration?  @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  versions       DataPipelineVersion[]
+  runs           DataPipelineRun[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, dataProductId])
+  @@index([workspaceId, status])
+  @@map("data_pipeline_definitions")
+}
+
+model DataPipelineVersion {
+  id            String    @id @default(uuid())
+  workspaceId   String
+  pipelineId    String
+  version       Int
+  status        String    @default("ACTIVE") // ACTIVE, DEPRECATED
+  operations    Json
+  outputSchema  Json?
+  canonicalHash String
+  createdAt     DateTime  @default(now())
+
+  pipeline      DataPipelineDefinition @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  runs          DataPipelineRun[]
+
+  @@unique([pipelineId, version])
+  @@map("data_pipeline_versions")
+}
+
+model DataPipelineRun {
+  id                 String    @id @default(uuid())
+  workspaceId        String
+  pipelineId         String
+  versionId          String
+  status             String    @default("PENDING") // PENDING, RUNNING, SUCCESS, FAILED, CANCELLED
+  runType            String    @default("MANUAL") // MANUAL, SCHEDULED, EVENT_TRIGGERED, DRY_RUN
+  recordsRead        Int       @default(0)
+  recordsWritten     Int       @default(0)
+  recordsRejected    Int       @default(0)
+  watermark          Json?
+  startedAt          DateTime  @default(now())
+  completedAt        DateTime?
+  durationMs         Int?
+  errorMessage       String?
+  executionLogs      Json?
+  workerId           String?
+  fencingToken       BigInt?
+
+  pipeline           DataPipelineDefinition   @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  pipelineVersion    DataPipelineVersion      @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  qualityEvaluations DataQualityEvaluation[]
+
+  @@index([pipelineId, startedAt])
+  @@index([workspaceId, status])
+  @@map("data_pipeline_runs")
+}
+
+model DataLineageNode {
+  id          String    @id @default(uuid())
+  workspaceId String
+  nodeKey     String
+  nodeType    String    // WORKFLOW, EVENT_SCHEMA, PROCESS, CONNECTOR, PIPELINE, DATA_PRODUCT
+  name        String
+  version     String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([workspaceId, nodeKey])
+  @@index([workspaceId, nodeType])
+  @@map("data_lineage_nodes")
+}
+
+model DataLineageEdge {
+  id            String    @id @default(uuid())
+  workspaceId   String
+  sourceNodeKey String
+  targetNodeKey String
+  relationType  String    // PRODUCES, TRANSFORMS, MATERIALIZES, CONSUMES, DEPENDS_ON
+  metadata      Json?
+  createdAt     DateTime  @default(now())
+
+  @@unique([workspaceId, sourceNodeKey, targetNodeKey, relationType])
+  @@index([workspaceId, sourceNodeKey])
+  @@index([workspaceId, targetNodeKey])
+  @@map("data_lineage_edges")
+}
+
+model DataQualityRule {
+  id            String    @id @default(uuid())
+  workspaceId   String
+  dataProductId String
+  name          String
+  description   String?
+  ruleType      String    // REQUIRED_FIELD, NULL_RATE, SCHEMA_VALIDATION, ALLOWED_VALUES, NUMERIC_RANGE, STRING_LENGTH, REGEX_FORMAT, UNIQUENESS, FRESHNESS, MIN_RECORD_COUNT, MAX_REJECTED_PERCENT
+  configuration Json
+  severity      String    @default("ERROR") // INFO, WARN, ERROR, CRITICAL
+  isBlocking    Boolean   @default(true)
+  enabled       Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  workspace     Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  dataProduct   DataProductDefinition   @relation(fields: [dataProductId], references: [id], onDelete: Cascade)
+  evaluations   DataQualityEvaluation[]
+
+  @@index([dataProductId, enabled])
+  @@index([workspaceId, ruleType])
+  @@map("data_quality_rules")
+}
+
+model DataQualityEvaluation {
+  id                   String    @id @default(uuid())
+  workspaceId          String
+  ruleId               String
+  dataProductId        String
+  versionId            String?
+  pipelineRunId        String?
+  status               String    // PASS, WARN, FAIL, INSUFFICIENT_DATA
+  recordsEvaluated     Int       @default(0)
+  recordsPassed        Int       @default(0)
+  recordsFailed        Int       @default(0)
+  failureSamples       Json?
+  evaluationDurationMs Int?
+  errorMessage         String?
+  evaluatedAt          DateTime  @default(now())
+
+  rule                 DataQualityRule        @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  dataProduct          DataProductDefinition  @relation(fields: [dataProductId], references: [id], onDelete: Cascade)
+  productVersion       DataProductVersion?    @relation(fields: [versionId], references: [id], onDelete: SetNull)
+  pipelineRun          DataPipelineRun?       @relation(fields: [pipelineRunId], references: [id], onDelete: SetNull)
+
+  @@index([dataProductId, evaluatedAt])
+  @@index([ruleId, evaluatedAt])
+  @@index([workspaceId, status])
+  @@map("data_quality_evaluations")
+}
+
+model DataProductAccessGrant {
+  id            String    @id @default(uuid())
+  workspaceId   String
+  dataProductId String
+  granteeType   String    // USER, TEAM, WORKSPACE
+  granteeId     String
+  accessLevel   String    @default("READ") // READ, EXPORT, ADMIN
+  grantedById   String?
+  expiresAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  dataProduct   DataProductDefinition @relation(fields: [dataProductId], references: [id], onDelete: Cascade)
+
+  @@unique([dataProductId, granteeType, granteeId])
+  @@index([workspaceId, granteeId])
+  @@map("data_product_access_grants")
 }

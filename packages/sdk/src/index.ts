@@ -1128,6 +1128,110 @@ export class FlowForgeClient {
     },
   };
 
+  // ==========================================
+  // PHASE 23: DATA INTELLIGENCE & GOVERNED DATA PRODUCTS
+  // ==========================================
+
+  public readonly dataProducts = {
+    create: async (data: any) => {
+      return this.request<any>("/data-products", "POST", data);
+    },
+    list: async (query?: { businessDomain?: string; lifecycleStatus?: string; criticality?: string; search?: string }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return this.request<any>(`/data-products${q ? "?" + q : ""}`);
+    },
+    get: async (id: string) => {
+      return this.request<any>(`/data-products/${id}`);
+    },
+    update: async (id: string, data: any) => {
+      return this.request<any>(`/data-products/${id}`, "PATCH", data);
+    },
+    createVersion: async (id: string, data: any) => {
+      return this.request<any>(`/data-products/${id}/versions`, "POST", data);
+    },
+    publishVersion: async (id: string, version: number, data?: { overrideQualityGate?: boolean; overrideReason?: string }) => {
+      return this.request<any>(`/data-products/${id}/versions/${version}/publish`, "POST", data || {});
+    },
+    deprecate: async (id: string, reason?: string) => {
+      return this.request<any>(`/data-products/${id}/deprecate`, "POST", { reason });
+    },
+    retire: async (id: string) => {
+      return this.request<any>(`/data-products/${id}/retire`, "POST");
+    },
+    getImpact: async (id: string) => {
+      return this.request<any>(`/data-products/${id}/impact`);
+    },
+    query: async (id: string, queryInput: any) => {
+      return this.request<any>(`/data-products/${id}/query`, "POST", queryInput);
+    },
+  };
+
+  public readonly dataSources = {
+    register: async (data: any) => {
+      return this.request<any>("/data-sources", "POST", data);
+    },
+    list: async (query?: { sourceType?: string }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return this.request<any>(`/data-sources${q ? "?" + q : ""}`);
+    },
+    get: async (id: string) => {
+      return this.request<any>(`/data-sources/${id}`);
+    },
+  };
+
+  public readonly dataPipelines = {
+    create: async (data: any) => {
+      return this.request<any>("/data-pipelines", "POST", data);
+    },
+    list: async (query?: { dataProductId?: string }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return this.request<any>(`/data-pipelines${q ? "?" + q : ""}`);
+    },
+    get: async (id: string) => {
+      return this.request<any>(`/data-pipelines/${id}`);
+    },
+    createVersion: async (id: string, data: any) => {
+      return this.request<any>(`/data-pipelines/${id}/versions`, "POST", data);
+    },
+    run: async (id: string, data?: any) => {
+      return this.request<any>(`/data-pipelines/${id}/run`, "POST", data || {});
+    },
+    preview: async (id: string, sampleSize = 10) => {
+      return this.request<any>(`/data-pipelines/${id}/preview`, "POST", { sampleSize });
+    },
+  };
+
+  public readonly dataQuality = {
+    createRule: async (productId: string, data: any) => {
+      return this.request<any>(`/data-products/${productId}/quality-rules`, "POST", data);
+    },
+    listRules: async (productId: string) => {
+      return this.request<any>(`/data-products/${productId}/quality-rules`);
+    },
+    getRule: async (ruleId: string) => {
+      return this.request<any>(`/data-quality-rules/${ruleId}`);
+    },
+    updateRule: async (ruleId: string, data: any) => {
+      return this.request<any>(`/data-quality-rules/${ruleId}`, "PATCH", data);
+    },
+    deleteRule: async (ruleId: string) => {
+      return this.request<any>(`/data-quality-rules/${ruleId}`, "DELETE");
+    },
+  };
+
+  public readonly dataLineage = {
+    getGraph: async (query?: { rootNodeKey?: string; direction?: string; maxDepth?: number }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return this.request<any>(`/data-lineage${q ? "?" + q : ""}`);
+    },
+    registerNode: async (data: any) => {
+      return this.request<any>("/data-lineage/nodes", "POST", data);
+    },
+    registerEdge: async (data: any) => {
+      return this.request<any>("/data-lineage/edges", "POST", data);
+    },
+  };
+
 }
 
 export * from "@flowforge/connector-sdk";

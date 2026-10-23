@@ -1056,4 +1056,85 @@ export const api = {
       request<any>(`/events/metrics?timeRangeHours=${timeRangeHours}`),
   },
 
+  // ==========================================
+  // PHASE 23: DATA INTELLIGENCE & GOVERNED DATA PRODUCTS
+  // ==========================================
+
+  dataProducts: {
+    create: (body: any) =>
+      request<any>("/data-products", { method: "POST", body: JSON.stringify(body) }),
+    list: (query?: { businessDomain?: string; lifecycleStatus?: string; criticality?: string; search?: string }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return request<any>(`/data-products${q ? "?" + q : ""}`);
+    },
+    get: (id: string) =>
+      request<any>(`/data-products/${id}`),
+    update: (id: string, body: any) =>
+      request<any>(`/data-products/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    createVersion: (id: string, body: any) =>
+      request<any>(`/data-products/${id}/versions`, { method: "POST", body: JSON.stringify(body) }),
+    publishVersion: (id: string, version: number, body?: { overrideQualityGate?: boolean; overrideReason?: string }) =>
+      request<any>(`/data-products/${id}/versions/${version}/publish`, { method: "POST", body: JSON.stringify(body || {}) }),
+    deprecate: (id: string, reason?: string) =>
+      request<any>(`/data-products/${id}/deprecate`, { method: "POST", body: JSON.stringify({ reason }) }),
+    retire: (id: string) =>
+      request<any>(`/data-products/${id}/retire`, { method: "POST" }),
+    getImpact: (id: string) =>
+      request<any>(`/data-products/${id}/impact`),
+    query: (id: string, body: any) =>
+      request<any>(`/data-products/${id}/query`, { method: "POST", body: JSON.stringify(body) }),
+  },
+
+  dataSources: {
+    register: (body: any) =>
+      request<any>("/data-sources", { method: "POST", body: JSON.stringify(body) }),
+    list: (query?: { sourceType?: string }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return request<any>(`/data-sources${q ? "?" + q : ""}`);
+    },
+    get: (id: string) =>
+      request<any>(`/data-sources/${id}`),
+  },
+
+  dataPipelines: {
+    create: (body: any) =>
+      request<any>("/data-pipelines", { method: "POST", body: JSON.stringify(body) }),
+    list: (query?: { dataProductId?: string }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return request<any>(`/data-pipelines${q ? "?" + q : ""}`);
+    },
+    get: (id: string) =>
+      request<any>(`/data-pipelines/${id}`),
+    createVersion: (id: string, body: any) =>
+      request<any>(`/data-pipelines/${id}/versions`, { method: "POST", body: JSON.stringify(body) }),
+    run: (id: string, body?: any) =>
+      request<any>(`/data-pipelines/${id}/run`, { method: "POST", body: JSON.stringify(body || {}) }),
+    preview: (id: string, sampleSize = 10) =>
+      request<any>(`/data-pipelines/${id}/preview`, { method: "POST", body: JSON.stringify({ sampleSize }) }),
+  },
+
+  dataQuality: {
+    createRule: (productId: string, body: any) =>
+      request<any>(`/data-products/${productId}/quality-rules`, { method: "POST", body: JSON.stringify(body) }),
+    listRules: (productId: string) =>
+      request<any>(`/data-products/${productId}/quality-rules`),
+    getRule: (ruleId: string) =>
+      request<any>(`/data-quality-rules/${ruleId}`),
+    updateRule: (ruleId: string, body: any) =>
+      request<any>(`/data-quality-rules/${ruleId}`, { method: "PATCH", body: JSON.stringify(body) }),
+    deleteRule: (ruleId: string) =>
+      request<any>(`/data-quality-rules/${ruleId}`, { method: "DELETE" }),
+  },
+
+  dataLineage: {
+    getGraph: (query?: { rootNodeKey?: string; direction?: string; maxDepth?: number }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return request<any>(`/data-lineage${q ? "?" + q : ""}`);
+    },
+    registerNode: (body: any) =>
+      request<any>("/data-lineage/nodes", { method: "POST", body: JSON.stringify(body) }),
+    registerEdge: (body: any) =>
+      request<any>("/data-lineage/edges", { method: "POST", body: JSON.stringify(body) }),
+  },
+
 };

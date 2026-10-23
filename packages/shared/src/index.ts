@@ -22,3 +22,4 @@ export * from "./connector-p19.js";
 export * from "./simulation-p20.js";
 export * from "./process-p21.js";
 export * from "./events-p22.js";
+export * from "./data-intelligence-p23.js";

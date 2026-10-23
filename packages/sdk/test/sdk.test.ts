@@ -1102,4 +1102,97 @@ describe("FlowForge TypeScript SDK Client Suite", () => {
     expect(metricsRes.data.deadLetterCount).toBe(2);
   });
 
+  it("interacts with Phase 23 Enterprise Data Intelligence endpoints via SDK", async () => {
+    global.fetch = vi.fn().mockImplementation(async (url, init) => {
+      const u = String(url);
+      const method = init?.method || "GET";
+
+      if (u.includes("/data-products") && method === "POST" && !u.includes("/query")) {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({
+            data: { id: "dp-1", slug: "order-summary", name: "Order Summary", currentVersion: 1, lifecycleStatus: "DRAFT" },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/data-products/dp-1/query")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: { records: [{ orderId: "ord-1", amount: 150 }], total: 1, limit: 50, cursor: 0 },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/data-sources") && method === "POST") {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({
+            data: { id: "ds-1", slug: "workflow-source", sourceType: "WORKFLOW_EXECUTION" },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/data-pipelines/pipe-1/run")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: { runId: "run-100", status: "SUCCESS", recordsWritten: 25 },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/data-lineage")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: { nodes: [{ nodeKey: "product:order-summary", nodeType: "DATA_PRODUCT" }], edges: [] },
+          }),
+        } as any;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ data: {} }),
+      } as any;
+    });
+
+    const client = new FlowForgeClient({ apiKey: "ff_live_valid" });
+
+    // Create Data Product
+    const dp = await client.dataProducts.create({
+      slug: "order-summary",
+      name: "Order Summary",
+    });
+    expect(dp.data.slug).toBe("order-summary");
+
+    // Query Data Product
+    const queryRes = await client.dataProducts.query("dp-1", { limit: 10 });
+    expect(queryRes.data.records.length).toBe(1);
+
+    // Register Source
+    const src = await client.dataSources.register({
+      slug: "workflow-source",
+      name: "Workflow Source",
+      sourceType: "WORKFLOW_EXECUTION",
+      resourceReference: "wf-1",
+    });
+    expect(src.data.slug).toBe("workflow-source");
+
+    // Run Pipeline
+    const runRes = await client.dataPipelines.run("pipe-1", { runType: "MANUAL" });
+    expect(runRes.data.status).toBe("SUCCESS");
+
+    // Get Lineage
+    const lineage = await client.dataLineage.getGraph();
+    expect(lineage.data.nodes.length).toBe(1);
+  });
+
 });

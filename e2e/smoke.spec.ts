@@ -1552,4 +1552,54 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     await expect(page.locator("text=Event Fabric Operational Health")).toBeVisible();
     await expect(page.locator("text=Loop Protection Gate")).toBeVisible();
   });
+
+  test("48. Phase 23 Enterprise Data Intelligence Platform, Governed Data Products, and Lineage Explorer", async ({ page }) => {
+    await loginAsDemo(page);
+
+    // 1. Navigate to Data Products
+    await page.goto("/data-products");
+    await page.waitForLoadState("networkidle");
+
+    // 2. Verify page header
+    await expect(page.getByRole("heading", { name: "Governed Data Intelligence Platform" })).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.locator("text=Transform workflow executions, business events, and connector metrics")
+    ).toBeVisible();
+
+    // 3. Open Create Data Product Modal
+    const createBtn = page.getByRole("button", { name: "New Data Product" }).or(page.getByRole("button", { name: "Create Data Product" })).first();
+    await expect(createBtn).toBeVisible({ timeout: 10000 });
+    await createBtn.click();
+
+    // 4. Fill form
+    const uniqueSlug = `e2e-order-product-${Date.now()}`;
+    await page.getByPlaceholder("e.g. daily-order-summary").fill(uniqueSlug);
+    await page.getByPlaceholder("e.g. Daily Order Summary").fill("E2E Orders Dataset");
+    await page.getByRole("button", { name: "Create Product" }).click();
+
+    // 5. Verify product created and navigated to detail tab
+    await expect(page.locator("text=E2E Orders Dataset").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=Schema Versions")).toBeVisible();
+
+    // 6. Test tab navigation
+    const pipelinesTab = page.getByRole("button", { name: "Pipeline Studio" });
+    await expect(pipelinesTab).toBeVisible();
+    await pipelinesTab.click();
+    await expect(page.locator("text=Declarative Transformation Pipelines")).toBeVisible();
+
+    const lineageTab = page.getByRole("button", { name: "Lineage Explorer" });
+    await expect(lineageTab).toBeVisible();
+    await lineageTab.click();
+    await expect(page.locator("text=End-to-End Lineage Graph")).toBeVisible();
+
+    const qualityTab = page.getByRole("button", { name: "Quality & Governance" });
+    await expect(qualityTab).toBeVisible();
+    await qualityTab.click();
+    await expect(page.locator("text=Data Quality Rules & Quality Gates")).toBeVisible();
+
+    const queryTab = page.getByRole("button", { name: "Data Explorer" });
+    await expect(queryTab).toBeVisible();
+    await queryTab.click();
+    await expect(page.locator("text=Query Published Dataset")).toBeVisible();
+  });
 });
