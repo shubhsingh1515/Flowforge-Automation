@@ -22,6 +22,11 @@ export const API_KEY_SCOPES = [
   "ai:generate",
   "ai:analyze",
   "ai:optimize",
+  "org:admin",
+  "governance:read",
+  "governance:write",
+  "reviews:write",
+  "slo:manage",
 ] as const;
 
 export type ApiKeyScope = (typeof API_KEY_SCOPES)[number];
@@ -49,6 +54,11 @@ export const WEBHOOK_EVENTS = [
   "deployment.approved",
   "deployment.failed",
   "deployment.rolled_back",
+  "review.submitted",
+  "review.approved",
+  "review.rejected",
+  "slo.breached",
+  "policy.violated",
 ] as const;
 
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];

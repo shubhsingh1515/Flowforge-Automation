@@ -10,6 +10,8 @@ import { outboundWebhookService } from "../services/outboundWebhooks.js";
 import { entitlementService } from "../services/entitlements.js";
 import { templateService } from "../services/templates.js";
 import { workflowVersioningService } from "../services/workflowVersioning.js";
+import { governanceService } from "../services/governance.js";
+import { reviewService, computeGraphHash } from "../services/reviewService.js";
 import { z } from "zod";
 
 export async function workflowRoutes(server: FastifyInstance) {
@@ -359,8 +361,11 @@ export async function workflowRoutes(server: FastifyInstance) {
             },
           });
         }
-      }
 
+        // Invalidate stale reviews if graph content changed
+        const newHash = computeGraphHash(nodesToValidate, edgesToValidate);
+        await reviewService.invalidatePendingReviewsOnGraphChange(existing.id, newHash);
+      }
       let webhookSlug = existing.webhookSlug;
       const isWebhook = triggerType?.toLowerCase().includes("webhook");
       if (isWebhook && !webhookSlug) {
@@ -376,6 +381,21 @@ export async function workflowRoutes(server: FastifyInstance) {
             message: activationQuota.reason,
             code: "PLAN_LIMIT_REACHED",
             statusCode: 403,
+          });
+        }
+
+        // Centralized Governance Policy Evaluation
+        const policyResult = await governanceService.evaluatePolicy(workspaceId, {
+          workflowId: existing.id,
+          action: "ACTIVATE",
+        });
+        if (!policyResult.compliant) {
+          const violationMsgs = policyResult.violations.map((v) => v.message).join("; ");
+          return reply.status(400).send({
+            error: "GovernancePolicyViolation",
+            message: `Activation blocked by enterprise governance policy: ${violationMsgs}`,
+            violations: policyResult.violations,
+            statusCode: 400,
           });
         }
       }

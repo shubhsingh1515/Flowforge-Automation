@@ -7,6 +7,11 @@ export const UpdateGovernancePolicySchema = z.object({
   requireHttpsWebhooks: z.boolean().optional(),
   maxApiKeyLifetimeDays: z.number().int().min(1).max(365).nullable().optional(),
   restrictIntegrationsToAdmin: z.boolean().optional(),
+  requireWorkflowOwner: z.boolean().optional(),
+  requireReviewForCritical: z.boolean().optional(),
+  requirePassingTests: z.boolean().optional(),
+  enforceReliabilitySlo: z.boolean().optional(),
+  maxExecutionDurationMs: z.number().int().min(1000).max(3600000).nullable().optional(),
 });
 
 export type UpdateGovernancePolicyInput = z.infer<typeof UpdateGovernancePolicySchema>;

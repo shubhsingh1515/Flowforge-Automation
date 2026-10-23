@@ -9,6 +9,7 @@ import { releaseService } from "./releases.js";
 import { environmentService } from "./environments.js";
 import { auditLogService } from "./auditLog.js";
 import { outboundWebhookService } from "./outboundWebhooks.js";
+import { governanceService } from "./governance.js";
 
 export class DeploymentService {
   /**
@@ -240,6 +241,17 @@ export class DeploymentService {
 
     if (!validation.valid) {
       throw new Error(`Deployment pre-flight validation failed: ${validation.errors.join("; ")}`);
+    }
+
+    // 3b. Centralized Enterprise Governance Policy validation
+    const policyEval = await governanceService.evaluatePolicy(workspaceId, {
+      workflowId: input.workflowId,
+      action: "PROMOTE",
+      targetEnvironmentId: input.environmentId,
+    });
+    if (!policyEval.compliant) {
+      const msgs = policyEval.violations.map((v) => v.message).join("; ");
+      throw new Error(`Enterprise Governance Policy violation: ${msgs}`);
     }
 
     // 4. Compute structural diff against current active release in environment

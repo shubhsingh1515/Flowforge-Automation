@@ -281,4 +281,55 @@ describe("FlowForge TypeScript SDK Client Suite", () => {
     const tests = await client.ai.generateTests("wf-1", { count: 2 });
     expect(tests.data.length).toBe(1);
   });
+
+  it("supports Phase 14 enterprise collaboration, governance, reviews, and SLO operations", async () => {
+    global.fetch = vi.fn().mockImplementation(async (url: string, init: any) => {
+      const u = url.toString();
+      if (u.includes("/organizations")) {
+        return { ok: true, status: 200, json: async () => ({ organizations: [{ id: "org-1", name: "Acme Corp", slug: "acme" }] }) } as any;
+      }
+      if (u.includes("/teams")) {
+        return { ok: true, status: 200, json: async () => ({ teams: [{ id: "team-1", name: "Platform Ops" }] }) } as any;
+      }
+      if (u.includes("/permissions")) {
+        return { ok: true, status: 200, json: async () => ({ permissions: [{ id: "perm-1", accessLevel: "ADMIN" }] }) } as any;
+      }
+      if (u.includes("/governance/policy")) {
+        return { ok: true, status: 200, json: async () => ({ policy: { requireWorkflowOwner: true } }) } as any;
+      }
+      if (u.includes("/reviews")) {
+        return { ok: true, status: 200, json: async () => ({ reviews: [{ id: "rev-1", status: "SUBMITTED" }] }) } as any;
+      }
+      if (u.includes("/slo/objectives")) {
+        return { ok: true, status: 200, json: async () => ({ objectives: [{ id: "slo-1", targetMetric: "SUCCESS_RATE", targetValue: 99.5 }] }) } as any;
+      }
+      if (u.includes("/compliance/audit")) {
+        return { ok: true, status: 200, json: async () => ({ logs: [{ id: "log-1", action: "ORG_CREATE" }], pagination: { total: 1 } }) } as any;
+      }
+      return { ok: true, status: 200, json: async () => ({}) } as any;
+    });
+
+    const client = new FlowForgeClient({ apiKey: "ff_live_valid" });
+
+    const orgs = await client.organizations.list();
+    expect(orgs.organizations[0].name).toBe("Acme Corp");
+
+    const teams = await client.teams.list();
+    expect(teams.teams[0].name).toBe("Platform Ops");
+
+    const perms = await client.permissions.list();
+    expect(perms.permissions[0].accessLevel).toBe("ADMIN");
+
+    const policy = await client.governance.getPolicy();
+    expect(policy.policy.requireWorkflowOwner).toBe(true);
+
+    const reviews = await client.reviews.list();
+    expect(reviews.reviews[0].status).toBe("SUBMITTED");
+
+    const slos = await client.reliability.listObjectives();
+    expect(slos.objectives[0].targetValue).toBe(99.5);
+
+    const audit = await client.compliance.searchAuditLogs({ keyword: "ORG" });
+    expect(audit.logs[0].action).toBe("ORG_CREATE");
+  });
 });

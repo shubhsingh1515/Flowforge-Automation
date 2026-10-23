@@ -9,6 +9,8 @@ export interface PlanFeatures {
   enterpriseGovernance: boolean;
   marketplacePublishing: boolean;
   aiAssistant: boolean;
+  enterpriseCollaboration: boolean;
+  reliabilityObjectives: boolean;
 }
 
 export interface PlanDefinition {
@@ -28,6 +30,8 @@ export interface PlanDefinition {
   maxAuditRetentionDays?: number;
   maxDataExportsPerMonth?: number;
   maxAiRequestsPerMonth?: number;
+  maxTeams?: number;
+  maxReliabilityObjectives?: number;
   features: PlanFeatures;
   highlights: string[];
 }
@@ -49,6 +53,8 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
     maxAuditRetentionDays: 7,
     maxDataExportsPerMonth: 1,
     maxAiRequestsPerMonth: 20,
+    maxTeams: 1,
+    maxReliabilityObjectives: 1,
     features: {
       advancedFlowControl: false,
       approvalWorkflows: false,
@@ -58,6 +64,8 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
       enterpriseGovernance: false,
       marketplacePublishing: false,
       aiAssistant: true,
+      enterpriseCollaboration: false,
+      reliabilityObjectives: false,
     },
     highlights: [
       "100 workflow executions / month",
@@ -84,6 +92,8 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
     maxAuditRetentionDays: 30,
     maxDataExportsPerMonth: 10,
     maxAiRequestsPerMonth: 250,
+    maxTeams: 10,
+    maxReliabilityObjectives: 10,
     features: {
       advancedFlowControl: true,
       approvalWorkflows: false,
@@ -93,6 +103,8 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
       enterpriseGovernance: true,
       marketplacePublishing: false,
       aiAssistant: true,
+      enterpriseCollaboration: true,
+      reliabilityObjectives: true,
     },
     highlights: [
       "10,000 workflow executions / month",
@@ -121,6 +133,8 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
     maxAuditRetentionDays: 365,
     maxDataExportsPerMonth: 100,
     maxAiRequestsPerMonth: 2500,
+    maxTeams: 50,
+    maxReliabilityObjectives: 50,
     features: {
       advancedFlowControl: true,
       approvalWorkflows: true,
@@ -130,6 +144,8 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
       enterpriseGovernance: true,
       marketplacePublishing: true,
       aiAssistant: true,
+      enterpriseCollaboration: true,
+      reliabilityObjectives: true,
     },
     highlights: [
       "100,000 workflow executions / month",

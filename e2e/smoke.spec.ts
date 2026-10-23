@@ -958,4 +958,157 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     await expect(page.locator("text=AI generated").first()).toBeVisible({ timeout: 15000 });
     await expect(page.locator("text=Valid Payload Smoke Test").first()).toBeVisible({ timeout: 10000 });
   });
+
+  test("37. Phase 14 Organization & Team Administration, Workflow Ownership & Stewardship", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/governance");
+    await page.waitForLoadState("networkidle");
+
+    // Verify Page Header
+    await expect(page.locator("text=Enterprise Governance & Collaboration")).toBeVisible({ timeout: 10000 });
+
+    // Verify Stewardship KPI Cards
+    await expect(page.locator("text=Total Workflows")).toBeVisible();
+    await expect(page.locator("text=Critical Workflows")).toBeVisible();
+    await expect(page.locator("text=Orphaned Workflows")).toBeVisible();
+
+    // Open Edit Stewardship on first workflow if table has workflows
+    const stewardshipBtn = page.locator('[data-testid^="btn-edit-stewardship-"]').first();
+    if (await stewardshipBtn.isVisible()) {
+      await stewardshipBtn.click();
+      await expect(page.locator("text=Update Stewardship:").first()).toBeVisible();
+      await page.locator('[data-testid="btn-save-stewardship"]').click();
+      await expect(page.locator("text=Workflow stewardship updated successfully.")).toBeVisible({ timeout: 10000 });
+    }
+
+    // Switch to Organizations & Teams tab
+    const orgsTab = page.locator('[data-testid="tab-orgs_teams"]');
+    await expect(orgsTab).toBeVisible();
+    await orgsTab.click();
+
+    // Verify Organization Hierarchy section
+    await expect(page.getByRole("heading", { name: "Organization Hierarchy" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Functional Workspace Teams" })).toBeVisible();
+
+    // Create a new Functional Team
+    const createTeamBtn = page.locator('[data-testid="btn-create-team-open"]');
+    await expect(createTeamBtn).toBeVisible();
+    await createTeamBtn.click();
+
+    const teamName = "Cloud SRE Ops " + Math.random().toString(36).slice(2, 7);
+    await page.locator('[data-testid="input-team-name"]').fill(teamName);
+    await page.locator('[data-testid="btn-create-team-submit"]').click();
+
+    // Verify Team Created
+    await expect(page.locator("text=Team created successfully.")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(`text=${teamName}`)).toBeVisible();
+  });
+
+  test("38. Phase 14 Collaborative Workflow Review, Stale Approval Invalidation, and Governance Policy Enforcement", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/governance");
+    await page.waitForLoadState("networkidle");
+
+    // Switch to Collaborative Reviews tab
+    const reviewsTab = page.locator('[data-testid="tab-reviews"]');
+    await expect(reviewsTab).toBeVisible();
+    await reviewsTab.click();
+
+    // Verify Reviews Queue
+    await expect(page.getByRole("heading", { name: "Collaborative Change Reviews" })).toBeVisible();
+
+    // Submit a review
+    const submitRevBtn = page.locator('[data-testid="btn-submit-review-open"]');
+    await expect(submitRevBtn).toBeVisible();
+    await submitRevBtn.click();
+
+    // Select workflow
+    const wfSelect = page.locator('[data-testid="select-review-workflow"]');
+    await expect(wfSelect).toBeVisible();
+    const options = await wfSelect.locator("option").all();
+    if (options.length > 1) {
+      await wfSelect.selectOption({ index: 1 });
+      const revTitle = "Webhook Review " + Math.random().toString(36).slice(2, 7);
+      await page.locator('[data-testid="input-review-title"]').fill(revTitle);
+      await page.locator('[data-testid="btn-submit-review-confirm"]').click();
+      await expect(page.locator("text=Review submitted for collaborative change evaluation.")).toBeVisible({ timeout: 10000 });
+      await expect(page.locator(`text=${revTitle}`).first()).toBeVisible();
+    } else {
+      // Close modal if no workflows available
+      await page.locator('button:has-text("Cancel")').click();
+    }
+
+    // Switch to Governance Policies tab
+    const policyTab = page.locator('[data-testid="tab-policy"]');
+    await expect(policyTab).toBeVisible();
+    await policyTab.click();
+
+    // Verify Policy Editor
+    await expect(page.locator("text=Workspace Governance Policy")).toBeVisible();
+    await expect(page.locator("text=Policy Evaluation Sandbox")).toBeVisible();
+
+    // Toggle a policy rule and save
+    const ownerCheckbox = page.locator('[data-testid="checkbox-require-owner"]');
+    await expect(ownerCheckbox).toBeVisible();
+    await ownerCheckbox.click();
+    await page.locator('[data-testid="btn-save-policy"]').click();
+    await expect(page.locator("text=Workspace governance policy updated.")).toBeVisible({ timeout: 10000 });
+  });
+
+  test("39. Phase 14 Operational Reliability Objectives (SLO Error Budget) & Audit Compliance Export", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/governance");
+    await page.waitForLoadState("networkidle");
+
+    // Switch to Reliability & SLOs tab
+    const sloTab = page.locator('[data-testid="tab-reliability"]');
+    await expect(sloTab).toBeVisible();
+    await sloTab.click();
+
+    // Verify Reliability Header
+    await expect(page.locator("text=Operational Reliability Objectives (SLOs)")).toBeVisible();
+
+    // Define SLO
+    const createSloBtn = page.locator('[data-testid="btn-create-slo-open"]');
+    await expect(createSloBtn).toBeVisible();
+    await createSloBtn.click();
+
+    const sloName = "Order Pipeline SLO " + Math.random().toString(36).slice(2, 7);
+    await page.locator('[data-testid="input-slo-name"]').fill(sloName);
+    await page.locator('[data-testid="input-slo-target"]').fill("99.5");
+    await page.locator('[data-testid="btn-create-slo-submit"]').click();
+
+    await expect(page.locator("text=Reliability objective created.")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(`text=${sloName}`).first()).toBeVisible();
+    await expect(page.locator("text=Error Budget Remaining").first()).toBeVisible();
+
+    // Switch to Audit & Compliance tab
+    const compTab = page.locator('[data-testid="tab-compliance"]');
+    await expect(compTab).toBeVisible();
+    await compTab.click();
+
+    // Verify Compliance Export Center
+    await expect(page.locator("text=Compliance Evidence Export Center")).toBeVisible();
+    await expect(page.locator("text=Enterprise Audit Log Stream")).toBeVisible();
+
+    // Generate Compliance Export Package
+    const genExportBtn = page.locator('[data-testid="btn-generate-export-open"]');
+    await expect(genExportBtn).toBeVisible();
+    await genExportBtn.click();
+
+    const exportReason = "SOC 2 Audit " + Math.random().toString(36).slice(2, 7);
+    await page.locator('[data-testid="input-export-reason"]').fill(exportReason);
+    await page.locator('[data-testid="btn-generate-export-submit"]').click();
+
+    await expect(page.locator("text=Sanitized compliance evidence package generated")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(`text=${exportReason}`).first()).toBeVisible();
+
+    // Inspect Evidence Payload
+    const viewPayloadBtn = page.locator('button:has-text("View Evidence Payload")').first();
+    await expect(viewPayloadBtn).toBeVisible();
+    await viewPayloadBtn.click();
+
+    await expect(page.locator("text=Sanitized Compliance Export Evidence")).toBeVisible();
+    await page.locator('button:has-text("Close Preview")').click();
+  });
 });

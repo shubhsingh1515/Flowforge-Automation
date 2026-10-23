@@ -350,7 +350,7 @@ export const api = {
       }),
   },
 
-  // Phase 9: Enterprise Governance
+  // Phase 9 & 14: Enterprise Governance & Collaboration
   governance: {
     getPolicy: () => request<any>("/governance/policy"),
     updatePolicy: (body: any) =>
@@ -366,6 +366,10 @@ export const api = {
       const qs = q.toString();
       return request<{ data: any[]; pagination: any }>(`/governance/audit-logs${qs ? `?${qs}` : ""}`);
     },
+    evaluate: (body: any = {}) => request<{ data: any }>("/governance/evaluate", { method: "POST", body: JSON.stringify(body) }),
+    getOwnership: () => request<{ data: any }>("/governance/ownership-intelligence"),
+    updateStewardship: (workflowId: string, body: any) =>
+      request<{ data: any }>(`/workflows/${workflowId}/stewardship`, { method: "PATCH", body: JSON.stringify(body) }),
   },
 
   // Phase 9: Customer Data Rights & Retention
@@ -649,5 +653,79 @@ export const api = {
       request<{ data: any }>(`/ai/generate-tests/${workflowId}?count=${count}`, {
         method: "POST",
       }),
+  },
+
+  // Phase 14: Enterprise Collaboration, Governance, Reviews & Reliability
+  organizations: {
+    list: () => request<{ data: any[] }>("/organizations"),
+    get: (id: string) => request<{ data: any }>(`/organizations/${id}`),
+    create: (body: any) => request<{ data: any }>("/organizations", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: string, body: any) => request<{ data: any }>(`/organizations/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    listMembers: (id: string) => request<{ data: any[] }>(`/organizations/${id}/members`),
+    addMember: (id: string, body: any) => request<{ data: any }>(`/organizations/${id}/members`, { method: "POST", body: JSON.stringify(body) }),
+    removeMember: (id: string, membershipId: string) => request<{ success: boolean }>(`/organizations/${id}/members/${membershipId}`, { method: "DELETE" }),
+    listWorkspaces: (id: string) => request<{ data: any[] }>(`/organizations/${id}/workspaces`),
+  },
+
+  teams: {
+    list: () => request<{ data: any[] }>("/teams"),
+    get: (id: string) => request<{ data: any }>(`/teams/${id}`),
+    create: (body: any) => request<{ data: any }>("/teams", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: string, body: any) => request<{ data: any }>(`/teams/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    addMember: (id: string, body: any) => request<{ data: any }>(`/teams/${id}/members`, { method: "POST", body: JSON.stringify(body) }),
+    removeMember: (id: string, memberId: string) => request<{ success: boolean }>(`/teams/${id}/members/${memberId}`, { method: "DELETE" }),
+  },
+
+  permissions: {
+    list: (params?: any) => {
+      const q = new URLSearchParams();
+      if (params?.resourceType) q.set("resourceType", params.resourceType);
+      if (params?.resourceId) q.set("resourceId", params.resourceId);
+      const qs = q.toString();
+      return request<{ data: any[] }>(`/permissions${qs ? `?${qs}` : ""}`);
+    },
+    grant: (body: any) => request<{ data: any }>("/permissions", { method: "POST", body: JSON.stringify(body) }),
+    revoke: (id: string) => request<{ success: boolean }>(`/permissions/${id}`, { method: "DELETE" }),
+  },
+
+  reviews: {
+    list: (params?: any) => {
+      const q = new URLSearchParams();
+      if (params?.workflowId) q.set("workflowId", params.workflowId);
+      if (params?.status) q.set("status", params.status);
+      const qs = q.toString();
+      return request<{ data: any[] }>(`/reviews${qs ? `?${qs}` : ""}`);
+    },
+    get: (id: string) => request<{ data: any }>(`/reviews/${id}`),
+    create: (body: any) => request<{ data: any }>("/reviews", { method: "POST", body: JSON.stringify(body) }),
+    decide: (id: string, body: any) => request<{ data: any }>(`/reviews/${id}/decision`, { method: "POST", body: JSON.stringify(body) }),
+    addComment: (id: string, body: any) => request<{ data: any }>(`/reviews/${id}/comments`, { method: "POST", body: JSON.stringify(body) }),
+  },
+
+  reliability: {
+    list: () => request<{ data: any[] }>("/reliability/objectives"),
+    create: (body: any) => request<{ data: any }>("/reliability/objectives", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: string, body: any) => request<{ data: any }>(`/reliability/objectives/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    delete: (id: string) => request<{ success: boolean }>(`/reliability/objectives/${id}`, { method: "DELETE" }),
+    evaluate: (id: string) => request<{ data: any }>(`/reliability/objectives/${id}`, { method: "GET" }),
+  },
+
+  compliance: {
+    searchAudit: (params?: any) => {
+      const q = new URLSearchParams();
+      if (params?.startDate) q.set("startDate", params.startDate);
+      if (params?.endDate) q.set("endDate", params.endDate);
+      if (params?.actorId) q.set("actorId", params.actorId);
+      if (params?.targetType) q.set("targetType", params.targetType);
+      if (params?.action) q.set("action", params.action);
+      if (params?.keyword) q.set("keyword", params.keyword);
+      if (params?.page) q.set("page", params.page.toString());
+      if (params?.limit) q.set("limit", params.limit.toString());
+      const qs = q.toString();
+      return request<{ logs: any[]; pagination: any }>(`/compliance/audit-logs${qs ? `?${qs}` : ""}`);
+    },
+    createExport: (body: any) => request<{ data: any }>("/compliance/exports", { method: "POST", body: JSON.stringify(body) }),
+    listExports: () => request<{ data: any[] }>("/compliance/exports"),
+    downloadExport: (token: string) => request<any>(`/compliance/exports/${token}/download`),
   },
 };

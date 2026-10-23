@@ -79,6 +79,11 @@ model User {
   ssoIdentities SsoUserIdentity[]
   notifications Notification[]
   customerFeedback CustomerFeedback[]
+  organizationMemberships OrganizationMembership[]
+  teamMemberships         TeamMember[]
+  workflowReviewsAuthored WorkflowReview[] @relation("ReviewAuthor")
+  workflowReviewsReviewed WorkflowReview[] @relation("ReviewReviewer")
+  reviewComments          WorkflowReviewComment[]
 
   @@map("users")
 }
@@ -100,6 +105,8 @@ model Workspace {
   name      String
   slug      String   @unique
   ownerId   String
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -136,6 +143,11 @@ model Workspace {
   deploymentPolicies     DeploymentPolicy[]
   testCases              WorkflowTestCase[]
   testRuns               WorkflowTestRun[]
+  teams                  Team[]
+  resourcePermissions    ResourcePermission[]
+  workflowReviews        WorkflowReview[]
+  reliabilityObjectives  ReliabilityObjective[]
+  complianceExportJobs   ComplianceExportJob[]
 
   @@map("workspaces")
 }
@@ -165,6 +177,14 @@ model Workflow {
   triggerType   String?
   webhookSlug   String?        @unique
   webhookSecret String?
+  ownerUserId       String?
+  owningTeamId      String?
+  stewardUserId     String?
+  criticality       String         @default("TIER_3_STANDARD")
+  businessDomain    String?
+  lifecycleStatus   String         @default("DRAFT")
+  nextReviewDate    DateTime?
+  escalationContact String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
@@ -178,6 +198,9 @@ model Workflow {
   deployments       WorkflowDeployment[]
   testCases         WorkflowTestCase[]
   testRuns          WorkflowTestRun[]
+  owningTeam        Team?                  @relation("TeamWorkflows", fields: [owningTeamId], references: [id], onDelete: SetNull)
+  reviews           WorkflowReview[]
+  reliabilityObjectives ReliabilityObjective[]
 
   @@index([workspaceId, status])
   @@index([workspaceId, createdAt])
@@ -697,6 +720,11 @@ model WorkspaceGovernancePolicy {
   requireHttpsWebhooks        Boolean  @default(true)
   maxApiKeyLifetimeDays       Int?     @default(365)
   restrictIntegrationsToAdmin Boolean  @default(false)
+  requireWorkflowOwner        Boolean  @default(false)
+  requireReviewForCritical    Boolean  @default(true)
+  requirePassingTests         Boolean  @default(false)
+  enforceReliabilitySlo       Boolean  @default(false)
+  maxExecutionDurationMs      Int?     @default(300000)
   createdAt                   DateTime @default(now())
   updatedAt                   DateTime @updatedAt
 
@@ -1166,4 +1194,186 @@ model WorkflowTestRun {
   @@index([releaseContentHash, status])
   @@index([workspaceId])
   @@map("workflow_test_runs")
+}
+
+// ==========================================
+// PHASE 14: ENTERPRISE COLLABORATION & GOVERNANCE
+// ==========================================
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  ownerId   String
+  status    String   @default("ACTIVE") // ACTIVE, SUSPENDED
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspaces  Workspace[]
+  memberships OrganizationMembership[]
+  teams       Team[]
+
+  @@map("organizations")
+}
+
+model OrganizationMembership {
+  id             String   @id @default(uuid())
+  organizationId String
+  userId         String
+  role           String   @default("MEMBER") // OWNER, ADMIN, MEMBER
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("organization_memberships")
+}
+
+model Team {
+  id             String   @id @default(uuid())
+  organizationId String?
+  workspaceId    String
+  name           String
+  slug           String
+  description    String?
+  status         String   @default("ACTIVE") // ACTIVE, ARCHIVED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members      TeamMember[]
+  workflows    Workflow[]    @relation("TeamWorkflows")
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId])
+  @@map("teams")
+}
+
+model TeamMember {
+  id        String   @id @default(uuid())
+  teamId    String
+  userId    String
+  role      String   @default("MEMBER") // LEAD, MEMBER
+  createdAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
+  @@map("team_members")
+}
+
+model ResourcePermission {
+  id           String   @id @default(uuid())
+  workspaceId  String
+  resourceType String   // WORKFLOW, ENVIRONMENT, FOLDER
+  resourceId   String
+  subjectType  String   // USER, TEAM
+  subjectId    String
+  actions      String[] @default(["VIEW"]) // VIEW, EDIT, RUN, APPROVE, DEPLOY, MANAGE_PERMISSIONS
+  grantedById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, resourceType, resourceId])
+  @@index([subjectType, subjectId])
+  @@map("resource_permissions")
+}
+
+model WorkflowReview {
+  id                    String    @id @default(uuid())
+  workspaceId           String
+  workflowId            String
+  workflowVersionNumber Int
+  releaseArtifactId     String?
+  contentHash           String
+  title                 String
+  changeSummary         String?
+  authorUserId          String
+  status                String    @default("SUBMITTED") // SUBMITTED, CHANGES_REQUESTED, APPROVED, REJECTED, SUPERSEDED
+  reviewerUserId        String?
+  decisionReason        String?
+  decidedAt             DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  workspace Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workflow  Workflow                @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  author    User                    @relation("ReviewAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  reviewer  User?                   @relation("ReviewReviewer", fields: [reviewerUserId], references: [id], onDelete: SetNull)
+  comments  WorkflowReviewComment[]
+
+  @@index([workspaceId, workflowId, status])
+  @@index([contentHash])
+  @@map("workflow_reviews")
+}
+
+model WorkflowReviewComment {
+  id           String   @id @default(uuid())
+  reviewId     String
+  authorUserId String
+  nodeId       String?
+  comment      String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  review WorkflowReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  author User           @relation(fields: [authorUserId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+  @@map("workflow_review_comments")
+}
+
+model ReliabilityObjective {
+  id                   String    @id @default(uuid())
+  workspaceId          String
+  workflowId           String?
+  name                 String
+  targetMetric         String    // SUCCESS_RATE, P95_LATENCY, MAX_DURATION
+  targetValue          Float
+  evaluationWindowDays Int       @default(14)
+  status               String    @default("MET") // MET, AT_RISK, BREACHED, INSUFFICIENT_DATA
+  currentValue         Float?
+  errorBudgetRemaining Float?
+  lastEvaluatedAt      DateTime?
+  alertCooldownUntil   DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workflow  Workflow? @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([workflowId])
+  @@map("reliability_objectives")
+}
+
+model ComplianceExportJob {
+  id                String    @id @default(uuid())
+  workspaceId       String
+  requestedByUserId String
+  scope             String    @default("ALL") // AUDIT_LOGS, GOVERNANCE, REVIEWS, RELEASES, FULL
+  timeRangeStart    DateTime
+  timeRangeEnd      DateTime
+  status            String    @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED, EXPIRED
+  downloadToken     String?   @unique
+  fileSizeBytes     Int?
+  recordCount       Int?
+  sanitizedPayload  Json?
+  expiresAt         DateTime?
+  createdAt         DateTime  @default(now())
+  completedAt       DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@map("compliance_export_jobs")
 }

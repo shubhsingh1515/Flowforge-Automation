@@ -428,6 +428,190 @@ export class FlowForgeClient {
     },
   };
 
+  // ==========================================
+  // ENTERPRISE COLLABORATION & GOVERNANCE RESOURCES
+  // ==========================================
+  public readonly organizations = {
+    list: async () => {
+      return this.request<{ organizations: any[] }>("/organizations");
+    },
+    get: async (orgId: string) => {
+      return this.request<{ organization: any }>(`/organizations/${orgId}`);
+    },
+    create: async (data: { name: string; slug: string; tier?: string }) => {
+      return this.request<{ organization: any }>("/organizations", "POST", data);
+    },
+    update: async (orgId: string, data: { name?: string; tier?: string }) => {
+      return this.request<{ organization: any }>(`/organizations/${orgId}`, "PATCH", data);
+    },
+    listMembers: async (orgId: string) => {
+      return this.request<{ members: any[] }>(`/organizations/${orgId}/members`);
+    },
+    addMember: async (orgId: string, data: { userId: string; role: string }) => {
+      return this.request<{ membership: any }>(`/organizations/${orgId}/members`, "POST", data);
+    },
+    removeMember: async (orgId: string, membershipId: string) => {
+      return this.request<{ success: boolean }>(`/organizations/${orgId}/members/${membershipId}`, "DELETE");
+    },
+    listWorkspaces: async (orgId: string) => {
+      return this.request<{ workspaces: any[] }>(`/organizations/${orgId}/workspaces`);
+    },
+  };
+
+  public readonly teams = {
+    list: async () => {
+      return this.request<{ teams: any[] }>("/teams");
+    },
+    get: async (teamId: string) => {
+      return this.request<{ team: any }>(`/teams/${teamId}`);
+    },
+    create: async (data: { name: string; description?: string }) => {
+      return this.request<{ team: any }>("/teams", "POST", data);
+    },
+    update: async (teamId: string, data: { name?: string; description?: string; isArchived?: boolean }) => {
+      return this.request<{ team: any }>(`/teams/${teamId}`, "PATCH", data);
+    },
+    addMember: async (teamId: string, data: { userId: string; teamRole?: string }) => {
+      return this.request<{ member: any }>(`/teams/${teamId}/members`, "POST", data);
+    },
+    removeMember: async (teamId: string, memberId: string) => {
+      return this.request<{ success: boolean }>(`/teams/${teamId}/members/${memberId}`, "DELETE");
+    },
+  };
+
+  public readonly permissions = {
+    list: async (params?: { resourceType?: string; resourceId?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.resourceType) q.set("resourceType", params.resourceType);
+      if (params?.resourceId) q.set("resourceId", params.resourceId);
+      const qs = q.toString();
+      return this.request<{ permissions: any[] }>(`/permissions${qs ? `?${qs}` : ""}`);
+    },
+    grant: async (data: {
+      subjectType: "USER" | "TEAM";
+      subjectId: string;
+      resourceType: "WORKFLOW" | "CREDENTIAL" | "ENVIRONMENT";
+      resourceId: string;
+      accessLevel: "VIEW" | "EDIT" | "ADMIN";
+    }) => {
+      return this.request<{ permission: any }>("/permissions", "POST", data);
+    },
+    revoke: async (permissionId: string) => {
+      return this.request<{ success: boolean }>(`/permissions/${permissionId}`, "DELETE");
+    },
+  };
+
+  public readonly governance = {
+    getPolicy: async () => {
+      return this.request<{ policy: any }>("/governance/policy");
+    },
+    updatePolicy: async (data: any) => {
+      return this.request<{ policy: any }>("/governance/policy", "PUT", data);
+    },
+    evaluate: async (data?: { workflowId?: string; action?: string; targetEnvironmentId?: string }) => {
+      return this.request<{ result: any }>("/governance/policy/evaluate", "POST", data || {});
+    },
+    getOwnershipIntelligence: async () => {
+      return this.request<{ intelligence: any }>("/governance/ownership");
+    },
+    updateStewardship: async (
+      workflowId: string,
+      data: {
+        ownerUserId?: string | null;
+        owningTeamId?: string | null;
+        stewardUserId?: string | null;
+        criticality?: string;
+        businessDomain?: string;
+        escalationContact?: string;
+        lifecycleStatus?: string;
+        nextReviewDate?: string;
+      }
+    ) => {
+      return this.request<{ workflow: any }>(`/workflows/${workflowId}/stewardship`, "PATCH", data);
+    },
+  };
+
+  public readonly reviews = {
+    list: async (params?: { workflowId?: string; status?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.workflowId) q.set("workflowId", params.workflowId);
+      if (params?.status) q.set("status", params.status);
+      const qs = q.toString();
+      return this.request<{ reviews: any[] }>(`/reviews${qs ? `?${qs}` : ""}`);
+    },
+    get: async (reviewId: string) => {
+      return this.request<{ review: any }>(`/reviews/${reviewId}`);
+    },
+    create: async (data: { workflowId: string; workflowVersionNumber: number; title: string; changeSummary?: string }) => {
+      return this.request<{ review: any }>("/reviews", "POST", data);
+    },
+    decide: async (reviewId: string, data: { decision: "APPROVED" | "CHANGES_REQUESTED" | "REJECTED"; reason?: string }) => {
+      return this.request<{ review: any }>(`/reviews/${reviewId}/decision`, "POST", data);
+    },
+    addComment: async (reviewId: string, data: { comment: string; nodeId?: string }) => {
+      return this.request<{ comment: any }>(`/reviews/${reviewId}/comments`, "POST", data);
+    },
+  };
+
+  public readonly reliability = {
+    listObjectives: async () => {
+      return this.request<{ objectives: any[] }>("/slo/objectives");
+    },
+    createObjective: async (data: {
+      name: string;
+      targetMetric: "SUCCESS_RATE" | "LATENCY_P95" | "EXECUTION_DURATION";
+      targetValue: number;
+      timeWindowHours: number;
+      workflowId?: string | null;
+      alertCooldownHours?: number;
+    }) => {
+      return this.request<{ objective: any }>("/slo/objectives", "POST", data);
+    },
+    updateObjective: async (id: string, data: any) => {
+      return this.request<{ objective: any }>(`/slo/objectives/${id}`, "PATCH", data);
+    },
+    deleteObjective: async (id: string) => {
+      return this.request<{ success: boolean }>(`/slo/objectives/${id}`, "DELETE");
+    },
+    evaluate: async (id: string) => {
+      return this.request<{ objective: any }>(`/slo/objectives/${id}/evaluate`, "POST", {});
+    },
+  };
+
+  public readonly compliance = {
+    searchAuditLogs: async (params?: {
+      startDate?: string;
+      endDate?: string;
+      actorId?: string;
+      targetType?: string;
+      action?: string;
+      keyword?: string;
+      page?: number;
+      limit?: number;
+    }) => {
+      const q = new URLSearchParams();
+      if (params?.startDate) q.set("startDate", params.startDate);
+      if (params?.endDate) q.set("endDate", params.endDate);
+      if (params?.actorId) q.set("actorId", params.actorId);
+      if (params?.targetType) q.set("targetType", params.targetType);
+      if (params?.action) q.set("action", params.action);
+      if (params?.keyword) q.set("keyword", params.keyword);
+      if (params?.page) q.set("page", params.page.toString());
+      if (params?.limit) q.set("limit", params.limit.toString());
+      const qs = q.toString();
+      return this.request<{ logs: any[]; pagination: any }>(`/compliance/audit${qs ? `?${qs}` : ""}`);
+    },
+    createExport: async (data: { startDate: string; endDate: string; reason: string; includePayloads?: boolean }) => {
+      return this.request<{ export: any }>("/compliance/exports", "POST", data);
+    },
+    listExports: async () => {
+      return this.request<{ exports: any[] }>("/compliance/exports");
+    },
+    downloadExport: async (token: string) => {
+      return this.request<{ exportPayload: any }>(`/compliance/exports/download/${token}`);
+    },
+  };
+
   public readonly health = {
     check: async () => {
       return this.request<{ status: string; uptime: number; version?: string }>("/health");
