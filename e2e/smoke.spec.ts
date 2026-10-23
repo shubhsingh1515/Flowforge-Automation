@@ -1402,4 +1402,86 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
       await expect(page.locator("text=Chaos Prohibited on PRODUCTION")).toBeVisible();
     }
   });
+
+  test("46. Phase 21 Business Process Intelligence, Cross-Workflow Orchestration & Process Mining Console", async ({
+    page,
+  }) => {
+    // 1. Login
+    await loginAsDemo(page);
+
+    // 2. Navigate to Business Processes
+    await page.goto("/processes");
+    await page.waitForLoadState("networkidle");
+
+    // 3. Verify Business Process Intelligence Page
+    await expect(page.locator("text=Business Process Intelligence")).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.locator("text=Cross-workflow orchestration, end-to-end SLA tracking")
+    ).toBeVisible();
+
+    // 4. Open New Process Definition Modal
+    const newProcessBtn = page.locator('[data-testid="btn-new-process"]');
+    await expect(newProcessBtn).toBeVisible();
+    await newProcessBtn.click();
+
+    // 5. Fill and Submit Definition Form
+    const nameInput = page.locator('[data-testid="modal-process-name"]');
+    await expect(nameInput).toBeVisible({ timeout: 5000 });
+    const uniqueSlug = `proc-e2e-${Date.now()}`;
+    await nameInput.fill(`E2E Fulfillment Process ${Date.now()}`);
+
+    const slugInput = page.locator('[data-testid="modal-process-slug"]');
+    await slugInput.fill(uniqueSlug);
+
+    // Select workflow if available in options
+    const workflowSelect = page.locator("select").nth(2);
+    const options = await workflowSelect.locator("option").all();
+    if (options.length > 1) {
+      await workflowSelect.selectOption({ index: 1 });
+    }
+
+    const createBtn = page.locator('[data-testid="modal-btn-create"]');
+    await createBtn.click();
+
+    // 6. Verify Creation Success
+    await expect(
+      page.locator("text=Business process definition created successfully!")
+    ).toBeVisible({ timeout: 10000 });
+
+    // 7. Test Tab Navigation
+    const instancesTab = page.locator('[data-testid="tab-instances"]');
+    await expect(instancesTab).toBeVisible();
+    await instancesTab.click();
+    await expect(page.locator("text=Correlated Process Instances")).toBeVisible();
+
+    // Trigger an instance event
+    const triggerBtn = page.locator('[data-testid="btn-trigger-instance"]');
+    if (await triggerBtn.isVisible()) {
+      await triggerBtn.click();
+      await expect(page.locator("text=Correlated event ingested successfully.")).toBeVisible({
+        timeout: 10000,
+      });
+    }
+
+    // Switch to Topology tab
+    const topologyTab = page.locator('[data-testid="tab-topology"]');
+    await expect(topologyTab).toBeVisible();
+    await topologyTab.click();
+    await expect(page.locator("text=Active Version Topology")).toBeVisible();
+    await expect(page.locator("text=Content Hash:")).toBeVisible();
+
+    // Switch to SLA tab
+    const slaTab = page.locator('[data-testid="tab-sla"]');
+    await expect(slaTab).toBeVisible();
+    await slaTab.click();
+    await expect(page.locator("text=Process SLA & Deadline Attainment")).toBeVisible();
+
+    // Switch back to Mining tab
+    const miningTab = page.locator('[data-testid="tab-mining"]');
+    await expect(miningTab).toBeVisible();
+    await miningTab.click();
+    await expect(
+      page.locator("text=INSUFFICIENT_DATA").or(page.locator("text=SUFFICIENT DATA"))
+    ).toBeVisible();
+  });
 });

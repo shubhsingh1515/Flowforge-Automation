@@ -58,6 +58,7 @@ import { connectorRoutes } from "./routes/connectors.js";
 import { simulationRoutes } from "./routes/simulations.js";
 import { chaosRoutes } from "./routes/chaos.js";
 import { optimizationRoutes } from "./routes/optimizations.js";
+import { processRoutes } from "./routes/processes.js";
 import { startWorker, stopWorker } from "./worker/worker.js";
 import { startOutboundWebhookWorker, stopOutboundWebhookWorker } from "./worker/outboundWebhookWorker.js";
 import { workflowScheduler } from "./worker/scheduler.js";
@@ -288,6 +289,7 @@ export async function buildServer(options: BuildServerOptions = {}) {
       await api.register(simulationRoutes);
       await api.register(chaosRoutes);
       await api.register(optimizationRoutes);
+      await api.register(processRoutes);
     },
     { prefix: config.apiPrefix }
   );

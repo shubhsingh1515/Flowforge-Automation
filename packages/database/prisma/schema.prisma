@@ -177,6 +177,10 @@ model Workspace {
   simulationRuns         WorkflowSimulationRun[]
   chaosExperiments       ChaosExperiment[]
   optimizationCandidates WorkflowOptimizationCandidate[]
+  // Phase 21: Enterprise Business Process Intelligence & Cross-Workflow Orchestration
+  processDefinitions     BusinessProcessDefinition[]
+  processInstances       BusinessProcessInstance[]
+  processSlaPolicies     ProcessSlaPolicy[]
 
   @@map("workspaces")
 }
@@ -1998,4 +2002,151 @@ model WorkflowOptimizationCandidate {
   @@index([workflowId, status])
   @@index([workspaceId])
   @@map("workflow_optimization_candidates")
+}
+
+// ==========================================
+// PHASE 21: ENTERPRISE BUSINESS PROCESS INTELLIGENCE
+// ==========================================
+
+model BusinessProcessDefinition {
+  id                  String   @id @default(uuid())
+  workspaceId         String
+  name                String
+  slug                String
+  description         String?
+  businessDomain      String   @default("OPERATIONS")
+  criticality         String   @default("MEDIUM") // LOW, MEDIUM, HIGH, MISSION_CRITICAL
+  lifecycleStatus     String   @default("ACTIVE") // DRAFT, ACTIVE, DEPRECATED, ARCHIVED
+  ownerUserId         String?
+  owningTeamId        String?
+  escalationContact   String?
+  activeVersionNumber Int      @default(1)
+  contentHash         String
+  metadata            Json     @default("{}")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  workspace           Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  versions            BusinessProcessVersion[]
+  instances           BusinessProcessInstance[]
+  slaPolicies         ProcessSlaPolicy[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, lifecycleStatus])
+  @@map("business_process_definitions")
+}
+
+model BusinessProcessVersion {
+  id                  String   @id @default(uuid())
+  processDefinitionId String
+  versionNumber       Int
+  contentHash         String
+  milestones          Json     @default("[]")
+  correlationRules    Json     @default("[]")
+  outcomeMappings     Json     @default("[]")
+  targetSlaDurationMs Int?
+  createdById         String?
+  createdAt           DateTime @default(now())
+
+  processDefinition   BusinessProcessDefinition @relation(fields: [processDefinitionId], references: [id], onDelete: Cascade)
+  instances           BusinessProcessInstance[]
+
+  @@unique([processDefinitionId, versionNumber])
+  @@index([processDefinitionId])
+  @@map("business_process_versions")
+}
+
+model BusinessProcessInstance {
+  id                    String   @id @default(uuid())
+  workspaceId           String
+  processDefinitionId   String
+  processVersionId      String
+  correlationKey        String
+  status                String   @default("CREATED") // CREATED, IN_PROGRESS, WAITING, AT_RISK, COMPLETED, FAILED, CANCELLED
+  currentMilestoneId    String?
+  currentMilestoneName  String?
+  startedAt             DateTime @default(now())
+  completedAt           DateTime?
+  durationMs            Int?
+  terminalOutcome       String?
+  outcomeDetails        Json?
+  metadata              Json     @default("{}")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  workspace             Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  processDefinition     BusinessProcessDefinition @relation(fields: [processDefinitionId], references: [id], onDelete: Cascade)
+  processVersion        BusinessProcessVersion    @relation(fields: [processVersionId], references: [id], onDelete: Cascade)
+  events                BusinessProcessEvent[]
+  slaEvaluations        ProcessSlaEvaluation[]
+
+  @@unique([workspaceId, processDefinitionId, correlationKey])
+  @@index([workspaceId, status])
+  @@index([processDefinitionId, startedAt])
+  @@index([correlationKey])
+  @@map("business_process_instances")
+}
+
+model BusinessProcessEvent {
+  id             String   @id @default(uuid())
+  instanceId     String
+  workspaceId    String
+  milestoneId    String
+  milestoneName  String
+  eventType      String   // MILESTONE_STARTED, MILESTONE_COMPLETED, MILESTONE_FAILED, MILESTONE_SKIPPED, APPROVAL_WAITING, OUTCOME_RECORDED
+  workflowId     String?
+  executionId    String?
+  stepId         String?
+  durationMs     Int?
+  errorCategory  String?
+  idempotencyKey String
+  details        Json?
+  createdAt      DateTime @default(now())
+
+  instance       BusinessProcessInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@unique([instanceId, idempotencyKey])
+  @@index([instanceId, createdAt])
+  @@index([workspaceId, milestoneId])
+  @@index([executionId])
+  @@map("business_process_events")
+}
+
+model ProcessSlaPolicy {
+  id                  String   @id @default(uuid())
+  workspaceId         String
+  processDefinitionId String
+  name                String
+  targetDurationMs    Int
+  warningThresholdMs  Int
+  maxApprovalWaitMs   Int?
+  status              String   @default("ACTIVE") // ACTIVE, DISABLED
+  cooldownUntil       DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  workspace           Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  processDefinition   BusinessProcessDefinition @relation(fields: [processDefinitionId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@index([processDefinitionId])
+  @@map("process_sla_policies")
+}
+
+model ProcessSlaEvaluation {
+  id          String   @id @default(uuid())
+  instanceId  String
+  workspaceId String
+  policyId    String?
+  status      String   // MET, AT_RISK, BREACHED, INSUFFICIENT_DATA
+  elapsedMs   Int
+  targetMs    Int
+  details     Json?
+  createdAt   DateTime @default(now())
+
+  instance    BusinessProcessInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@index([instanceId])
+  @@index([workspaceId, status])
+  @@map("process_sla_evaluations")
 }

@@ -1003,6 +1003,57 @@ export class FlowForgeClient {
     },
   };
 
+  // ==========================================
+  // PHASE 21: BUSINESS PROCESS INTELLIGENCE & PROCESS MINING
+  // ==========================================
+
+  public readonly processes = {
+    createDefinition: async (data: any) => {
+      return this.request<any>("/processes", "POST", data);
+    },
+    listDefinitions: async (query?: { businessDomain?: string; criticality?: string; lifecycleStatus?: string }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return this.request<any[]>(`/processes${q ? "?" + q : ""}`);
+    },
+    getDefinition: async (id: string) => {
+      return this.request<any>(`/processes/${id}`);
+    },
+    updateDefinition: async (id: string, data: any) => {
+      return this.request<any>(`/processes/${id}`, "PATCH", data);
+    },
+    createVersion: async (id: string, data: any) => {
+      return this.request<any>(`/processes/${id}/versions`, "POST", data);
+    },
+    diffVersions: async (id: string, v1: number, v2: number) => {
+      return this.request<any>(`/processes/${id}/versions/diff?v1=${v1}&v2=${v2}`);
+    },
+    ingestEvent: async (data: any) => {
+      return this.request<any>("/processes/events/ingest", "POST", data);
+    },
+    listInstances: async (id: string, query?: { status?: string; limit?: number; offset?: number }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return this.request<any>(`/processes/${id}/instances${q ? "?" + q : ""}`);
+    },
+    getInstance: async (instanceId: string) => {
+      return this.request<any>(`/processes/instances/${instanceId}`);
+    },
+    cancelInstance: async (instanceId: string, reason?: string) => {
+      return this.request<any>(`/processes/instances/${instanceId}/cancel`, "POST", { reason });
+    },
+    mine: async (id: string, timeRangeDays = 30) => {
+      return this.request<any>(`/processes/${id}/mining?timeRangeDays=${timeRangeDays}`);
+    },
+    getMetrics: async (id: string, timeRangeDays = 30) => {
+      return this.request<any>(`/processes/${id}/metrics?timeRangeDays=${timeRangeDays}`);
+    },
+    createSlaPolicy: async (id: string, data: any) => {
+      return this.request<any>(`/processes/${id}/sla-policies`, "POST", data);
+    },
+    getSlaPolicy: async (id: string) => {
+      return this.request<any>(`/processes/${id}/sla-policies`);
+    },
+  };
+
 }
 
 export * from "@flowforge/connector-sdk";

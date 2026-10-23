@@ -960,4 +960,43 @@ export const api = {
       request<any>(`/optimizations/candidates/${candidateId}/promote`, { method: "POST" }),
   },
 
+  // ==========================================
+  // PHASE 21: BUSINESS PROCESS INTELLIGENCE & PROCESS MINING
+  // ==========================================
+
+  processes: {
+    createDefinition: (body: any) =>
+      request<any>("/processes", { method: "POST", body: JSON.stringify(body) }),
+    listDefinitions: (query?: { businessDomain?: string; criticality?: string; lifecycleStatus?: string }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return request<any>(`/processes${q ? "?" + q : ""}`);
+    },
+    getDefinition: (id: string) =>
+      request<any>(`/processes/${id}`),
+    updateDefinition: (id: string, body: any) =>
+      request<any>(`/processes/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    createVersion: (id: string, body: any) =>
+      request<any>(`/processes/${id}/versions`, { method: "POST", body: JSON.stringify(body) }),
+    diffVersions: (id: string, v1: number, v2: number) =>
+      request<any>(`/processes/${id}/versions/diff?v1=${v1}&v2=${v2}`),
+    ingestEvent: (body: any) =>
+      request<any>("/processes/events/ingest", { method: "POST", body: JSON.stringify(body) }),
+    listInstances: (id: string, query?: { status?: string; limit?: number; offset?: number }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return request<any>(`/processes/${id}/instances${q ? "?" + q : ""}`);
+    },
+    getInstance: (instanceId: string) =>
+      request<any>(`/processes/instances/${instanceId}`),
+    cancelInstance: (instanceId: string, reason?: string) =>
+      request<any>(`/processes/instances/${instanceId}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }),
+    mine: (id: string, timeRangeDays = 30) =>
+      request<any>(`/processes/${id}/mining?timeRangeDays=${timeRangeDays}`),
+    getMetrics: (id: string, timeRangeDays = 30) =>
+      request<any>(`/processes/${id}/metrics?timeRangeDays=${timeRangeDays}`),
+    createSlaPolicy: (id: string, body: any) =>
+      request<any>(`/processes/${id}/sla-policies`, { method: "POST", body: JSON.stringify(body) }),
+    getSlaPolicy: (id: string) =>
+      request<any>(`/processes/${id}/sla-policies`),
+  },
+
 };

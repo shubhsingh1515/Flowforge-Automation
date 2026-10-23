@@ -99,6 +99,7 @@ export function AppShell({ children, title, description, action }: AppShellProps
     { label: "Marketplace", href: "/marketplace", icon: Store },
     { label: "Plans & Pricing", href: "/pricing", icon: Sparkles },
     { label: "Environments", href: "/environments", icon: GitBranch },
+    { label: "Business Processes", href: "/processes", icon: Layers },
     { label: "Enterprise Governance", href: "/governance", icon: Building2 },
     { label: "Operations", href: "/operations", icon: Activity },
     { label: "System Status", href: "/status", icon: CheckCircle2 },

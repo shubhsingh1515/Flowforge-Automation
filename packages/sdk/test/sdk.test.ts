@@ -905,4 +905,107 @@ describe("FlowForge TypeScript SDK Client Suite", () => {
     expect(optRes.data.status).toBe("DRAFT");
   });
 
+  it("supports Phase 21 Business Process Intelligence and Process Mining namespaces", async () => {
+    global.fetch = vi.fn().mockImplementation(async (url: string, init: any) => {
+      const u = url.toString();
+
+      if (u.includes("/processes/events/ingest")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              event: { id: "evt-123", eventType: "MILESTONE_COMPLETED" },
+              instance: { id: "inst-123", status: "IN_PROGRESS" },
+              deduplicated: false,
+            },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/processes/proc-1/mining")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              processDefinitionId: "proc-1",
+              dataSufficiency: "SUFFICIENT",
+              observedPaths: [{ path: ["Order", "Fulfill"], frequency: 10, percentage: 100 }],
+              bottlenecks: [],
+              recommendations: [],
+            },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/processes/proc-1/metrics")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              processDefinitionId: "proc-1",
+              totalInstances: 15,
+              completionRate: 93.3,
+              medianDurationMs: 4200,
+            },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/processes/proc-1/sla-policies")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: { id: "sla-1", targetDurationMs: 60000, warningThresholdMs: 45000 },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/processes")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: { id: "proc-1", name: "Order To Cash", slug: "order-to-cash" },
+          }),
+        } as any;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ data: { success: true } }),
+      } as any;
+    });
+
+    const client = new FlowForgeClient({ apiKey: "ff_live_valid" });
+
+    // Ingest process event
+    const evtRes = await client.processes.ingestEvent({
+      processDefinitionId: "proc-1",
+      correlationKey: "ord-999",
+      milestoneId: "ms-order",
+      eventType: "MILESTONE_COMPLETED",
+    });
+    expect(evtRes.data.event.id).toBe("evt-123");
+    expect(evtRes.data.deduplicated).toBe(false);
+
+    // Mine process
+    const miningRes = await client.processes.mine("proc-1", 30);
+    expect(miningRes.data.dataSufficiency).toBe("SUFFICIENT");
+    expect(miningRes.data.observedPaths).toHaveLength(1);
+
+    // Process metrics
+    const metricsRes = await client.processes.getMetrics("proc-1", 30);
+    expect(metricsRes.data.totalInstances).toBe(15);
+    expect(metricsRes.data.completionRate).toBe(93.3);
+
+    // SLA Policy
+    const slaRes = await client.processes.getSlaPolicy("proc-1");
+    expect(slaRes.data.targetDurationMs).toBe(60000);
+  });
+
 });
