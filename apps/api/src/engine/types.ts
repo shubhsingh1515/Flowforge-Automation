@@ -11,7 +11,9 @@ export type ExecutionErrorCategory =
   | "NETWORK_ERROR"
   | "EXTERNAL_API_ERROR"
   | "RESOURCE_LIMIT_EXCEEDED"
-  | "INTERNAL_ERROR";
+  | "INTERNAL_ERROR"
+  | "CONNECTOR_REVOKED"
+  | "CONNECTOR_SUSPENDED";
 
 export interface NodeExecutionResult<T = any> {
   status: "SUCCESS" | "FAILED" | "SKIPPED";
@@ -31,6 +33,7 @@ export interface StepExecutionContext<TConfig = any> {
   workflowId: string;
   correlationId: string;
   attempt: number;
+  workspaceId?: string;
 }
 
 export interface NodeHandler<TConfig = any, TOutput = any> {

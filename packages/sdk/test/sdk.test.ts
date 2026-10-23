@@ -732,4 +732,93 @@ describe("FlowForge TypeScript SDK Client Suite", () => {
     expect(health.data.services.workers.status).toBe("HEALTHY");
   });
 
+  it("Phase 19: supports connectors namespace and SDK developer tools", async () => {
+    let capturedUrl = "";
+    let capturedMethod = "";
+    let capturedBody: any;
+
+    global.fetch = vi.fn().mockImplementation(async (url, init) => {
+      capturedUrl = String(url);
+      capturedMethod = init?.method || "GET";
+      capturedBody = init?.body ? JSON.parse(init.body) : undefined;
+
+      if (capturedUrl.includes("/connectors/validate-manifest")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            valid: true,
+            hash: "canonical-hash-1234567890abcdef",
+          }),
+        } as any;
+      }
+
+      if (capturedUrl.includes("/connectors/drafts")) {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({
+            id: "artifact-123",
+            connectorKey: "acme-crm",
+            version: "1.0.0",
+            status: "DRAFT",
+          }),
+        } as any;
+      }
+
+      if (capturedUrl.includes("/connectors/artifact-123/certify")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            overallResult: "PASSED",
+            checks: [
+              { checkName: "MANIFEST_SCHEMA_VALIDITY", status: "PASSED" },
+              { checkName: "ARTIFACT_PROVENANCE_INTEGRITY", status: "PASSED" },
+            ],
+          }),
+        } as any;
+      }
+
+      if (capturedUrl.includes("/connectors/artifact-123/publish")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            id: "artifact-123",
+            status: "PUBLISHED",
+          }),
+        } as any;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      } as any;
+    });
+
+    const client = new FlowForgeClient({ apiKey: "ff_live_valid" });
+
+    // Validate manifest
+    const valRes = await client.connectors.validateManifest({ id: "acme-crm", name: "Acme CRM" });
+    expect(valRes.valid).toBe(true);
+    expect(valRes.hash).toBe("canonical-hash-1234567890abcdef");
+
+    // Create draft
+    const draft = await client.connectors.createDraft({ id: "acme-crm", version: "1.0.0" });
+    expect(draft.id).toBe("artifact-123");
+    expect(draft.status).toBe("DRAFT");
+
+    // Certify
+    const cert = await client.connectors.certify("artifact-123");
+    expect(cert.overallResult).toBe("PASSED");
+
+    // Publish
+    const pub = await client.connectors.publish("artifact-123", {
+      expectedArtifactHashSha256: "canonical-hash-1234567890abcdef",
+    });
+    expect(pub.status).toBe("PUBLISHED");
+  });
+
 });

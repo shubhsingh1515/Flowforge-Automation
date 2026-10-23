@@ -54,6 +54,7 @@ import { cmekRoutes } from "./routes/cmek.js";
 import { incidentRoutes } from "./routes/incidents.js";
 import { remediationRoutes } from "./routes/remediations.js";
 import { observabilityRoutes } from "./routes/observability.js";
+import { connectorRoutes } from "./routes/connectors.js";
 import { startWorker, stopWorker } from "./worker/worker.js";
 import { startOutboundWebhookWorker, stopOutboundWebhookWorker } from "./worker/outboundWebhookWorker.js";
 import { workflowScheduler } from "./worker/scheduler.js";
@@ -280,6 +281,7 @@ export async function buildServer(options: BuildServerOptions = {}) {
       await api.register(incidentRoutes);
       await api.register(remediationRoutes);
       await api.register(observabilityRoutes);
+      await api.register(connectorRoutes);
     },
     { prefix: config.apiPrefix }
   );

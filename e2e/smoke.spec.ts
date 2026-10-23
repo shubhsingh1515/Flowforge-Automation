@@ -1260,4 +1260,94 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     await expect(page.locator("text=Predictive capacity signals evaluated")).toBeVisible({ timeout: 10000 });
   });
 
+  test("44. Phase 19 Enterprise Connectors, SDK, Certification Console & Governed Upgrades", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/marketplace");
+    await page.waitForLoadState("networkidle");
+
+    // 1. Switch to Connector Studio Tab
+    const connectorsTab = page.locator('[data-testid="tab-marketplace-connectors"]');
+    await expect(connectorsTab).toBeVisible({ timeout: 15000 });
+    await connectorsTab.click();
+
+    // Verify sub-header
+    await expect(page.getByText("Developer Connectors & Release Artifacts")).toBeVisible();
+
+    // 2. Open Manifest Validator & Draft Modal
+    const newManifestBtn = page.locator('[data-testid="new-connector-draft-btn"]');
+    await expect(newManifestBtn).toBeVisible();
+    await newManifestBtn.click();
+
+    const manifestTextarea = page.locator('[data-testid="connector-manifest-textarea"]');
+    await expect(manifestTextarea).toBeVisible();
+
+    const uniqueKey = `crm-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+    await manifestTextarea.fill(
+      JSON.stringify(
+        {
+          id: uniqueKey,
+          name: "Acme CRM Enterprise",
+          version: "1.0.0",
+          description: "Official CRM connector for customer sync and record management.",
+          category: "CRM & Sales",
+          author: { name: "Acme Platforms", email: "devs@acme.com" },
+          icon: "Puzzle",
+          auth: {
+            type: "API_KEY",
+            fields: [{ name: "apiKey", label: "API Key", type: "password", required: true }],
+          },
+          actions: [
+            {
+              id: "get-contact",
+              name: "Get Contact",
+              description: "Retrieves contact details by record ID",
+              inputSchema: { contactId: { type: "string", required: true } },
+              outputSchema: { id: { type: "string" }, email: { type: "string" } },
+              httpConfig: {
+                method: "GET",
+                urlTemplate: "https://api.acme.com/v1/contacts/{contactId}",
+                timeoutMs: 5000,
+              },
+            },
+          ],
+          triggers: [],
+          permissions: ["network:egress"],
+          residencyConstraint: "GLOBAL",
+        },
+        null,
+        2
+      )
+    );
+
+    // 3. Validate Manifest & Verify Canonical SHA-256 Preview
+    const validateBtn = page.locator('[data-testid="validate-manifest-btn"]');
+    await expect(validateBtn).toBeVisible();
+    await validateBtn.click();
+    await expect(page.locator("text=Manifest Contract Valid")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=Computed SHA-256:")).toBeVisible();
+
+    // 4. Create Draft Release Artifact
+    const submitDraftBtn = page.locator('[data-testid="submit-draft-btn"]');
+    await expect(submitDraftBtn).toBeVisible();
+    await submitDraftBtn.click();
+
+    // Verify draft created notification
+    await expect(page.locator("text=created as DRAFT!")).toBeVisible({ timeout: 10000 });
+
+    // 5. Trigger Automated 6-Check Certification
+    const certifyBtn = page.locator(`[data-testid="certify-btn-${uniqueKey}"]`);
+    await expect(certifyBtn).toBeVisible();
+    await certifyBtn.click();
+
+    // Verify certification completes with PASSED result
+    await expect(page.locator("text=Automated certification completed with result: PASSED")).toBeVisible({ timeout: 10000 });
+
+    // 6. Publish Certified Connector with Immutable Verification
+    const publishBtn = page.locator(`[data-testid="publish-btn-${uniqueKey}"]`);
+    await expect(publishBtn).toBeVisible();
+    await publishBtn.click();
+
+    // Verify publish notification
+    await expect(page.locator("text=Connector published to marketplace with immutable SHA-256 verification!")).toBeVisible({ timeout: 10000 });
+  });
 });

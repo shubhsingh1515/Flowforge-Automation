@@ -169,6 +169,9 @@ model Workspace {
   remediationPolicy      RemediationPolicy?
   remediationOperations  RemediationOperation[]
   capacityWarnings       OperationalCapacityWarning[]
+  // Phase 19: Enterprise Integration Developer Platform & Connector SDK
+  connectorArtifacts     ConnectorReleaseArtifact[]
+  connectorMetrics       ConnectorExecutionMetric[]
 
   @@map("workspaces")
 }
@@ -731,6 +734,8 @@ model MarketplaceInstallation {
   workspaceId      String
   listingId        String
   installedVersion Int      @default(1)
+  installedArtifactId String?
+  settings            Json?
   status           String   @default("ACTIVE") // ACTIVE, DISABLED
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -1777,4 +1782,92 @@ model OperationalCapacityWarning {
   @@index([regionKey, isResolved])
   @@index([workspaceId, signalType])
   @@map("operational_capacity_warnings")
+}
+
+
+// ==========================================
+// PHASE 19: ENTERPRISE INTEGRATION DEVELOPER PLATFORM & CONNECTOR SDK
+// ==========================================
+
+model ConnectorReleaseArtifact {
+  id                    String   @id @default(uuid())
+  connectorKey          String
+  version               String   // SemVer format: e.g. "1.0.0"
+  manifest              Json
+  artifactHashSha256    String
+  status                String   @default("DRAFT") // DRAFT, CERTIFIED, PUBLISHED, SUSPENDED, REVOKED
+  certificationStatus   String   @default("PENDING") // PENDING, PASSED, FAILED
+  rejectionReason       String?
+  suspensionReason      String?
+  publisherWorkspaceId  String
+  publishedAt           DateTime?
+  publishedByUserId     String?
+  customIntegrationId   String?
+  marketplaceListingId  String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  publisherWorkspace    Workspace                         @relation(fields: [publisherWorkspaceId], references: [id], onDelete: Cascade)
+  certifications        ConnectorCertificationRecord[]
+  metrics               ConnectorExecutionMetric[]
+
+  @@unique([connectorKey, version])
+  @@index([publisherWorkspaceId])
+  @@index([status])
+  @@index([artifactHashSha256])
+  @@map("connector_release_artifacts")
+}
+
+model ConnectorCertificationRecord {
+  id                 String   @id @default(uuid())
+  artifactId         String
+  overallResult      String   @default("IN_PROGRESS") // PASSED, FAILED, IN_PROGRESS
+  checkerVersion     String   @default("1.0.0")
+  artifactHashSha256 String
+  reviewedByUserId   String?
+  reviewNotes        String?
+  reviewedAt         DateTime?
+  createdAt          DateTime @default(now())
+
+  artifact           ConnectorReleaseArtifact         @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  checks             ConnectorCertificationCheck[]
+
+  @@index([artifactId, createdAt])
+  @@map("connector_certification_records")
+}
+
+model ConnectorCertificationCheck {
+  id          String   @id @default(uuid())
+  recordId    String
+  checkName   String   // MANIFEST_SCHEMA_VALIDITY, ACTION_TRIGGER_CONTRACTS, CREDENTIAL_SAFETY_AND_REDACTION, SSRF_AND_EGRESS_COMPLIANCE, TENANT_ISOLATION_AND_RESIDENCY, ARTIFACT_PROVENANCE_INTEGRITY
+  status      String   // PASSED, FAILED, WARNING
+  message     String
+  details     Json?
+  durationMs  Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  record      ConnectorCertificationRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+  @@index([recordId])
+  @@map("connector_certification_checks")
+}
+
+model ConnectorExecutionMetric {
+  id            String   @id @default(uuid())
+  connectorKey  String
+  version       String
+  workspaceId   String
+  actionId      String
+  status        String   // SUCCESS, FAILED
+  durationMs    Int
+  errorCategory String?
+  artifactId    String?
+  createdAt     DateTime @default(now())
+
+  workspace     Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  artifact      ConnectorReleaseArtifact?  @relation(fields: [artifactId], references: [id], onDelete: SetNull)
+
+  @@index([connectorKey, version])
+  @@index([workspaceId, createdAt])
+  @@map("connector_execution_metrics")
 }

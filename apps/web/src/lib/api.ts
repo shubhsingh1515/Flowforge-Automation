@@ -839,4 +839,62 @@ export const api = {
     evaluateSlos: () => request<{ data: any[] }>("/observability/slos/evaluate", { method: "POST" }),
   },
 
+  // Phase 19: Enterprise Connectors & Developer Platform
+  connectors: {
+    validateManifest: (manifest: any) =>
+      request<{ valid: boolean; manifest?: any; hash?: string; errors?: string[] }>("/connectors/validate-manifest", {
+        method: "POST",
+        body: JSON.stringify({ manifest }),
+      }),
+    list: (params?: { connectorKey?: string; status?: string; scope?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.connectorKey) q.set("connectorKey", params.connectorKey);
+      if (params?.status) q.set("status", params.status);
+      if (params?.scope) q.set("scope", params.scope);
+      const qs = q.toString();
+      return request<any[]>(`/connectors${qs ? `?${qs}` : ""}`);
+    },
+    createDraft: (manifest: any) =>
+      request<any>("/connectors/drafts", {
+        method: "POST",
+        body: JSON.stringify({ manifest }),
+      }),
+    get: (id: string) => request<any>(`/connectors/${id}`),
+    certify: (id: string) =>
+      request<any>(`/connectors/${id}/certify`, { method: "POST" }),
+    review: (id: string, body: { decision: "APPROVE" | "REJECT"; reviewNotes?: string }) =>
+      request<any>(`/connectors/${id}/reviews`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    publish: (id: string, body?: { expectedArtifactHashSha256?: string }) =>
+      request<any>(`/connectors/${id}/publish`, {
+        method: "POST",
+        body: JSON.stringify(body || {}),
+      }),
+    suspend: (id: string, body: { reason: string; isPermanentRevocation?: boolean }) =>
+      request<any>(`/connectors/${id}/suspend`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    install: (id: string) =>
+      request<any>(`/connectors/${id}/install`, { method: "POST" }),
+    upgradePreflight: (id: string, targetArtifactId: string) =>
+      request<any>(`/connectors/${id}/upgrade-preflight`, {
+        method: "POST",
+        body: JSON.stringify({ targetArtifactId }),
+      }),
+    upgradeInstallation: (installationId: string, body: { targetArtifactId: string; acknowledgeBreakingChanges?: boolean }) =>
+      request<any>(`/connectors/installations/${installationId}/upgrade`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    rollbackInstallation: (installationId: string, body?: { targetArtifactId?: string; reason?: string }) =>
+      request<any>(`/connectors/installations/${installationId}/rollback`, {
+        method: "POST",
+        body: JSON.stringify(body || {}),
+      }),
+    getAnalytics: (key: string) => request<any>(`/connectors/${key}/analytics`),
+  },
+
 };

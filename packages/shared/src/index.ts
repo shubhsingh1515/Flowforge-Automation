@@ -18,3 +18,4 @@ export * from "./reliability.js";
 export * from "./scale.js";
 export * from "./compliance-p17.js";
 export * from "./observability-p18.js";
+export * from "./connector-p19.js";

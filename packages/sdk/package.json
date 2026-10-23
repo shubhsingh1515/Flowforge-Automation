@@ -16,7 +16,10 @@
     "build": "tsc",
     "test": "vitest run"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@flowforge/connector-sdk": "1.0.0",
+    "@flowforge/shared": "1.0.0"
+  },
   "devDependencies": {
     "typescript": "^5.4.5",
     "vitest": "^1.6.0"

@@ -879,4 +879,60 @@ export class FlowForgeClient {
     },
   };
 
+  /**
+   * Phase 19: Enterprise Connectors & Developer Platform Namespace
+   */
+  public readonly connectors = {
+    validateManifest: async (manifest: any) => {
+      return this.request<{ valid: boolean; manifest?: any; hash?: string; errors?: string[] }>(
+        "/connectors/validate-manifest",
+        "POST",
+        { manifest }
+      );
+    },
+    list: async (filters?: { connectorKey?: string; status?: string; scope?: "all" | "workspace" | "published" }) => {
+      const params = new URLSearchParams();
+      if (filters?.connectorKey) params.append("connectorKey", filters.connectorKey);
+      if (filters?.status) params.append("status", filters.status);
+      if (filters?.scope) params.append("scope", filters.scope);
+      const query = params.toString() ? `?${params.toString()}` : "";
+      return this.request<any[]>(`/connectors${query}`);
+    },
+    createDraft: async (manifest: any) => {
+      return this.request<any>("/connectors/drafts", "POST", { manifest });
+    },
+    get: async (id: string) => {
+      return this.request<any>(`/connectors/${id}`);
+    },
+    certify: async (id: string) => {
+      return this.request<any>(`/connectors/${id}/certify`, "POST");
+    },
+    review: async (id: string, data: { decision: "APPROVE" | "REJECT"; reviewNotes?: string }) => {
+      return this.request<any>(`/connectors/${id}/reviews`, "POST", data);
+    },
+    publish: async (id: string, data?: { expectedArtifactHashSha256?: string }) => {
+      return this.request<any>(`/connectors/${id}/publish`, "POST", data || {});
+    },
+    suspend: async (id: string, data: { reason: string; isPermanentRevocation?: boolean }) => {
+      return this.request<any>(`/connectors/${id}/suspend`, "POST", data);
+    },
+    install: async (id: string) => {
+      return this.request<any>(`/connectors/${id}/install`, "POST");
+    },
+    upgradePreflight: async (id: string, targetArtifactId: string) => {
+      return this.request<any>(`/connectors/${id}/upgrade-preflight`, "POST", { targetArtifactId });
+    },
+    upgradeInstallation: async (installationId: string, data: { targetArtifactId: string; acknowledgeBreakingChanges?: boolean }) => {
+      return this.request<any>(`/connectors/installations/${installationId}/upgrade`, "POST", data);
+    },
+    rollbackInstallation: async (installationId: string, data?: { targetArtifactId?: string; reason?: string }) => {
+      return this.request<any>(`/connectors/installations/${installationId}/rollback`, "POST", data || {});
+    },
+    getAnalytics: async (connectorKey: string) => {
+      return this.request<any>(`/connectors/${connectorKey}/analytics`);
+    },
+  };
+
 }
+
+export * from "@flowforge/connector-sdk";
