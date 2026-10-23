@@ -50,6 +50,11 @@ export async function healthRoutes(server: FastifyInstance) {
             pendingOutbox,
             fencingEnabled: true,
           },
+          scale: {
+            deploymentTier: "Tier A (Horizontally Scalable Single-Region) / Tier B (Region-Aware Readiness)",
+            deploymentRegion: process.env.FLOWFORGE_REGION || "us-east-1",
+            isAuthoritativeRegion: (process.env.FLOWFORGE_REGION || "us-east-1") === "us-east-1",
+          },
         },
       };
 

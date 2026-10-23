@@ -5,6 +5,8 @@ import { operationsService } from "../services/operations.js";
 import { reconciliationService } from "../services/reconciliation.js";
 import { outboxService } from "../services/outboxService.js";
 import { disasterRecoveryService } from "../services/disasterRecoveryService.js";
+import { capacityService } from "../services/capacityService.js";
+import { regionService } from "../services/regionService.js";
 
 export async function operationsRoutes(server: FastifyInstance) {
   // Helper to check admin/owner privilege
@@ -168,6 +170,60 @@ export async function operationsRoutes(server: FastifyInstance) {
           finishedAt: l.finishedAt ? l.finishedAt.toISOString() : null,
         })),
       };
+    }
+  );
+
+  // 10. Phase 16: Live Capacity & Predictive Drain-Time Analytics (Admin/Owner)
+  server.get(
+    "/operations/capacity",
+    { preHandler: [authenticateRequest] },
+    async (request: any, reply: any) => {
+      if (!requireAdmin(request, reply)) return;
+      const authUser = request.authUser!;
+      const capacity = await capacityService.getCapacitySummary(authUser.workspaceId);
+      return { capacity, ...capacity };
+    }
+  );
+
+  // 11. Phase 16: Regional Deployments & Placement Status (Admin/Owner)
+  server.get(
+    "/operations/regions",
+    { preHandler: [authenticateRequest] },
+    async (request: any, reply: any) => {
+      if (!requireAdmin(request, reply)) return;
+      const regions = await regionService.listRegions();
+      return { regions };
+    }
+  );
+
+  // 12. Phase 16: Update Workspace Regional Placement Policy (Admin/Owner)
+  server.patch(
+    "/operations/regions/placement",
+    { preHandler: [authenticateRequest] },
+    async (request: any, reply: any) => {
+      if (!requireAdmin(request, reply)) return;
+      const authUser = request.authUser!;
+      const body = request.body || {};
+      const updated = await regionService.updateTenantPlacement(authUser.workspaceId, body);
+      return { success: true, workspace: updated };
+    }
+  );
+
+  // 13. Phase 16: Trigger Regional Failover Drill (Admin/Owner)
+  server.post(
+    "/operations/regions/failover-drill",
+    { preHandler: [authenticateRequest] },
+    async (request: any, reply: any) => {
+      if (!requireAdmin(request, reply)) return;
+      const authUser = request.authUser!;
+      const body = request.body || {};
+      const result = await regionService.executeRegionalFailoverDrill({
+        sourceRegion: body.sourceRegion || "us-east-1",
+        targetRegion: body.targetRegion || "eu-central-1",
+        operatorUserId: authUser.id,
+        notes: body.notes,
+      });
+      return { success: true, drill: result, ...result };
     }
   );
 }

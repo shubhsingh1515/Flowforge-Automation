@@ -49,6 +49,8 @@ import { deploymentRoutes } from "./routes/deployments.js";
 import { workflowTestingRoutes } from "./routes/workflowTesting.js";
 import { aiRoutes } from "./routes/ai.js";
 import { collaborationRoutes } from "./routes/collaboration.js";
+import { residencyRoutes } from "./routes/residency.js";
+import { cmekRoutes } from "./routes/cmek.js";
 import { startWorker, stopWorker } from "./worker/worker.js";
 import { startOutboundWebhookWorker, stopOutboundWebhookWorker } from "./worker/outboundWebhookWorker.js";
 import { workflowScheduler } from "./worker/scheduler.js";
@@ -270,6 +272,8 @@ export async function buildServer(options: BuildServerOptions = {}) {
       await api.register(workflowTestingRoutes);
       await api.register(aiRoutes);
       await api.register(collaborationRoutes);
+      await api.register(residencyRoutes);
+      await api.register(cmekRoutes);
     },
     { prefix: config.apiPrefix }
   );

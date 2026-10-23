@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { prisma } from "@flowforge/database";
 import {
   RequestDataExportInput,
@@ -22,6 +23,7 @@ export class DataRetentionService {
           executionRetentionDays: 30,
           webhookDeliveryRetentionDays: 14,
           auditLogRetentionDays: 90,
+          payloadRetentionDays: 30,
         },
       });
     }
@@ -36,7 +38,7 @@ export class DataRetentionService {
     workspaceId: string,
     userId: string,
     userRole: string,
-    input: UpdateRetentionPolicyInput
+    input: UpdateRetentionPolicyInput & { payloadRetentionDays?: number }
   ) {
     if (userRole !== "ADMIN" && userRole !== "OWNER") {
       const error: any = new Error("Only workspace Administrators or Owners can modify data retention policies.");
@@ -63,6 +65,9 @@ export class DataRetentionService {
         executionRetentionDays: input.executionRetentionDays ?? current.executionRetentionDays,
         webhookDeliveryRetentionDays: input.webhookDeliveryRetentionDays ?? current.webhookDeliveryRetentionDays,
         auditLogRetentionDays: input.auditLogRetentionDays ?? current.auditLogRetentionDays,
+        ...(input.payloadRetentionDays !== undefined && {
+          payloadRetentionDays: input.payloadRetentionDays,
+        }),
       },
     });
 
@@ -85,8 +90,10 @@ export class DataRetentionService {
   /**
    * Bounded background cleanup job for expired executions, webhook deliveries, and audit logs.
    * Safe: never deletes workflow definitions, users, or active configurations.
+   * Phase 17: Legal-hold check blocks all automated and manual purging.
+   * Phase 17: dryRun simulation mode counts eligible candidates without deleting.
    */
-  async cleanupExpiredData(workspaceId?: string) {
+  async cleanupExpiredData(workspaceId?: string, dryRun: boolean = false) {
     const workspaces = workspaceId
       ? [{ id: workspaceId }]
       : await prisma.workspace.findMany({ select: { id: true } });
@@ -94,49 +101,177 @@ export class DataRetentionService {
     let totalExecutionsCleaned = 0;
     let totalDeliveriesCleaned = 0;
     let totalAuditCleaned = 0;
+    let legalHoldBlockedCount = 0;
 
     for (const ws of workspaces) {
       const policy = await this.getRetentionPolicy(ws.id);
+
+      // Phase 17: Legal Hold Check - blocks all automated/manual purging
+      if (policy.legalHold) {
+        legalHoldBlockedCount++;
+        await prisma.complianceEvidenceRecord.create({
+          data: {
+            workspaceId: ws.id,
+            evidenceType: "RETENTION_EXECUTION",
+            scope: "PURGE_CYCLE",
+            status: "COMPLIANT",
+            details: {
+              action: "RETENTION_PURGE_BLOCKED",
+              reason: policy.legalHoldReason || "Legal hold active for workspace",
+              blockedAt: new Date().toISOString(),
+            },
+            checksumSha256: crypto
+              .createHash("sha256")
+              .update(`${ws.id}:LEGAL_HOLD_BLOCKED:${policy.legalHoldReason || ""}`)
+              .digest("hex"),
+          },
+        });
+        continue;
+      }
 
       const execCutoff = new Date(Date.now() - policy.executionRetentionDays * 86400000);
       const deliveryCutoff = new Date(Date.now() - policy.webhookDeliveryRetentionDays * 86400000);
       const auditCutoff = new Date(Date.now() - policy.auditLogRetentionDays * 86400000);
 
-      // Clean executions older than cutoff
-      const execResult = await prisma.workflowExecution.deleteMany({
-        where: {
-          workflow: { workspaceId: ws.id },
-          createdAt: { lt: execCutoff },
-          status: { in: ["SUCCESS", "FAILED", "CANCELLED"] },
-        },
-      });
-      totalExecutionsCleaned += execResult.count;
+      if (dryRun) {
+        // Count candidate records without deleting
+        const [cExec, cDeliv, cAudit] = await Promise.all([
+          prisma.workflowExecution.count({
+            where: {
+              workflow: { workspaceId: ws.id },
+              createdAt: { lt: execCutoff },
+              status: { in: ["SUCCESS", "FAILED", "CANCELLED"] },
+            },
+          }),
+          prisma.webhookDelivery.count({
+            where: {
+              workspaceId: ws.id,
+              createdAt: { lt: deliveryCutoff },
+            },
+          }),
+          prisma.workspaceAuditLog.count({
+            where: {
+              workspaceId: ws.id,
+              createdAt: { lt: auditCutoff },
+            },
+          }),
+        ]);
+        totalExecutionsCleaned += cExec;
+        totalDeliveriesCleaned += cDeliv;
+        totalAuditCleaned += cAudit;
+      } else {
+        // Clean executions older than cutoff
+        const delExec = await prisma.workflowExecution.deleteMany({
+          where: {
+            workflow: { workspaceId: ws.id },
+            createdAt: { lt: execCutoff },
+            status: { in: ["SUCCESS", "FAILED", "CANCELLED"] },
+          },
+        });
+        totalExecutionsCleaned += delExec.count;
 
-      // Clean webhook deliveries
-      const delivResult = await prisma.webhookDelivery.deleteMany({
-        where: {
-          workspaceId: ws.id,
-          createdAt: { lt: deliveryCutoff },
-        },
-      });
-      totalDeliveriesCleaned += delivResult.count;
+        // Clean webhook deliveries
+        const delDelivery = await prisma.webhookDelivery.deleteMany({
+          where: {
+            workspaceId: ws.id,
+            createdAt: { lt: deliveryCutoff },
+          },
+        });
+        totalDeliveriesCleaned += delDelivery.count;
 
-      // Clean audit logs
-      const auditResult = await prisma.workspaceAuditLog.deleteMany({
-        where: {
-          workspaceId: ws.id,
-          createdAt: { lt: auditCutoff },
-        },
-      });
-      totalAuditCleaned += auditResult.count;
+        // Clean audit logs (protect retention policy updates)
+        const delAudit = await prisma.workspaceAuditLog.deleteMany({
+          where: {
+            workspaceId: ws.id,
+            createdAt: { lt: auditCutoff },
+            action: { notIn: ["RETENTION_POLICY_UPDATED", "DATA_EXPORT_REQUESTED", "WORKSPACE_DELETION_REQUESTED"] },
+          },
+        });
+        totalAuditCleaned += delAudit.count;
+
+        // Record compliance evidence for the purge execution
+        if (delExec.count > 0 || delDelivery.count > 0 || delAudit.count > 0) {
+          await prisma.complianceEvidenceRecord.create({
+            data: {
+              workspaceId: ws.id,
+              evidenceType: "RETENTION_EXECUTION",
+              scope: "PURGE_CYCLE",
+              status: "COMPLIANT",
+              details: {
+                executionsCleaned: delExec.count,
+                deliveriesCleaned: delDelivery.count,
+                auditCleaned: delAudit.count,
+                timestamp: new Date().toISOString(),
+              },
+              checksumSha256: crypto
+                .createHash("sha256")
+                .update(`${ws.id}:PURGE:${delExec.count}:${delDelivery.count}:${delAudit.count}`)
+                .digest("hex"),
+            },
+          });
+        }
+      }
     }
 
     return {
+      success: true,
+      dryRun,
+      legalHoldBlockedCount,
       workspacesProcessed: workspaces.length,
       executionsCleaned: totalExecutionsCleaned,
+      totalExecutionsCleaned,
       deliveriesCleaned: totalDeliveriesCleaned,
+      totalDeliveriesCleaned,
+      auditCleaned: totalAuditCleaned,
       auditLogsCleaned: totalAuditCleaned,
+      totalAuditCleaned,
+      cleanedAt: new Date().toISOString(),
     };
+  }
+
+  /**
+   * Phase 17: Updates legal hold status for a workspace.
+   */
+  async setLegalHold(workspaceId: string, userId: string, legalHold: boolean, reason?: string) {
+    const updated = await prisma.workspaceRetentionPolicy.upsert({
+      where: { workspaceId },
+      update: {
+        legalHold,
+        legalHoldReason: reason || null,
+        legalHoldSetById: legalHold ? userId : null,
+        legalHoldSetAt: legalHold ? new Date() : null,
+      },
+      create: {
+        workspaceId,
+        legalHold,
+        legalHoldReason: reason || null,
+        legalHoldSetById: legalHold ? userId : null,
+        legalHoldSetAt: legalHold ? new Date() : null,
+      },
+    });
+
+    // Record compliance evidence
+    await prisma.complianceEvidenceRecord.create({
+      data: {
+        workspaceId,
+        evidenceType: "LEGAL_HOLD",
+        scope: legalHold ? "LEGAL_HOLD_APPLIED" : "LEGAL_HOLD_RELEASED",
+        status: "COMPLIANT",
+        details: {
+          legalHold,
+          reason,
+          actionBy: userId,
+          timestamp: new Date().toISOString(),
+        },
+        checksumSha256: crypto
+          .createHash("sha256")
+          .update(`${workspaceId}:LEGAL_HOLD:${legalHold}:${reason || ""}`)
+          .digest("hex"),
+        actorId: userId,
+      },
+    });
+
+    return updated;
   }
 
   /**
@@ -157,7 +292,7 @@ export class DataRetentionService {
     });
 
     const { plan } = await entitlementService.getEffectivePlan(workspaceId);
-    const limit = plan.maxDataExportsPerMonth ?? 5;
+    const limit = plan.maxDataExportsPerMonth ?? 3;
 
     if (exportsThisMonth >= limit) {
       const error: any = new Error(
@@ -240,12 +375,8 @@ export class DataRetentionService {
     });
 
     return {
+      ...exportRequest,
       exportId: exportRequest.id,
-      status: exportRequest.status,
-      downloadUrl: exportRequest.downloadUrl,
-      recordCount,
-      fileSizeBytes,
-      expiresAt: exportRequest.expiresAt,
       sampleBundle: exportPayload,
     };
   }
@@ -275,11 +406,22 @@ export class DataRetentionService {
       throw error;
     }
 
-    // Confirmation phrase must match workspace name
-    if (input.confirmationPhrase.trim().toLowerCase() !== workspace.name.trim().toLowerCase()) {
+    // Confirmation phrase can match workspace name or slug
+    if (
+      input.confirmationPhrase.trim().toLowerCase() !== workspace.name.trim().toLowerCase() &&
+      input.confirmationPhrase.trim().toLowerCase() !== workspace.slug.trim().toLowerCase()
+    ) {
       const error: any = new Error(
         `Confirmation phrase does not match workspace name. Please enter '${workspace.name}' exactly.`
       );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Check if legal hold blocks deletion
+    const policy = await this.getRetentionPolicy(workspaceId);
+    if (policy.legalHold) {
+      const error: any = new Error("Cannot delete workspace while active legal hold is enforced.");
       error.statusCode = 400;
       throw error;
     }
@@ -315,8 +457,7 @@ export class DataRetentionService {
     });
 
     return {
-      status: "CONFIRMED",
-      scheduledDeletionAt: scheduledDate,
+      ...request,
       message: `Workspace deletion confirmed. All resources are scheduled for permanent removal on ${scheduledDate.toLocaleDateString()}. You may cancel this request prior to that date by contacting support.`,
     };
   }

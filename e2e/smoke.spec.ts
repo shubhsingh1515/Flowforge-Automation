@@ -1142,4 +1142,74 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
 
     await expect(page.locator("text=Reconciliation Complete")).toBeVisible({ timeout: 10000 });
   });
+
+
+  test("41. Phase 16 Enterprise Scale, Capacity Management & Regional Readiness", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/operations");
+    await page.waitForLoadState("networkidle");
+
+    // 1. Verify Phase 16 Capacity Management & Predictive Drain Time
+    const capacityPanel = page.locator('[data-testid="panel-capacity-management"]');
+    await expect(capacityPanel).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Capacity Management & Predictive Drain Time")).toBeVisible();
+    await expect(page.getByText("Projected Drain Time")).toBeVisible();
+    await expect(page.getByText("DB Connection Budget")).toBeVisible();
+    await expect(page.getByText("Tenant Workload Fairness & Concurrency Allocation")).toBeVisible();
+
+    // 2. Verify Regional Deployments & Split-Brain Safeguards
+    const regionalPanel = page.locator('[data-testid="panel-regional-readiness"]');
+    await expect(regionalPanel).toBeVisible();
+    await expect(page.getByText("Regional Deployments & Split-Brain Safeguards")).toBeVisible();
+    await expect(page.getByText("Configured Regional Clusters")).toBeVisible();
+    await expect(page.getByText("Primary Authoritative")).toBeVisible();
+
+    // 3. Trigger Regional Failover Drill
+    const failoverBtn = page.locator('[data-testid="btn-regional-failover-drill"]');
+    await expect(failoverBtn).toBeVisible();
+    await failoverBtn.click();
+
+    // Verify confirmation toast / callout
+    await expect(page.locator("text=Regional Failover Drill completed: Advanced to epoch")).toBeVisible({ timeout: 10000 });
+  });
+  test("42. Phase 17 Enterprise Data Residency, CMEK & Legal Hold Controls", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/governance");
+    await page.waitForLoadState("networkidle");
+
+    // 1. Switch to Audit & Compliance Tab
+    const complianceTab = page.locator('[data-testid="tab-compliance"]');
+    await expect(complianceTab).toBeVisible({ timeout: 10000 });
+    await complianceTab.click();
+
+    // 2. Verify Data Residency Card
+    const residencyBadge = page.locator('[data-testid="badge-residency-status"]');
+    await expect(residencyBadge).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Data Residency", { exact: true })).toBeVisible();
+    await expect(page.getByText("Home Region:", { exact: false })).toBeVisible();
+
+    // Trigger residency placement verification
+    const verifyResidencyBtn = page.locator('[data-testid="btn-verify-residency"]');
+    await expect(verifyResidencyBtn).toBeVisible();
+    await verifyResidencyBtn.click();
+    await expect(page.locator("text=Residency verified:")).toBeVisible({ timeout: 10000 });
+
+    // 3. Verify Customer-Managed Encryption Keys (CMEK) Card
+    const cmekBadge = page.locator('[data-testid="badge-cmek-status"]');
+    await expect(cmekBadge).toBeVisible();
+    await expect(page.getByText("CMEK Encryption")).toBeVisible();
+    await expect(page.getByText("Key Version / Epoch:")).toBeVisible();
+
+    // 4. Verify Legal Hold & Retention Card
+    const legalHoldBadge = page.locator('[data-testid="badge-legal-hold-status"]');
+    await expect(legalHoldBadge).toBeVisible();
+    await expect(page.getByText("Legal Hold Guard")).toBeVisible();
+    await expect(page.getByText("Retention Horizon:")).toBeVisible();
+
+    // Trigger retention dry-run simulation
+    const dryRunBtn = page.locator('[data-testid="btn-dry-run-cleanup"]');
+    await expect(dryRunBtn).toBeVisible();
+    await dryRunBtn.click();
+    await expect(page.locator("text=Dry-Run Retention Simulation:")).toBeVisible({ timeout: 10000 });
+  });
 });

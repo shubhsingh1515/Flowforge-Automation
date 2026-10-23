@@ -122,7 +122,12 @@ export class EntitlementService {
    */
   async canExecuteConcurrentWorkflow(workspaceId: string): Promise<QuotaCheckResult> {
     const { plan } = await this.getEffectivePlan(workspaceId);
-    const limit = plan.tier === "BUSINESS" ? 50 : plan.tier === "PRO" ? 15 : 3;
+    const workspace = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { maxConcurrentExecutions: true },
+    });
+    const defaultLimit = plan.tier === "BUSINESS" ? 50 : plan.tier === "PRO" ? 15 : 3;
+    const limit = workspace?.maxConcurrentExecutions ?? defaultLimit;
 
     const currentActive = await prisma.workflowExecution.count({
       where: {

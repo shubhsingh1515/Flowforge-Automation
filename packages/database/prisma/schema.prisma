@@ -107,6 +107,13 @@ model Workspace {
   ownerId   String
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  // Phase 16: Regional Placement & Advanced Capacity
+  homeRegion              String                @default("us-east-1")
+  dataResidency           String                @default("GLOBAL")
+  failoverRegion          String?
+  failoverEpoch           Int                   @default(0)
+  maxConcurrentExecutions Int?
+  workloadPriority        String                @default("STANDARD")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -151,6 +158,12 @@ model Workspace {
   outboxEvents           TransactionalOutboxEvent[]
   backupVerifications    BackupVerificationRecord[]
   recoveryAuditRecords   RecoveryAuditRecord[]
+  // Phase 17: Enterprise Data Residency, CMEK & Compliance
+  residencyPolicy        WorkspaceResidencyPolicy?
+  cmekConfig             WorkspaceCmekConfig?
+  cmekRotationJobs       CmekRotationJob[]
+  residencyAuditRecords  ResidencyAuditRecord[]
+  complianceEvidence     ComplianceEvidenceRecord[]
 
   @@map("workspaces")
 }
@@ -355,6 +368,9 @@ model WorkflowExecution {
   leaseExpiresAt       DateTime?
   recoveryAttempts     Int             @default(0)
   lastCheckpointNodeId String?
+  // Phase 16: Regional Execution & Failover Epoch
+  executionRegion      String          @default("us-east-1")
+  failoverEpoch        Int             @default(0)
   startedAt          DateTime        @default(now())
   finishedAt         DateTime?
   durationMs         Int?
@@ -750,6 +766,14 @@ model WorkspaceRetentionPolicy {
   executionRetentionDays       Int      @default(30)
   webhookDeliveryRetentionDays  Int      @default(14)
   auditLogRetentionDays        Int      @default(90)
+  // Phase 17: Legal Holds & Granular Retention
+  legalHold                    Boolean  @default(false)
+  legalHoldReason              String?
+  legalHoldSetById             String?
+  legalHoldSetAt               DateTime?
+  payloadRetentionDays         Int      @default(30)
+  diagnosticsRetentionDays     Int      @default(14)
+  exportRetentionDays          Int      @default(7)
   createdAt                    DateTime @default(now())
   updatedAt                    DateTime @updatedAt
 
@@ -1217,6 +1241,11 @@ model Organization {
   slug      String   @unique
   ownerId   String
   status    String   @default("ACTIVE") // ACTIVE, SUSPENDED
+  // Phase 16: Regional Placement
+  homeRegion String   @default("us-east-1")
+  dataResidency String @default("GLOBAL")
+  failoverRegion String?
+  failoverEpoch Int    @default(0)
   metadata  Json     @default("{}")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1458,4 +1487,171 @@ model RecoveryAuditRecord {
   @@index([operationType, createdAt])
   @@index([workspaceId, createdAt])
   @@map("recovery_audit_records")
+}
+
+
+// ==========================================
+// PHASE 16: ENTERPRISE SCALE, REGION READINESS & ADVANCED CAPACITY
+// ==========================================
+
+model RegionDeploymentConfig {
+  id                         String    @id @default(uuid())
+  regionKey                  String    @unique // us-east-1, eu-central-1, ap-southeast-1
+  regionName                 String
+  isAuthoritative            Boolean   @default(true)
+  status                     String    @default("HEALTHY") // HEALTHY, DEGRADED, EVACUATING, STANDBY
+  apiEndpoint                String?
+  maxConnectionPool          Int       @default(50)
+  queueBackpressureThreshold Int       @default(5000)
+  drainRatePerSec            Float?
+  activeTenantCount          Int       @default(0)
+  currentEpoch               Int       @default(0)
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+
+  @@map("region_deployment_configs")
+}
+
+model CapacityMetricSample {
+  id                     String    @id @default(uuid())
+  regionKey              String    @default("us-east-1")
+  queueDepth             Int       @default(0)
+  activeWorkers          Int       @default(1)
+  avgProcessingTimeMs    Float     @default(0)
+  projectedDrainTimeSec  Float     @default(0)
+  dbConnectionSaturation Float     @default(0)
+  workerSaturation       Float     @default(0)
+  enqueueRatePerSec      Float     @default(0)
+  completionRatePerSec   Float     @default(0)
+  timestamp              DateTime  @default(now())
+
+  @@index([regionKey, timestamp])
+  @@map("capacity_metric_samples")
+}
+
+model RegionalFailoverDrillRecord {
+  id                      String    @id @default(uuid())
+  sourceRegion            String
+  targetRegion            String
+  failoverEpoch           Int
+  status                  String    @default("COMPLETED") // IN_PROGRESS, COMPLETED, FAILED, ROLLED_BACK
+  affectedWorkspacesCount Int       @default(0)
+  fencedExecutionCount    Int       @default(0)
+  durationMs              Int       @default(0)
+  triggeredByUserId       String?
+  notes                   String?
+  createdAt               DateTime  @default(now())
+
+  @@map("regional_failover_drill_records")
+}
+
+
+// ==========================================
+// PHASE 17: DATA RESIDENCY, CMEK & ADVANCED COMPLIANCE
+// ==========================================
+
+model WorkspaceResidencyPolicy {
+  id                            String   @id @default(uuid())
+  workspaceId                   String   @unique
+  homeRegion                    String   @default("us-east-1")
+  permittedProcessingRegions     String[] @default(["us-east-1"])
+  permittedStorageRegions        String[] @default(["us-east-1"])
+  permittedBackupRegions         String[] @default(["us-east-1", "eu-central-1"])
+  crossRegionReplicationAllowed  Boolean  @default(true)
+  thirdPartyProcessingAllowed    Boolean  @default(true)
+  status                        String   @default("ACTIVE") // ACTIVE, PENDING_REVIEW, NON_COMPLIANT
+  policyVersion                 Int      @default(1)
+  effectiveAt                   DateTime @default(now())
+  lastVerifiedAt                DateTime?
+  verificationStatus            String   @default("VERIFIED") // VERIFIED, VIOLATION, UNVERIFIED
+  verificationEvidence          Json?
+  updatedByUserId               String?
+  changeReason                  String?
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("workspace_residency_policies")
+}
+
+model ResidencyAuditRecord {
+  id               String   @id @default(uuid())
+  workspaceId      String
+  action           String   // POLICY_UPDATE, VERIFICATION_RUN, BOUNDARY_CHECK, REGION_MISMATCH_FENCE
+  resourceType     String   // EXECUTION, WEBHOOK, EXPORT, BACKUP
+  resourceId       String?
+  requestedRegion  String
+  enforcedRegion   String
+  isCompliant      Boolean
+  actorId          String?
+  details          Json?
+  createdAt        DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([action, isCompliant])
+  @@map("residency_audit_records")
+}
+
+model WorkspaceCmekConfig {
+  id                      String    @id @default(uuid())
+  workspaceId             String    @unique
+  keyProvider             String    @default("LOCAL") // LOCAL, AWS_KMS, VAULT
+  keyReference            String    // KMS Key ARN or local reference ID
+  keyVersion              String    @default("1")
+  keyStatus               String    @default("ACTIVE") // PENDING, ACTIVE, ROTATION_IN_PROGRESS, DISABLED, REVOKED, ERROR
+  keyStateMetadata        Json?
+  rotationEpoch           Int       @default(1)
+  encryptedDataKey        String?   // Wrapped DEK
+  encryptedDataKeyVersion  String?
+  lastRotatedAt           DateTime?
+  revokedAt               DateTime?
+  revocationReason        String?
+  registeredByUserId      String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("workspace_cmek_configs")
+}
+
+model CmekRotationJob {
+  id                 String    @id @default(uuid())
+  workspaceId        String
+  previousKeyVersion String
+  newKeyVersion      String
+  status             String    @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, FAILED, PARTIAL
+  totalRecords       Int       @default(0)
+  reEncryptedRecords Int       @default(0)
+  failedRecords      Int       @default(0)
+  initiatedByUserId  String?
+  completedAt        DateTime?
+  errorMessage       String?
+  createdAt          DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@map("cmek_rotation_jobs")
+}
+
+model ComplianceEvidenceRecord {
+  id             String   @id @default(uuid())
+  workspaceId    String
+  evidenceType   String   // RESIDENCY_VERIFICATION, CMEK_LIFECYCLE, RETENTION_EXECUTION, LEGAL_HOLD
+  scope          String
+  status         String   // COMPLIANT, NON_COMPLIANT, UNVERIFIED
+  details        Json
+  checksumSha256 String
+  actorId        String?
+  createdAt      DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, evidenceType])
+  @@index([createdAt])
+  @@map("compliance_evidence_records")
 }

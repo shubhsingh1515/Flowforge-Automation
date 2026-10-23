@@ -610,6 +610,18 @@ export class FlowForgeClient {
     downloadExport: async (token: string) => {
       return this.request<{ exportPayload: any }>(`/compliance/exports/download/${token}`);
     },
+    getRetentionPolicy: async () => {
+      return this.request<any>("/data-retention/policy");
+    },
+    updateRetentionPolicy: async (data: any) => {
+      return this.request<any>("/data-retention/policy", "PATCH", data);
+    },
+    setLegalHold: async (data: { legalHold: boolean; reason?: string }) => {
+      return this.request<any>("/data-retention/legal-hold", "POST", data);
+    },
+    runRetentionCleanup: async (data?: { dryRun?: boolean }) => {
+      return this.request<any>("/data-retention/cleanup", "POST", data || {});
+    },
   };
 
   public readonly health = {
@@ -645,6 +657,121 @@ export class FlowForgeClient {
     },
     getRecoveryLogs: async (limit?: number) => {
       return this.request<{ logs: any[] }>("/operations/recovery/logs" + (limit ? "?limit=" + limit : ""));
+    },
+    // Phase 16: Enterprise Scale & Capacity Management
+    getCapacity: async () => {
+      return this.request<any>("/operations/capacity");
+    },
+    listRegions: async () => {
+      return this.request<{ regions: any[] }>("/operations/regions");
+    },
+    updatePlacement: async (data: {
+      homeRegion?: string;
+      dataResidency?: string;
+      maxConcurrentExecutions?: number | null;
+      workloadPriority?: string;
+    }) => {
+      return this.request<{ success: boolean; workspace: any }>("/operations/regions/placement", "PATCH", data);
+    },
+    runFailoverDrill: async (data?: {
+      sourceRegion?: string;
+      targetRegion?: string;
+      notes?: string;
+    }) => {
+      return this.request<any>("/operations/regions/failover-drill", "POST", data || {});
+    },
+  };
+
+  /**
+   * Phase 16: Scale, Capacity and Regional Placement Client Namespace
+   */
+  public readonly scale = {
+    getCapacity: async () => {
+      return this.request<any>("/operations/capacity");
+    },
+    listRegions: async () => {
+      return this.request<{ regions: any[] }>("/operations/regions");
+    },
+    updatePlacement: async (data: {
+      homeRegion?: string;
+      dataResidency?: string;
+      maxConcurrentExecutions?: number | null;
+      workloadPriority?: string;
+    }) => {
+      return this.request<{ success: boolean; workspace: any }>("/operations/regions/placement", "PATCH", data);
+    },
+    runFailoverDrill: async (data?: {
+      sourceRegion?: string;
+      targetRegion?: string;
+      notes?: string;
+    }) => {
+      return this.request<any>("/operations/regions/failover-drill", "POST", data || {});
+    },
+  };
+
+  /**
+   * Phase 17: Enterprise Data Residency Namespace
+   */
+  public readonly residency = {
+    getPolicy: async () => {
+      return this.request<{ policy: any; [key: string]: any }>("/residency");
+    },
+    updatePolicy: async (data: {
+      homeRegion?: string;
+      permittedProcessingRegions?: string[];
+      permittedStorageRegions?: string[];
+      permittedBackupRegions?: string[];
+      crossRegionReplicationAllowed?: boolean;
+      thirdPartyProcessingAllowed?: boolean;
+      changeReason?: string;
+    }) => {
+      return this.request<{ success: boolean; policy: any }>("/residency", "PATCH", data);
+    },
+    verify: async () => {
+      return this.request<{
+        status: string;
+        workspaceId: string;
+        homeRegion: string;
+        workerRegion: string;
+        verificationEvidence: any;
+      }>("/residency/verify", "POST");
+    },
+  };
+
+  /**
+   * Phase 17: Customer-Managed Encryption Keys (CMEK) Namespace
+   */
+  public readonly cmek = {
+    getStatus: async () => {
+      return this.request<{
+        isConfigured: boolean;
+        config: any;
+        encryptionCoverage: any;
+        recentRotations: any[];
+      }>("/cmek");
+    },
+    register: async (data: {
+      keyProvider?: "LOCAL" | "AWS_KMS" | "VAULT";
+      keyReference: string;
+    }) => {
+      return this.request<{ success: boolean; config: any }>("/cmek/register", "POST", data);
+    },
+    rotate: async (data?: { reason?: string }) => {
+      return this.request<{
+        success: boolean;
+        jobId: string;
+        previousKeyVersion: string;
+        newKeyVersion: string;
+        rotationEpoch: number;
+      }>("/cmek/rotate", "POST", data || {});
+    },
+    revoke: async (data: { confirmRevocation: true; reason: string }) => {
+      return this.request<{
+        success: boolean;
+        keyStatus: string;
+        revokedAt: string;
+        reason: string;
+      }>("/cmek/revoke", "POST", data);
     },
   };
 }

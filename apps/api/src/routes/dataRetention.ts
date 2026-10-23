@@ -5,6 +5,7 @@ import {
   RequestDataExportSchema,
   RequestWorkspaceDeletionSchema,
   UpdateRetentionPolicySchema,
+  LegalHoldUpdateSchema,
 } from "@flowforge/shared";
 import { authenticateRequest } from "../plugins/auth.js";
 import { dataRetentionService } from "../services/dataRetention.js";
@@ -52,7 +53,7 @@ export async function dataRetentionRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // Trigger manual or scheduled cleanup of expired tenant records
+  // Trigger manual or scheduled cleanup of expired tenant records (or dryRun simulation)
   app.post(
     "/data-retention/cleanup",
     {
@@ -64,8 +65,41 @@ export async function dataRetentionRoutes(fastify: FastifyInstance) {
     },
     async (request, reply) => {
       const { workspaceId } = request.authUser!;
-      const result = await dataRetentionService.cleanupExpiredData(workspaceId);
+      const body = request.body as any;
+      const dryRun = Boolean(body && body.dryRun);
+      const result = await dataRetentionService.cleanupExpiredData(workspaceId, dryRun);
       return reply.send(result);
+    }
+  );
+
+  // Set or release legal hold on workspace data (blocks or permits deletion)
+  app.post(
+    "/data-retention/legal-hold",
+    {
+      preHandler: [authenticateRequest],
+      schema: {
+        tags: ["Data Rights & Retention"],
+        summary: "Set or release legal hold on workspace records (Compliance / Legal / Admin)",
+        body: LegalHoldUpdateSchema,
+      },
+    },
+    async (request, reply) => {
+      const { workspaceId, id: userId, workspaceRole } = request.authUser!;
+      if (workspaceRole !== "OWNER" && workspaceRole !== "ADMIN") {
+        return reply.status(403).send({
+          error: "Forbidden",
+          message: "Only workspace Owners or Admins can modify legal hold status.",
+          statusCode: 403,
+        });
+      }
+
+      const updated = await dataRetentionService.setLegalHold(
+        workspaceId,
+        userId,
+        request.body.legalHold,
+        request.body.reason
+      );
+      return reply.send(updated);
     }
   );
 

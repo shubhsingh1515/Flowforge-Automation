@@ -389,4 +389,235 @@ describe("FlowForge TypeScript SDK Client Suite", () => {
     const logs = await client.operations.getRecoveryLogs();
     expect(logs.logs[0].operationType).toBe("BACKUP_VERIFICATION");
   });
+  it("Phase 16: Interacts with capacity analytics and regional placement via SDK", async () => {
+    global.fetch = vi.fn().mockImplementation(async (url, init) => {
+      const u = String(url);
+      if (u.includes("/operations/capacity")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            capacity: {
+              deploymentTier: "Tier A (Horizontally Scalable Single-Region) / Tier B (Region-Aware Readiness)",
+              authoritativeRegion: "us-east-1",
+              workerCapacity: { totalCapacity: 10, allocatedConcurrency: 2, workerSaturationPercent: 20 },
+              queueMetrics: { waitingJobs: 0, projectedDrainTimeSec: 0 },
+              backpressure: { active: false, status: "NORMAL" },
+              noisyNeighbors: [],
+              regions: [{ regionKey: "us-east-1", isAuthoritative: true }],
+            },
+          }),
+        } as any;
+      }
+      if (u.includes("/operations/regions/placement") && init?.method === "PATCH") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            workspace: { homeRegion: "eu-central-1", dataResidency: "EU", maxConcurrentExecutions: 20 },
+          }),
+        } as any;
+      }
+      if (u.includes("/operations/regions/failover-drill") && init?.method === "POST") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            drill: { drillId: "drill-123", sourceRegion: "us-east-1", targetRegion: "eu-central-1", failoverEpoch: 2, status: "COMPLETED" },
+          }),
+        } as any;
+      }
+      if (u.includes("/operations/regions")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            regions: [
+              { regionKey: "us-east-1", isAuthoritative: true, status: "HEALTHY" },
+              { regionKey: "eu-central-1", isAuthoritative: false, status: "STANDBY" },
+            ],
+          }),
+        } as any;
+      }
+      return { ok: true, status: 200, json: async () => ({}) } as any;
+    });
+
+    const client = new FlowForgeClient({ apiKey: "ff_live_valid" });
+
+    // Test operations capacity
+    const cap = await client.operations.getCapacity();
+    expect(cap.capacity.deploymentTier).toContain("Tier A");
+    expect(cap.capacity.authoritativeRegion).toBe("us-east-1");
+
+    // Test scale namespace
+    const regions = await client.scale.listRegions();
+    expect(regions.regions.length).toBe(2);
+    expect(regions.regions[0].regionKey).toBe("us-east-1");
+
+    const placement = await client.scale.updatePlacement({ homeRegion: "eu-central-1", dataResidency: "EU", maxConcurrentExecutions: 20 });
+    expect(placement.workspace.homeRegion).toBe("eu-central-1");
+    expect(placement.workspace.maxConcurrentExecutions).toBe(20);
+
+    const drill = await client.scale.runFailoverDrill({ sourceRegion: "us-east-1", targetRegion: "eu-central-1" });
+    expect(drill.drill.failoverEpoch).toBe(2);
+    expect(drill.drill.status).toBe("COMPLETED");
+  });
+  it("supports Phase 17 residency, CMEK, and legal hold operations", async () => {
+    let capturedUrl = "";
+    let capturedMethod = "";
+    let capturedBody: any;
+
+    global.fetch = vi.fn().mockImplementation(async (url: string, init: any) => {
+      capturedUrl = url;
+      capturedMethod = init.method || "GET";
+      capturedBody = init.body ? JSON.parse(init.body) : undefined;
+
+      if (url.includes("/residency/verify")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            status: "VERIFIED",
+            workspaceId: "ws-p17",
+            homeRegion: "eu-central-1",
+            workerRegion: "eu-central-1",
+            verificationEvidence: { checkedAt: new Date().toISOString() },
+          }),
+        } as any;
+      }
+
+      if (url.includes("/residency") && init.method === "PATCH") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            policy: {
+              homeRegion: capturedBody.homeRegion,
+              permittedProcessingRegions: capturedBody.permittedProcessingRegions,
+            },
+          }),
+        } as any;
+      }
+
+      if (url.includes("/residency")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            policy: {
+              homeRegion: "us-east-1",
+              status: "ACTIVE",
+            },
+          }),
+        } as any;
+      }
+
+      if (url.includes("/cmek/register")) {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({
+            success: true,
+            config: {
+              keyProvider: capturedBody.keyProvider,
+              keyReference: capturedBody.keyReference,
+              keyStatus: "ACTIVE",
+            },
+          }),
+        } as any;
+      }
+
+      if (url.includes("/cmek/rotate")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            jobId: "job-rot-1",
+            previousKeyVersion: "1",
+            newKeyVersion: "2",
+            rotationEpoch: 2,
+          }),
+        } as any;
+      }
+
+      if (url.includes("/cmek/revoke")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            keyStatus: "REVOKED",
+            revokedAt: new Date().toISOString(),
+            reason: capturedBody.reason,
+          }),
+        } as any;
+      }
+
+      if (url.includes("/cmek")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            isConfigured: true,
+            config: { keyReference: "kms-ref-1", keyStatus: "ACTIVE" },
+            encryptionCoverage: { executionPayloads: true },
+          }),
+        } as any;
+      }
+
+      if (url.includes("/data-retention/legal-hold")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            policy: { legalHold: capturedBody.legalHold, reason: capturedBody.reason },
+          }),
+        } as any;
+      }
+
+      return { ok: true, status: 200, json: async () => ({}) } as any;
+    });
+
+    const client = new FlowForgeClient({ apiKey: "ff_live_valid" });
+
+    // Test residency namespace
+    const pol = await client.residency.getPolicy();
+    expect(pol.policy.homeRegion).toBe("us-east-1");
+
+    const updatedPol = await client.residency.updatePolicy({
+      homeRegion: "eu-central-1",
+      permittedProcessingRegions: ["eu-central-1"],
+      changeReason: "Data sovereign compliance requirement",
+    });
+    expect(updatedPol.policy.homeRegion).toBe("eu-central-1");
+
+    const verification = await client.residency.verify();
+    expect(verification.status).toBe("VERIFIED");
+    expect(verification.workerRegion).toBe("eu-central-1");
+
+    // Test CMEK namespace
+    const cmekStatus = await client.cmek.getStatus();
+    expect(cmekStatus.isConfigured).toBe(true);
+
+    const reg = await client.cmek.register({
+      keyProvider: "LOCAL",
+      keyReference: "tenant-key-abc",
+    });
+    expect(reg.config.keyStatus).toBe("ACTIVE");
+
+    const rot = await client.cmek.rotate({ reason: "Annual key refresh" });
+    expect(rot.newKeyVersion).toBe("2");
+
+    const rev = await client.cmek.revoke({ confirmRevocation: true, reason: "Security compromise drill" });
+    expect(rev.keyStatus).toBe("REVOKED");
+
+    // Test legal hold compliance
+    const hold = await client.compliance.setLegalHold({ legalHold: true, reason: "Litigation investigation" });
+    expect(hold.policy.legalHold).toBe(true);
+  });
 });

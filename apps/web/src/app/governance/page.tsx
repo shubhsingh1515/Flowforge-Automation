@@ -31,6 +31,9 @@ import {
   TrendingDown,
   TrendingUp,
   Key,
+  Lock,
+  Globe,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -329,6 +332,125 @@ export default function EnterpriseGovernancePage() {
       setActionError(err.message || "Failed to retrieve export.");
     }
   };
+
+  // ==========================================
+  // PHASE 17: RESIDENCY, CMEK & LEGAL HOLD HOOKS
+  // ==========================================
+  const { data: residencyData } = useQuery({
+    queryKey: ["governance-residency"],
+    queryFn: () => api.residency.get(),
+  });
+  const residencyPolicy = (residencyData as any)?.policy || (residencyData as any);
+
+  const { data: cmekData } = useQuery({
+    queryKey: ["governance-cmek"],
+    queryFn: () => api.cmek.getStatus(),
+  });
+  const cmekStatus = cmekData as any;
+
+  const { data: retentionData } = useQuery({
+    queryKey: ["governance-retention"],
+    queryFn: () => api.compliance.getRetentionPolicy(),
+  });
+  const retentionPolicy = retentionData as any;
+
+  const [showResidencyModal, setShowResidencyModal] = useState(false);
+  const [residencyForm, setResidencyForm] = useState({
+    homeRegion: "us-east-1",
+    permittedProcessingRegions: "us-east-1, eu-central-1",
+    crossRegionReplicationAllowed: true,
+  });
+
+  const [showCmekModal, setShowCmekModal] = useState(false);
+  const [cmekForm, setCmekForm] = useState({
+    keyProvider: "LOCAL",
+    keyReference: "tenant-kms-primary-01",
+  });
+
+  const [showLegalHoldModal, setShowLegalHoldModal] = useState(false);
+  const [legalHoldForm, setLegalHoldForm] = useState({
+    legalHold: true,
+    reason: "Pending litigation preservation order",
+  });
+
+  const verifyResidencyMutation = useMutation({
+    mutationFn: () => api.residency.verify(),
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ["governance-residency"] });
+      setActionSuccess(`Residency verified: ${res?.status || "VERIFIED"} (Worker Region: ${res?.workerRegion || "us-east-1"})`);
+    },
+    onError: (err: any) => {
+      setActionError(err.message || "Residency verification failed.");
+    },
+  });
+
+  const updateResidencyMutation = useMutation({
+    mutationFn: (data: any) => api.residency.update(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["governance-residency"] });
+      setShowResidencyModal(false);
+      setActionSuccess("Data residency policy updated successfully.");
+    },
+    onError: (err: any) => {
+      setActionError(err.message || "Failed to update residency policy.");
+    },
+  });
+
+  const registerCmekMutation = useMutation({
+    mutationFn: (data: any) => api.cmek.register(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["governance-cmek"] });
+      setShowCmekModal(false);
+      setActionSuccess("CMEK key reference registered and envelope encryption activated.");
+    },
+    onError: (err: any) => {
+      setActionError(err.message || "Failed to register CMEK key.");
+    },
+  });
+
+  const rotateCmekMutation = useMutation({
+    mutationFn: (reason?: string) => api.cmek.rotate({ reason }),
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ["governance-cmek"] });
+      setActionSuccess(`CMEK key successfully rotated to version ${res?.newKeyVersion || "2"}.`);
+    },
+    onError: (err: any) => {
+      setActionError(err.message || "Key rotation failed.");
+    },
+  });
+
+  const revokeCmekMutation = useMutation({
+    mutationFn: (reason: string) => api.cmek.revoke({ confirmRevocation: true, reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["governance-cmek"] });
+      setActionSuccess("CMEK key permanently REVOKED. Decryption kill-switch triggered.");
+    },
+    onError: (err: any) => {
+      setActionError(err.message || "Failed to revoke key.");
+    },
+  });
+
+  const legalHoldMutation = useMutation({
+    mutationFn: (data: any) => api.compliance.setLegalHold(data),
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ["governance-retention"] });
+      setShowLegalHoldModal(false);
+      setActionSuccess(res?.legalHold ? "Legal Hold ACTIVE: Automated and manual purges blocked." : "Legal Hold RELEASED: Normal retention purges restored.");
+    },
+    onError: (err: any) => {
+      setActionError(err.message || "Failed to update legal hold status.");
+    },
+  });
+
+  const simulateCleanupMutation = useMutation({
+    mutationFn: () => api.compliance.cleanupExpired({ dryRun: true }),
+    onSuccess: (res: any) => {
+      setActionSuccess(`Dry-Run Retention Simulation: ${res?.totalExecutionsCleaned ?? 0} executions eligible for purge. Actual deleted: 0 (simulation mode).`);
+    },
+    onError: (err: any) => {
+      setActionError(err.message || "Cleanup simulation failed.");
+    },
+  });
 
   return (
     <AppShell
@@ -1619,6 +1741,360 @@ export default function EnterpriseGovernancePage() {
         {/* ========================================================= */}
         {activeTab === "compliance" && (
           <div className="space-y-6">
+            {/* Phase 17: Enterprise Data Residency, CMEK & Legal Hold Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Card 1: Data Residency */}
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-5 w-5 text-indigo-600" />
+                    <h3 className="text-sm font-semibold text-slate-900">Data Residency</h3>
+                  </div>
+                  <span
+                    data-testid="badge-residency-status"
+                    className={cn(
+                      "rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                      residencyPolicy?.verificationStatus === "VERIFIED"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-amber-100 text-amber-800"
+                    )}
+                  >
+                    {residencyPolicy?.verificationStatus || "UNVERIFIED"}
+                  </span>
+                </div>
+                <div className="space-y-1.5 text-xs text-slate-600">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Home Region:</span>
+                    <span className="font-semibold text-slate-800">{residencyPolicy?.homeRegion || "us-east-1"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Processing Zones:</span>
+                    <span className="font-mono text-slate-700">
+                      {(residencyPolicy?.permittedProcessingRegions || ["us-east-1"]).join(", ")}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Cross-Region Replication:</span>
+                    <span className="font-medium text-slate-700">
+                      {residencyPolicy?.crossRegionReplicationAllowed ? "Allowed" : "Strictly Disallowed"}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2 border-t">
+                  <button
+                    onClick={() => verifyResidencyMutation.mutate()}
+                    data-testid="btn-verify-residency"
+                    className="flex-1 inline-flex items-center justify-center gap-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5 text-slate-500" />
+                    Verify Placement
+                  </button>
+                  <button
+                    onClick={() => {
+                      setResidencyForm({
+                        homeRegion: residencyPolicy?.homeRegion || "us-east-1",
+                        permittedProcessingRegions: (residencyPolicy?.permittedProcessingRegions || ["us-east-1"]).join(", "),
+                        crossRegionReplicationAllowed: residencyPolicy?.crossRegionReplicationAllowed ?? true,
+                      });
+                      setShowResidencyModal(true);
+                    }}
+                    data-testid="btn-edit-residency"
+                    className="rounded bg-indigo-50 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+                  >
+                    Policy
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 2: Customer-Managed Encryption Keys (CMEK) */}
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Lock className="h-5 w-5 text-indigo-600" />
+                    <h3 className="text-sm font-semibold text-slate-900">CMEK Encryption</h3>
+                  </div>
+                  <span
+                    data-testid="badge-cmek-status"
+                    className={cn(
+                      "rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                      cmekStatus?.config?.keyStatus === "ACTIVE"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : cmekStatus?.config?.keyStatus === "REVOKED"
+                        ? "bg-rose-100 text-rose-800"
+                        : "bg-slate-100 text-slate-600"
+                    )}
+                  >
+                    {cmekStatus?.config?.keyStatus || "NOT CONFIGURED"}
+                  </span>
+                </div>
+                <div className="space-y-1.5 text-xs text-slate-600">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Provider:</span>
+                    <span className="font-semibold text-slate-800">{cmekStatus?.config?.keyProvider || "LOCAL"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Key Reference:</span>
+                    <span className="font-mono text-slate-700 truncate max-w-[140px]" title={cmekStatus?.config?.keyReference}>
+                      {cmekStatus?.config?.keyReference || "Platform Managed"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Key Version / Epoch:</span>
+                    <span className="font-mono text-slate-700">
+                      v{cmekStatus?.config?.keyVersion || "1"} (Epoch {cmekStatus?.config?.rotationEpoch || "1"})
+                    </span>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2 border-t">
+                  {!cmekStatus?.isConfigured || cmekStatus?.config?.keyStatus === "REVOKED" ? (
+                    <button
+                      onClick={() => setShowCmekModal(true)}
+                      data-testid="btn-register-cmek"
+                      className="w-full inline-flex items-center justify-center gap-1 rounded bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
+                    >
+                      <Key className="h-3.5 w-3.5" />
+                      Register KMS Key
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => rotateCmekMutation.mutate("Admin scheduled rotation")}
+                        data-testid="btn-rotate-cmek"
+                        className="flex-1 inline-flex items-center justify-center gap-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5 text-slate-500" />
+                        Rotate Key
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm("Are you sure you want to permanently REVOKE this key? All encrypted data will be inaccessible.")) {
+                            revokeCmekMutation.mutate("Tenant admin emergency revocation drill");
+                          }
+                        }}
+                        data-testid="btn-revoke-cmek"
+                        className="rounded bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                      >
+                        Revoke
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Card 3: Legal Hold & Retention */}
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-indigo-600" />
+                    <h3 className="text-sm font-semibold text-slate-900">Legal Hold Guard</h3>
+                  </div>
+                  <span
+                    data-testid="badge-legal-hold-status"
+                    className={cn(
+                      "rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                      retentionPolicy?.legalHold
+                        ? "bg-purple-100 text-purple-800"
+                        : "bg-slate-100 text-slate-600"
+                    )}
+                  >
+                    {retentionPolicy?.legalHold ? "LEGAL HOLD ACTIVE" : "PURGES PERMITTED"}
+                  </span>
+                </div>
+                <div className="space-y-1.5 text-xs text-slate-600">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Retention Horizon:</span>
+                    <span className="font-semibold text-slate-800">{retentionPolicy?.executionRetentionDays || 90} Days</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Purge Enforcement:</span>
+                    <span className={retentionPolicy?.legalHold ? "font-semibold text-purple-700" : "text-emerald-700"}>
+                      {retentionPolicy?.legalHold ? "BLOCKED by Legal Hold" : "Standard Automated"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between truncate">
+                    <span className="text-slate-500">Reason:</span>
+                    <span className="text-slate-700 truncate max-w-[140px]" title={retentionPolicy?.legalHoldReason || "None"}>
+                      {retentionPolicy?.legalHoldReason || "None"}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2 border-t">
+                  <button
+                    onClick={() => {
+                      setLegalHoldForm({
+                        legalHold: !retentionPolicy?.legalHold,
+                        reason: retentionPolicy?.legalHold ? "" : "Active litigation compliance preservation order",
+                      });
+                      setShowLegalHoldModal(true);
+                    }}
+                    data-testid="btn-toggle-legal-hold"
+                    className="flex-1 inline-flex items-center justify-center gap-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    {retentionPolicy?.legalHold ? "Release Hold" : "Place Legal Hold"}
+                  </button>
+                  <button
+                    onClick={() => simulateCleanupMutation.mutate()}
+                    data-testid="btn-dry-run-cleanup"
+                    className="rounded bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+                  >
+                    Dry Run
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Modals for Residency, CMEK, and Legal Hold */}
+            {showResidencyModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+                <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl space-y-4">
+                  <div className="flex items-center justify-between border-b pb-3">
+                    <h4 className="font-semibold text-slate-900">Configure Data Residency Policy</h4>
+                    <button onClick={() => setShowResidencyModal(false)} className="text-slate-400 hover:text-slate-600">&times;</button>
+                  </div>
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <label className="block font-medium text-slate-700">Home Region</label>
+                      <input
+                        type="text"
+                        value={residencyForm.homeRegion}
+                        onChange={(e) => setResidencyForm({ ...residencyForm, homeRegion: e.target.value })}
+                        data-testid="input-residency-home"
+                        className="mt-1 w-full rounded border border-slate-300 px-3 py-1.5"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-medium text-slate-700">Permitted Processing Regions (comma separated)</label>
+                      <input
+                        type="text"
+                        value={residencyForm.permittedProcessingRegions}
+                        onChange={(e) => setResidencyForm({ ...residencyForm, permittedProcessingRegions: e.target.value })}
+                        data-testid="input-residency-processing"
+                        className="mt-1 w-full rounded border border-slate-300 px-3 py-1.5"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <input
+                        type="checkbox"
+                        id="chk-cross-region"
+                        checked={residencyForm.crossRegionReplicationAllowed}
+                        onChange={(e) => setResidencyForm({ ...residencyForm, crossRegionReplicationAllowed: e.target.checked })}
+                      />
+                      <label htmlFor="chk-cross-region" className="text-slate-700">Allow Cross-Region Replication</label>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2 border-t">
+                    <button onClick={() => setShowResidencyModal(false)} className="rounded border px-4 py-1.5 text-xs text-slate-700">Cancel</button>
+                    <button
+                      onClick={() =>
+                        updateResidencyMutation.mutate({
+                          homeRegion: residencyForm.homeRegion,
+                          permittedProcessingRegions: residencyForm.permittedProcessingRegions.split(",").map((s) => s.trim()).filter(Boolean),
+                          crossRegionReplicationAllowed: residencyForm.crossRegionReplicationAllowed,
+                          changeReason: "Admin updated residency boundaries",
+                        })
+                      }
+                      data-testid="btn-save-residency"
+                      className="rounded bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
+                    >
+                      Save Policy
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {showCmekModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+                <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl space-y-4">
+                  <div className="flex items-center justify-between border-b pb-3">
+                    <h4 className="font-semibold text-slate-900">Register Customer-Managed Key (CMEK)</h4>
+                    <button onClick={() => setShowCmekModal(false)} className="text-slate-400 hover:text-slate-600">&times;</button>
+                  </div>
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <label className="block font-medium text-slate-700">Key Provider</label>
+                      <select
+                        value={cmekForm.keyProvider}
+                        onChange={(e) => setCmekForm({ ...cmekForm, keyProvider: e.target.value })}
+                        data-testid="select-cmek-provider"
+                        className="mt-1 w-full rounded border border-slate-300 px-3 py-1.5"
+                      >
+                        <option value="LOCAL">Local AES-256 Envelope KMS</option>
+                        <option value="AWS_KMS">AWS KMS (KMS Key ARN)</option>
+                        <option value="VAULT">HashiCorp Vault Transit</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block font-medium text-slate-700">Key Reference (ARN or ID)</label>
+                      <input
+                        type="text"
+                        placeholder="arn:aws:kms:us-east-1:123456789012:key/... or local-key-ref"
+                        value={cmekForm.keyReference}
+                        onChange={(e) => setCmekForm({ ...cmekForm, keyReference: e.target.value })}
+                        data-testid="input-cmek-key-ref"
+                        className="mt-1 w-full rounded border border-slate-300 px-3 py-1.5"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2 border-t">
+                    <button onClick={() => setShowCmekModal(false)} className="rounded border px-4 py-1.5 text-xs text-slate-700">Cancel</button>
+                    <button
+                      onClick={() => registerCmekMutation.mutate(cmekForm)}
+                      data-testid="btn-save-cmek"
+                      className="rounded bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
+                    >
+                      Register Key
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {showLegalHoldModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+                <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl space-y-4">
+                  <div className="flex items-center justify-between border-b pb-3">
+                    <h4 className="font-semibold text-slate-900">
+                      {legalHoldForm.legalHold ? "Place Legal Hold" : "Release Legal Hold"}
+                    </h4>
+                    <button onClick={() => setShowLegalHoldModal(false)} className="text-slate-400 hover:text-slate-600">&times;</button>
+                  </div>
+                  <div className="space-y-3 text-xs">
+                    <p className="text-slate-600">
+                      {legalHoldForm.legalHold
+                        ? "Placing a legal hold will immediately prevent all automated data retention purges and manual data deletion requests until explicitly released."
+                        : "Releasing this legal hold will permit normal automated lifecycle purges to resume across all expired executions and audit logs."}
+                    </p>
+                    {legalHoldForm.legalHold && (
+                      <div>
+                        <label className="block font-medium text-slate-700">Justification / Matter Reference</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Litigation Matter Case #2026-CV-889"
+                          value={legalHoldForm.reason}
+                          onChange={(e) => setLegalHoldForm({ ...legalHoldForm, reason: e.target.value })}
+                          data-testid="input-legal-hold-reason"
+                          className="mt-1 w-full rounded border border-slate-300 px-3 py-1.5"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2 border-t">
+                    <button onClick={() => setShowLegalHoldModal(false)} className="rounded border px-4 py-1.5 text-xs text-slate-700">Cancel</button>
+                    <button
+                      onClick={() => legalHoldMutation.mutate(legalHoldForm)}
+                      data-testid="btn-save-legal-hold"
+                      className={cn(
+                        "rounded px-4 py-1.5 text-xs font-semibold text-white",
+                        legalHoldForm.legalHold ? "bg-purple-600 hover:bg-purple-700" : "bg-emerald-600 hover:bg-emerald-700"
+                      )}
+                    >
+                      {legalHoldForm.legalHold ? "Confirm Legal Hold" : "Confirm Release"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             {/* Compliance Export Package Generator */}
             <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
               <div className="flex items-center justify-between">

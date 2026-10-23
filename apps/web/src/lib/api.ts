@@ -487,6 +487,19 @@ export const api = {
       }),
     getRecoveryLogs: (limit?: number) =>
       request<any>(`/operations/recovery/logs${limit ? `?limit=${limit}` : ""}`),
+    // Phase 16: Enterprise Scale, Capacity Management & Regional Readiness
+    getCapacity: () => request<any>("/operations/capacity"),
+    getRegions: () => request<any>("/operations/regions"),
+    updatePlacement: (body: any) =>
+      request<any>("/operations/regions/placement", {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    runFailoverDrill: (body?: any) =>
+      request<any>("/operations/regions/failover-drill", {
+        method: "POST",
+        body: JSON.stringify(body || {}),
+      }),
   },
 
   // Phase 11: Product Analytics
@@ -747,5 +760,25 @@ export const api = {
     createExport: (body: any) => request<{ data: any }>("/compliance/exports", { method: "POST", body: JSON.stringify(body) }),
     listExports: () => request<{ data: any[] }>("/compliance/exports"),
     downloadExport: (token: string) => request<any>(`/compliance/exports/${token}/download`),
+    setLegalHold: (body: { legalHold: boolean; reason?: string }) =>
+      request<any>("/data-retention/legal-hold", { method: "POST", body: JSON.stringify(body) }),
+    cleanupExpired: (body?: { dryRun?: boolean }) =>
+      request<any>("/data-retention/cleanup", { method: "POST", body: JSON.stringify(body || {}) }),
+    getRetentionPolicy: () => request<any>("/data-retention/policy"),
+  },
+
+  // Phase 17: Enterprise Data Residency Namespace
+  residency: {
+    get: () => request<any>("/residency"),
+    update: (body: any) => request<any>("/residency", { method: "PATCH", body: JSON.stringify(body) }),
+    verify: () => request<any>("/residency/verify", { method: "POST" }),
+  },
+
+  // Phase 17: Customer-Managed Encryption Keys (CMEK) Namespace
+  cmek: {
+    getStatus: () => request<any>("/cmek"),
+    register: (body: any) => request<any>("/cmek/register", { method: "POST", body: JSON.stringify(body) }),
+    rotate: (body?: any) => request<any>("/cmek/rotate", { method: "POST", body: JSON.stringify(body || {}) }),
+    revoke: (body: any) => request<any>("/cmek/revoke", { method: "POST", body: JSON.stringify(body) }),
   },
 };

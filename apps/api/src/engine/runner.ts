@@ -145,6 +145,16 @@ async function executeWorkflowInternal(
         orderBy: { version: "desc" },
         take: 1,
       },
+      workspace: {
+        select: {
+          id: true,
+          homeRegion: true,
+          failoverEpoch: true,
+          residencyPolicy: {
+            select: { permittedProcessingRegions: true, status: true, homeRegion: true },
+          },
+        },
+      },
     },
   });
 
@@ -166,6 +176,91 @@ async function executeWorkflowInternal(
       stepsExecuted: 0,
       errorSummary: errorMsg,
       errorCategory: "INVALID_CONFIG",
+      durationMs: Date.now() - startTime,
+    };
+  }
+
+  // Phase 16 & 17: Regional Placement, Residency Boundary & Failover Fencing
+  const currentRegion = process.env.FLOWFORGE_REGION || "us-east-1";
+  if (workflow.workspace?.residencyPolicy?.status === "ACTIVE") {
+    const permitted = workflow.workspace.residencyPolicy.permittedProcessingRegions;
+    if (permitted && permitted.length > 0 && !permitted.includes(currentRegion)) {
+      const errorMsg = `RESIDENCY_POLICY_VIOLATION: Processing in region '${currentRegion}' is prohibited by policy for workspace '${workflow.workspaceId}'. Permitted regions: ${permitted.join(", ")}.`;
+      await prisma.residencyAuditRecord.create({
+        data: {
+          workspaceId: workflow.workspaceId,
+          action: "PROCESSING_DISPATCH",
+          resourceType: "WORKFLOW_EXECUTION",
+          resourceId: options.executionId,
+          requestedRegion: currentRegion,
+          enforcedRegion: workflow.workspace.residencyPolicy.homeRegion || workflow.workspace.homeRegion || currentRegion,
+          isCompliant: false,
+          details: { currentRegion, permitted, reason: errorMsg },
+        },
+      });
+      await prisma.workflowExecution.update({
+        where: { id: options.executionId },
+        data: {
+          status: ExecutionStatus.FAILED,
+          finishedAt: new Date(),
+          durationMs: Date.now() - startTime,
+          errorSummary: errorMsg,
+          errorCategory: "RESOURCE_LIMIT_EXCEEDED",
+        },
+      });
+      return {
+        executionId: options.executionId,
+        status: "FAILED",
+        stepsExecuted: 0,
+        errorSummary: errorMsg,
+        errorCategory: "RESOURCE_LIMIT_EXCEEDED",
+        durationMs: Date.now() - startTime,
+      };
+    }
+  } else if (workflow.workspace && workflow.workspace.homeRegion && workflow.workspace.homeRegion !== currentRegion) {
+    const errorMsg = `Misdirected Execution: Workspace home region is '${workflow.workspace.homeRegion}' but executing in '${currentRegion}'.`;
+    await prisma.workflowExecution.update({
+      where: { id: options.executionId },
+      data: {
+        status: ExecutionStatus.FAILED,
+        finishedAt: new Date(),
+        durationMs: Date.now() - startTime,
+        errorSummary: errorMsg,
+        errorCategory: "RESOURCE_LIMIT_EXCEEDED",
+      },
+    });
+    return {
+      executionId: options.executionId,
+      status: "FAILED",
+      stepsExecuted: 0,
+      errorSummary: errorMsg,
+      errorCategory: "RESOURCE_LIMIT_EXCEEDED",
+      durationMs: Date.now() - startTime,
+    };
+  }
+
+  if (
+    workflow.workspace &&
+    initialExecution.failoverEpoch > 0 &&
+    workflow.workspace.failoverEpoch > initialExecution.failoverEpoch
+  ) {
+    const errorMsg = `Regional Failover Fence: Execution epoch (${initialExecution.failoverEpoch}) is superseded by current workspace failover epoch (${workflow.workspace.failoverEpoch}). Execution aborted to prevent cross-region split-brain.`;
+    await prisma.workflowExecution.update({
+      where: { id: options.executionId },
+      data: {
+        status: ExecutionStatus.FAILED,
+        finishedAt: new Date(),
+        durationMs: Date.now() - startTime,
+        errorSummary: errorMsg,
+        errorCategory: "INTERNAL_ERROR",
+      },
+    });
+    return {
+      executionId: options.executionId,
+      status: "FAILED",
+      stepsExecuted: 0,
+      errorSummary: errorMsg,
+      errorCategory: "INTERNAL_ERROR",
       durationMs: Date.now() - startTime,
     };
   }
