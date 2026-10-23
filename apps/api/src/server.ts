@@ -39,6 +39,10 @@ import { scimRoutes } from "./routes/scim.js";
 import { sessionRoutes } from "./routes/sessions.js";
 import { diagnosticsRoutes } from "./routes/diagnostics.js";
 import { operationsRoutes } from "./routes/operations.js";
+import { analyticsRoutes } from "./routes/analytics.js";
+import { usageAlertRoutes } from "./routes/usageAlerts.js";
+import { notificationRoutes } from "./routes/notifications.js";
+import { supportRoutes } from "./routes/support.js";
 import { startWorker, stopWorker } from "./worker/worker.js";
 import { startOutboundWebhookWorker, stopOutboundWebhookWorker } from "./worker/outboundWebhookWorker.js";
 import { workflowScheduler } from "./worker/scheduler.js";
@@ -250,6 +254,10 @@ export async function buildServer(options: BuildServerOptions = {}) {
       await api.register(sessionRoutes);
       await api.register(diagnosticsRoutes);
       await api.register(operationsRoutes);
+      await api.register(analyticsRoutes);
+      await api.register(usageAlertRoutes);
+      await api.register(notificationRoutes);
+      await api.register(supportRoutes);
     },
     { prefix: config.apiPrefix }
   );

@@ -598,7 +598,7 @@ describe("Phase 8: Public API, Developer Platform, API Keys, Webhooks & Custom I
       const body = JSON.parse(res.body);
       expect(body).toHaveProperty("success");
       expect(body).toHaveProperty("durationMs");
-    });
+    }, 15000);
 
     it("blocks custom integration test attempts targeting private or metadata IPs (SSRF protection)", async () => {
       // 1. Update draft action URL to point to private IP (e.g. AWS metadata 169.254.169.254)

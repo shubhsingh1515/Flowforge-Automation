@@ -77,6 +77,8 @@ model User {
   memberships WorkspaceMembership[]
   sessions    Session[]
   ssoIdentities SsoUserIdentity[]
+  notifications Notification[]
+  customerFeedback CustomerFeedback[]
 
   @@map("users")
 }
@@ -123,6 +125,11 @@ model Workspace {
   ssoIdentities          SsoUserIdentity[]
   ssoAuthStates          SsoAuthorizationState[]
   scimTokens             ScimProvisioningToken[]
+  usageAlertConfig       WorkspaceUsageAlertConfig?
+  usageAlertEvents       WorkspaceUsageAlertEvent[]
+  notifications          Notification[]
+  customerFeedback       CustomerFeedback[]
+  supportBundles         SupportBundle[]
 
   @@map("workspaces")
 }
@@ -851,3 +858,98 @@ model OperationalAlertRule {
 
   @@map("operational_alert_rules")
 }
+
+// ==========================================
+// PHASE 11: CUSTOMER SUCCESS, USAGE INTELLIGENCE & NOTIFICATIONS
+// ==========================================
+
+model WorkspaceUsageAlertConfig {
+  id           String   @id @default(uuid())
+  workspaceId  String   @unique
+  threshold50  Boolean  @default(true)
+  threshold80  Boolean  @default(true)
+  threshold90  Boolean  @default(true)
+  threshold100 Boolean  @default(true)
+  notifyEmail  Boolean  @default(true)
+  notifyInApp  Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("workspace_usage_alert_configs")
+}
+
+model WorkspaceUsageAlertEvent {
+  id               String   @id @default(uuid())
+  workspaceId      String
+  billingCycleKey  String   // e.g. "2026-10" or timestamp cycle
+  thresholdPercent Int      // 50, 80, 90, 100
+  executionsCount  Int
+  quotaLimit       Int
+  triggeredAt      DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, billingCycleKey, thresholdPercent])
+  @@index([workspaceId, billingCycleKey])
+  @@map("workspace_usage_alert_events")
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  workspaceId String
+  userId      String?   // null indicates notification applies to all workspace members
+  type        String    // USAGE_ALERT, EXECUTION_FAILED, APPROVAL_REQUESTED, WEBHOOK_FAILED, DATA_EXPORT, SYSTEM
+  title       String
+  message     String
+  link        String?
+  category    String    @default("info") // info, warning, error, success
+  read        Boolean   @default(false)
+  readAt      DateTime?
+  metadata    Json?     @default("{}")
+  createdAt   DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, read, createdAt])
+  @@index([userId, read])
+  @@map("notifications")
+}
+
+model CustomerFeedback {
+  id           String   @id @default(uuid())
+  workspaceId  String
+  userId       String
+  category     String   // BUG, FEATURE_REQUEST, USABILITY, GENERAL
+  rating       Int?     // 1 to 5
+  comment      String
+  contactEmail String?
+  metadata     Json?    @default("{}")
+  createdAt    DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@map("customer_feedback")
+}
+
+model SupportBundle {
+  id                String   @id @default(uuid())
+  workspaceId       String
+  requestedByUserId String
+  status            String   @default("COMPLETED")
+  summary           String
+  payload           Json     // sanitized workspace diagnostic payload
+  sizeBytes         Int      @default(0)
+  expiresAt         DateTime
+  createdAt         DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, expiresAt])
+  @@map("support_bundles")
+}
+

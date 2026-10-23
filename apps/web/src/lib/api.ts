@@ -464,4 +464,75 @@ export const api = {
       return request<any>(`/operations/reconciliation/logs${qs ? `?${qs}` : ""}`);
     },
   },
+
+  // Phase 11: Product Analytics
+  analytics: {
+    getOverview: (params?: { timeRange?: string; workflowId?: string; status?: string; errorCategory?: string; startDate?: string; endDate?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.timeRange) q.set("timeRange", params.timeRange);
+      if (params?.workflowId) q.set("workflowId", params.workflowId);
+      if (params?.status) q.set("status", params.status);
+      if (params?.errorCategory) q.set("errorCategory", params.errorCategory);
+      if (params?.startDate) q.set("startDate", params.startDate);
+      if (params?.endDate) q.set("endDate", params.endDate);
+      const qs = q.toString();
+      return request<any>(`/analytics/overview${qs ? `?${qs}` : ""}`);
+    },
+  },
+
+  // Phase 11: Usage Intelligence & Alerts
+  usageAlerts: {
+    getForecast: () => request<any>("/usage/forecast"),
+    getAlertConfig: () => request<any>("/usage/alerts/config"),
+    updateAlertConfig: (body: any) =>
+      request<any>("/usage/alerts/config", {
+        method: "PUT",
+        body: JSON.stringify(body),
+      }),
+    evaluateAlerts: () =>
+      request<any>("/usage/alerts/evaluate", {
+        method: "POST",
+      }),
+  },
+
+  // Phase 11: In-App Notifications
+  notifications: {
+    list: (params?: { page?: number; limit?: number; read?: boolean; category?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.page) q.set("page", String(params.page));
+      if (params?.limit) q.set("limit", String(params.limit));
+      if (params?.read !== undefined) q.set("read", String(params.read));
+      if (params?.category) q.set("category", params.category);
+      const qs = q.toString();
+      return request<any>(`/notifications${qs ? `?${qs}` : ""}`);
+    },
+    markAsRead: (id: string) =>
+      request<any>(`/notifications/${id}/read`, {
+        method: "PATCH",
+      }),
+    markAllAsRead: () =>
+      request<any>("/notifications/mark-all-read", {
+        method: "POST",
+      }),
+  },
+
+  // Phase 11: Customer Support & Diagnostics
+  support: {
+    createBundle: (body?: { includeExecutionIds?: string[]; notes?: string }) =>
+      request<any>("/support/bundle", {
+        method: "POST",
+        body: JSON.stringify(body || {}),
+      }),
+    downloadBundle: (bundleId: string) => request<any>(`/support/bundle/${bundleId}/download`),
+    submitFeedback: (body: { category: string; rating?: number; comment: string; contactEmail?: string }) =>
+      request<any>("/support/feedback", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+  },
+
+  // Phase 11: Public Status
+  status: {
+    getPublic: () => request<any>("/status/public"),
+  },
 };

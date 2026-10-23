@@ -34,14 +34,15 @@ import { DataPrivacyTab } from "../../components/enterprise/DataPrivacyTab";
 import { SsoTab } from "../../components/enterprise/SsoTab";
 import { ScimTab } from "../../components/enterprise/ScimTab";
 import { SessionsTab } from "../../components/enterprise/SessionsTab";
-import { ShieldAlert, FileText, Database } from "lucide-react";
+import { SupportFeedbackTab } from "../../components/enterprise/SupportFeedbackTab";
+import { ShieldAlert, FileText, Database, LifeBuoy } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<"profile" | "workspace" | "members" | "billing" | "security" | "api-keys" | "webhooks" | "custom-integrations" | "governance" | "audit-logs" | "data-privacy" | "sso" | "scim">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "workspace" | "members" | "billing" | "security" | "api-keys" | "webhooks" | "custom-integrations" | "governance" | "audit-logs" | "data-privacy" | "sso" | "scim" | "support">("profile");
 
   const [name, setName] = useState(user?.name || "");
   const [workspaceName, setWorkspaceName] = useState(user?.workspaceName || "");
@@ -72,6 +73,40 @@ export default function SettingsPage() {
   const { data: inviteData } = useQuery({
     queryKey: ["workspace-invitations"],
     queryFn: () => api.members.listInvitations(),
+  });
+
+  // Phase 11: Usage Forecast & Alerts
+  const { data: forecastData } = useQuery({
+    queryKey: ["workspace-usage-forecast"],
+    queryFn: () => api.usageAlerts.getForecast(),
+  });
+
+  const { data: alertConfigData } = useQuery({
+    queryKey: ["workspace-usage-alert-config"],
+    queryFn: () => api.usageAlerts.getAlertConfig(),
+  });
+
+  const [alertSettings, setAlertSettings] = useState<any>({
+    threshold50: true,
+    threshold80: true,
+    threshold90: true,
+    threshold100: true,
+    notifyInApp: true,
+    notifyEmail: true,
+  });
+
+  React.useEffect(() => {
+    if (alertConfigData?.config) {
+      setAlertSettings(alertConfigData.config);
+    }
+  }, [alertConfigData]);
+
+  const saveAlertsMutation = useMutation({
+    mutationFn: (data: any) => api.usageAlerts.updateAlertConfig(data),
+    onSuccess: () => {
+      setSaveSuccess("Usage threshold alert preferences saved!");
+      setTimeout(() => setSaveSuccess(null), 3000);
+    },
   });
 
   // Mutations
@@ -359,6 +394,20 @@ export default function SettingsPage() {
         >
           <Users className="h-4 w-4" />
           <span>SCIM Provisioning</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveTab("support"); setActionError(null); }}
+          data-testid="tab-support"
+          className={cn(
+            "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
+            activeTab === "support"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          )}
+        >
+          <LifeBuoy className="h-4 w-4" />
+          <span>Support & Diagnostics</span>
         </button>
       </div>
 
@@ -810,6 +859,99 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          {/* Phase 11: Usage Forecasting & Burn Rate Projection */}
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs space-y-3" data-testid="usage-forecast-card">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Usage Forecasting & Consumption Projection
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Transparent estimation of period-end execution consumption based on current observed run rate.
+                </p>
+              </div>
+              <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-bold">
+                Linear Extrapolation
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              <div className="rounded-lg bg-slate-50 p-3 border border-slate-100">
+                <p className="text-[11px] text-slate-500">Current Daily Burn Rate</p>
+                <p className="text-xl font-bold text-slate-900 font-mono mt-1">
+                  {forecastData?.burnRatePerDay ?? 0}
+                  <span className="text-xs font-normal text-slate-400"> runs/day</span>
+                </p>
+              </div>
+
+              <div className="rounded-lg bg-slate-50 p-3 border border-slate-100">
+                <p className="text-[11px] text-slate-500">Projected Month-End Usage</p>
+                <p className="text-xl font-bold text-slate-900 font-mono mt-1">
+                  ~{forecastData?.projectedPeriodEndTotal ?? 0}
+                  <span className="text-xs font-normal text-slate-400"> runs</span>
+                </p>
+              </div>
+
+              <div className="rounded-lg bg-slate-50 p-3 border border-slate-100">
+                <p className="text-[11px] text-slate-500">Projected Quota Utilization</p>
+                <p className="text-xl font-bold text-slate-900 font-mono mt-1">
+                  {forecastData?.projectedPercentOfAllowance ?? 0}%
+                </p>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-500 italic pt-1">
+              {forecastData?.explanation || "Estimating period end totals based on active workflow executions."}
+            </p>
+          </div>
+
+          {/* Phase 11: Workspace Usage Threshold Alerts */}
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs space-y-4" data-testid="usage-alerts-card">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Automated Usage Threshold Alerts
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Receive persistent in-app notifications when execution consumption crosses key plan capacity thresholds.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              {[
+                { key: "threshold50", label: "50% Quota" },
+                { key: "threshold80", label: "80% Quota" },
+                { key: "threshold90", label: "90% Quota" },
+                { key: "threshold100", label: "100% (Exhausted)" },
+              ].map((t) => (
+                <label key={t.key} className="flex items-center gap-2 p-3 rounded-lg border border-slate-200 bg-slate-50/50 cursor-pointer hover:bg-slate-50">
+                  <input
+                    type="checkbox"
+                    checked={alertSettings?.[t.key] ?? true}
+                    onChange={(e) => setAlertSettings({ ...alertSettings, [t.key]: e.target.checked })}
+                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="font-semibold text-slate-800">{t.label}</span>
+                </label>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-[11px] text-slate-500">
+                Alerts are deduplicated and emitted at most once per threshold per billing cycle.
+              </span>
+              <button
+                onClick={() => saveAlertsMutation.mutate(alertSettings)}
+                disabled={saveAlertsMutation.isPending}
+                data-testid="btn-save-usage-alerts"
+                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-2xs disabled:opacity-50"
+              >
+                {saveAlertsMutation.isPending ? "Saving..." : "Save Alert Settings"}
+              </button>
+            </div>
+          </div>
+
           {/* Recent Usage Ledger */}
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-2xs">
             <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-4">
@@ -887,6 +1029,9 @@ export default function SettingsPage() {
 
       {/* 13. Enterprise SCIM Tab */}
       {activeTab === "scim" && <ScimTab />}
+
+      {/* 14. Customer Support & Diagnostics Tab */}
+      {activeTab === "support" && <SupportFeedbackTab />}
     </AppShell>
   );
 }

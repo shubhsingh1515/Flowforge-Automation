@@ -9,3 +9,4 @@ export * from "./marketplace";
 export * from "./governance";
 export * from "./sso";
 export * from "./observability";
+export * from "./analytics";

@@ -29,6 +29,8 @@ import {
   ShieldCheck,
   Store,
   Activity,
+  BarChart3,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -55,6 +57,27 @@ export function AppShell({ children, title, description, action }: AppShellProps
 
   const pendingCount = pendingApprovalsData?.meta?.total || 0;
 
+  // Phase 11: Real In-App Notifications
+  const { data: notifData, refetch: refetchNotifs } = useQuery({
+    queryKey: ["workspace-notifications-header"],
+    queryFn: () => api.notifications.list({ limit: 8 }),
+    enabled: Boolean(user),
+    refetchInterval: 10000,
+  });
+
+  const unreadNotifCount = notifData?.unreadCount || 0;
+  const notificationsList = notifData?.notifications || [];
+
+  const handleMarkAllRead = async () => {
+    await api.notifications.markAllAsRead();
+    refetchNotifs();
+  };
+
+  const handleMarkOneRead = async (id: string) => {
+    await api.notifications.markAsRead(id);
+    refetchNotifs();
+  };
+
   const navItems = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { label: "Workflows", href: "/workflows", icon: Workflow },
@@ -68,10 +91,12 @@ export function AppShell({ children, title, description, action }: AppShellProps
     { label: "Integrations", href: "/integrations", icon: Boxes },
     { label: "Connections", href: "/connections", icon: LinkIcon },
     { label: "Execution History", href: "/executions", icon: History },
+    { label: "Analytics", href: "/analytics", icon: BarChart3 },
     { label: "Templates", href: "/templates", icon: FolderGit2 },
     { label: "Marketplace", href: "/marketplace", icon: Store },
     { label: "Plans & Pricing", href: "/pricing", icon: Sparkles },
     { label: "Operations", href: "/operations", icon: Activity },
+    { label: "System Status", href: "/status", icon: CheckCircle2 },
     { label: "Settings", href: "/settings", icon: Settings },
   ];
 
@@ -224,21 +249,97 @@ export function AppShell({ children, title, description, action }: AppShellProps
                 onClick={() => setNotificationsOpen(!notificationsOpen)}
                 className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                 title="Notifications"
+                data-testid="btn-notifications-menu"
               >
                 <Bell className="h-4 w-4" />
+                {unreadNotifCount > 0 && (
+                  <span
+                    data-testid="notifications-badge"
+                    className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-600 text-[10px] font-bold text-white shadow-xs"
+                  >
+                    {unreadNotifCount > 9 ? "9+" : unreadNotifCount}
+                  </span>
+                )}
               </button>
 
               {notificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-4 shadow-lg z-50">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                    <span className="text-xs font-semibold text-slate-900">Notifications</span>
-                    <span className="text-[10px] text-slate-400">Phase 1</span>
+                <div
+                  data-testid="notifications-dropdown"
+                  className="absolute right-0 mt-2 w-96 rounded-2xl border border-slate-200 bg-white shadow-xl z-50 overflow-hidden"
+                >
+                  <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-900">Notifications</span>
+                      {unreadNotifCount > 0 && (
+                        <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700">
+                          {unreadNotifCount} new
+                        </span>
+                      )}
+                    </div>
+                    {unreadNotifCount > 0 && (
+                      <button
+                        onClick={handleMarkAllRead}
+                        data-testid="btn-mark-all-read"
+                        className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800"
+                      >
+                        Mark all as read
+                      </button>
+                    )}
                   </div>
-                  <div className="py-6 text-center text-xs text-slate-500">
-                    <p className="font-medium">No new notifications</p>
-                    <p className="mt-1 text-[11px] text-slate-400">
-                      Live execution alerts and status reports will appear here in Phase 2.
-                    </p>
+
+                  <div className="max-h-96 overflow-y-auto divide-y divide-slate-100 text-xs">
+                    {notificationsList.length > 0 ? (
+                      notificationsList.map((n: any) => (
+                        <div
+                          key={n.id}
+                          className={cn(
+                            "p-3.5 hover:bg-slate-50 transition space-y-1",
+                            !n.read && "bg-indigo-50/30"
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span
+                              className={cn(
+                                "font-semibold text-slate-900 text-xs",
+                                !n.read && "font-bold text-indigo-950"
+                              )}
+                            >
+                              {n.title}
+                            </span>
+                            {!n.read && (
+                              <button
+                                onClick={() => handleMarkOneRead(n.id)}
+                                className="text-[10px] text-indigo-600 hover:underline shrink-0"
+                              >
+                                Mark read
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-600 leading-relaxed">{n.message}</p>
+                          <div className="flex items-center justify-between pt-1 text-[10px] text-slate-400">
+                            <span>{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            {n.link && (
+                              <Link
+                                href={n.link}
+                                onClick={() => {
+                                  if (!n.read) handleMarkOneRead(n.id);
+                                  setNotificationsOpen(false);
+                                }}
+                                className="text-indigo-600 hover:underline font-medium"
+                              >
+                                View Details →
+                              </Link>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-8 text-center text-xs text-slate-400">
+                        <CheckCircle2 className="h-6 w-6 text-slate-300 mx-auto mb-1.5" />
+                        <p className="font-semibold text-slate-700">All caught up!</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">No active alerts or notifications.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

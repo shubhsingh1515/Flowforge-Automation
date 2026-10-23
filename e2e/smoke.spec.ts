@@ -628,4 +628,103 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     // Verify reconciliation result feedback
     await expect(page.locator("text=Reconciliation Complete: (Dry Run - No Changes Applied)")).toBeVisible({ timeout: 10000 });
   });
+
+  test("28. Phase 11 Product Analytics Dashboard & Telemetry", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/analytics");
+    await page.waitForLoadState("networkidle");
+
+    // Verify Heading
+    await expect(page.getByRole("heading", { name: "Product Analytics & Insights" })).toBeVisible();
+
+    // Verify time range filters
+    await expect(page.locator('[data-testid="btn-timerange-24h"]')).toBeVisible();
+    await expect(page.locator('[data-testid="btn-timerange-7d"]')).toBeVisible();
+    await expect(page.locator('[data-testid="btn-timerange-30d"]')).toBeVisible();
+    await expect(page.locator('[data-testid="btn-timerange-90d"]')).toBeVisible();
+
+    // Toggle time range filter
+    await page.locator('[data-testid="btn-timerange-30d"]').click();
+
+    // Verify metric cards
+    await expect(page.locator("text=Total Executions")).toBeVisible();
+    await expect(page.locator("text=Success Rate")).toBeVisible();
+    await expect(page.locator("text=Failure Rate")).toBeVisible();
+    await expect(page.locator("text=Latency Percentiles")).toBeVisible();
+
+    // Verify analytical breakdown sections
+    await expect(page.locator("text=Execution Volume Over Time")).toBeVisible();
+    await expect(page.locator("text=Top Failure Root Causes")).toBeVisible();
+    await expect(page.locator("text=Most Frequently Executed Workflows")).toBeVisible();
+  });
+
+  test("29. Phase 11 In-App Notification Center & Usage Intelligence", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/dashboard");
+    await page.waitForLoadState("networkidle");
+
+    // Verify and open notification bell in top navigation bar
+    const bellBtn = page.locator('[data-testid="btn-notifications-menu"]');
+    await expect(bellBtn).toBeVisible();
+    await bellBtn.click();
+
+    // Verify notifications dropdown panel
+    const notifDropdown = page.locator('[data-testid="notifications-dropdown"]');
+    await expect(notifDropdown).toBeVisible();
+    await expect(notifDropdown.getByText("Notifications", { exact: true })).toBeVisible();
+
+    // Navigate to Billing & Usage Settings to verify Usage Forecasting & Alerts
+    await page.goto("/settings");
+    await page.waitForLoadState("networkidle");
+
+    // Click Billing Tab
+    const billingTab = page.locator('button:has-text("Billing & Usage")');
+    await expect(billingTab).toBeVisible({ timeout: 10000 });
+    await billingTab.click();
+
+    // Verify Usage Forecasting card and Threshold Alerts card
+    await expect(page.locator('[data-testid="usage-forecast-card"]')).toBeVisible();
+    await expect(page.locator("text=Usage Forecasting & Consumption Projection")).toBeVisible();
+    await expect(page.locator("text=Current Daily Burn Rate")).toBeVisible();
+    await expect(page.locator('[data-testid="usage-alerts-card"]')).toBeVisible();
+    await expect(page.locator("text=Automated Usage Threshold Alerts")).toBeVisible();
+    await expect(page.locator('[data-testid="btn-save-usage-alerts"]')).toBeVisible();
+  });
+
+  test("30. Phase 11 Support Diagnostics, Feedback & Public Status", async ({ page }) => {
+    await loginAsDemo(page);
+    await page.goto("/settings");
+    await page.waitForLoadState("networkidle");
+
+    // Click Support & Diagnostics Tab
+    const supportTab = page.locator('[data-testid="tab-support"]');
+    await expect(supportTab).toBeVisible({ timeout: 10000 });
+    await supportTab.click();
+
+    // Verify Support Diagnostic Section
+    await expect(page.getByRole("heading", { name: "Customer Support & Self-Service Diagnostics" })).toBeVisible();
+    await expect(page.locator('[data-testid="btn-generate-support-bundle"]')).toBeVisible();
+
+    // Submit Feedback
+    const commentInput = page.locator('[data-testid="textarea-feedback-comment"]');
+    await expect(commentInput).toBeVisible();
+    await commentInput.fill("Automated Phase 11 end-to-end verification feedback note.");
+
+    const submitBtn = page.locator('[data-testid="btn-submit-feedback"]');
+    await expect(submitBtn).toBeVisible();
+    await submitBtn.click();
+
+    // Verify success confirmation
+    await expect(page.locator("text=Thank you for your feedback!")).toBeVisible({ timeout: 10000 });
+
+    // Navigate to Public Status Page
+    await page.goto("/status");
+    await page.waitForLoadState("networkidle");
+
+    // Verify Status Page Content
+    await expect(page.locator("text=FlowForge System Status")).toBeVisible();
+    await expect(page.locator("text=All Systems Operational")).toBeVisible();
+    await expect(page.locator("text=Core Platform Components")).toBeVisible();
+    await expect(page.locator("text=Past Incident History")).toBeVisible();
+  });
 });
