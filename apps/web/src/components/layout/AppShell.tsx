@@ -35,6 +35,7 @@ import {
   Building2,
   Radio,
   Database,
+  Brain,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -104,6 +105,7 @@ export function AppShell({ children, title, description, action }: AppShellProps
     { label: "Business Processes", href: "/processes", icon: Layers },
     { label: "Event Fabric", href: "/events", icon: Radio },
     { label: "Data Products", href: "/data-products", icon: Database },
+    { label: "AI Intelligence", href: "/intelligence", icon: Brain, badge: "P24" },
     { label: "Enterprise Governance", href: "/governance", icon: Building2 },
     { label: "Operations", href: "/operations", icon: Activity },
     { label: "System Status", href: "/status", icon: CheckCircle2 },

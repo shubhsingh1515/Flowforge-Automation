@@ -192,6 +192,14 @@ model Workspace {
   dataSources            DataSourceRegistration[]
   dataPipelines          DataPipelineDefinition[]
   dataQualityRules       DataQualityRule[]
+  // Phase 24: Enterprise AI Intelligence & Governed Decision Automation
+  intelligenceWorkspaces     IntelligenceWorkspace[]
+  businessInsights           BusinessInsight[]
+  forecastRuns               ForecastRun[]
+  rootCauseInvestigations    RootCauseInvestigation[]
+  decisionProposals          DecisionProposal[]
+  decisionOutcomeEvaluations DecisionOutcomeEvaluation[]
+  intelligencePolicy         IntelligencePolicy?
 
   @@map("workspaces")
 }
@@ -2625,4 +2633,197 @@ model DataProductAccessGrant {
   @@unique([dataProductId, granteeType, granteeId])
   @@index([workspaceId, granteeId])
   @@map("data_product_access_grants")
+}
+
+// ==========================================
+// PHASE 24: ENTERPRISE AI INTELLIGENCE & GOVERNED DECISION AUTOMATION
+// ==========================================
+
+model IntelligenceWorkspace {
+  id               String   @id @default(uuid())
+  workspaceId      String
+  name             String
+  description      String?
+  businessQuestion String
+  targetResources  Json     // array of string identifiers e.g. ["workflow:abc", "process:xyz"]
+  timeRangeHours   Int      @default(168)
+  status           String   @default("ACTIVE") // ACTIVE, ARCHIVED
+  createdById      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  workspace        Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  insights         BusinessInsight[]
+  investigations   RootCauseInvestigation[]
+  forecasts        ForecastRun[]
+  proposals        DecisionProposal[]
+
+  @@index([workspaceId, status])
+  @@map("intelligence_workspaces")
+}
+
+model BusinessInsight {
+  id                     String    @id @default(uuid())
+  workspaceId            String
+  intelligenceWorkspaceId String?
+  category               String    // WORKFLOW_RELIABILITY_REGRESSION, PROCESS_BOTTLENECK, SLA_BREACH_RISK, EVENT_DELIVERY_DEGRADATION, DATA_QUALITY_DETERIORATION, DATA_FRESHNESS_VIOLATION, CONNECTOR_FAILURE_CONCENTRATION, ANOMALOUS_EXECUTION_VOLUME
+  severity               String    @default("MEDIUM") // INFO, LOW, MEDIUM, HIGH, CRITICAL
+  status                 String    @default("OPEN") // OPEN, ACKNOWLEDGED, DISMISSED, RESOLVED
+  title                  String
+  summary                String
+  confidence             Float     @default(0.85)
+  correlationKey         String
+  resourceType           String    // WORKFLOW, PROCESS, EVENT, DATA_PRODUCT, CONNECTOR
+  resourceId             String
+  metricsData            Json
+  evidenceReferences     Json
+  observationWindowStart DateTime
+  observationWindowEnd   DateTime
+  acknowledgedAt         DateTime?
+  acknowledgedById       String?
+  resolvedAt             DateTime?
+  firstObservedAt        DateTime  @default(now())
+  lastObservedAt         DateTime  @default(now())
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  workspace              Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  intelligenceWorkspace  IntelligenceWorkspace? @relation(fields: [intelligenceWorkspaceId], references: [id], onDelete: SetNull)
+  proposals              DecisionProposal[]
+  investigations         RootCauseInvestigation[]
+
+  @@index([workspaceId, status, severity])
+  @@index([workspaceId, correlationKey])
+  @@map("business_insights")
+}
+
+model ForecastRun {
+  id                     String    @id @default(uuid())
+  workspaceId            String
+  intelligenceWorkspaceId String?
+  targetMetric           String    // PROCESS_SLA_BREACH_PROBABILITY, EXPECTED_COMPLETION_TIME_MS, QUEUE_BACKLOG, EVENT_DELIVERY_DELAY_MS, WORKFLOW_FAILURE_RISK
+  resourceType           String
+  resourceId             String
+  horizonHours           Int       @default(24)
+  modelMethod            String    // MOVING_AVERAGE, HISTORICAL_PERCENTILE, TREND_EXTRAPOLATION, STATISTICAL_REGRESSION
+  modelVersion           String    @default("v1.0.0")
+  sampleCount            Int
+  predictedValue         Float
+  confidenceIntervalLower Float?
+  confidenceIntervalUpper Float?
+  status                 String    @default("COMPLETED") // COMPLETED, INSUFFICIENT_DATA, FAILED
+  actualValue            Float?
+  evaluationError        Float?
+  evaluatedAt            DateTime?
+  metadata               Json?
+  createdAt              DateTime  @default(now())
+
+  workspace              Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  intelligenceWorkspace  IntelligenceWorkspace? @relation(fields: [intelligenceWorkspaceId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, targetMetric])
+  @@index([workspaceId, resourceId])
+  @@map("forecast_runs")
+}
+
+model RootCauseInvestigation {
+  id                     String    @id @default(uuid())
+  workspaceId            String
+  intelligenceWorkspaceId String?
+  insightId              String?
+  title                  String
+  issueDescription       String
+  status                 String    @default("COMPLETED") // IN_PROGRESS, COMPLETED, FAILED
+  timeline               Json      // array of event objects
+  candidateExplanations  Json      // array of hypotheses
+  contradictoryEvidence  Json?
+  missingEvidence        Json?
+  confidenceScore        Float     @default(0.8)
+  recommendedNextSteps   Json
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  workspace              Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  intelligenceWorkspace  IntelligenceWorkspace? @relation(fields: [intelligenceWorkspaceId], references: [id], onDelete: SetNull)
+  insight                BusinessInsight?       @relation(fields: [insightId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status])
+  @@map("root_cause_investigations")
+}
+
+model DecisionProposal {
+  id                     String    @id @default(uuid())
+  workspaceId            String
+  intelligenceWorkspaceId String?
+  insightId              String?
+  actionType             String    // RETRY_WORKFLOW_EXECUTION, REPLAY_EVENT_DELIVERY, REFRESH_DATA_PIPELINE, ADJUST_WORKER_CONCURRENCY, TRIGGER_PROCESS_REVIEW, CREATE_OPERATIONAL_INCIDENT, RECOMMEND_CONFIGURATION_CHANGE
+  targetResourceType     String
+  targetResourceId       String
+  parameters             Json      // action input
+  rationale              String
+  expectedBenefit        String
+  estimatedRisk          String    @default("LOW") // LOW, MEDIUM, HIGH
+  confidence             Float     @default(0.9)
+  preconditions          Json?
+  simulationResult       Json?
+  status                 String    @default("PENDING_APPROVAL") // DRAFT, VALIDATING, PENDING_APPROVAL, APPROVED, REJECTED, EXECUTING, SUCCEEDED, FAILED, EXPIRED
+  requiredRole           String    @default("ADMIN") // OWNER, ADMIN, MEMBER
+  approvedById           String?
+  approvedAt             DateTime?
+  rejectedById           String?
+  rejectedAt             DateTime?
+  rejectionReason        String?
+  expiresAt              DateTime?
+  executionStartedAt     DateTime?
+  executionCompletedAt   DateTime?
+  executionResult        Json?
+  executionError         String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  workspace              Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  intelligenceWorkspace  IntelligenceWorkspace?     @relation(fields: [intelligenceWorkspaceId], references: [id], onDelete: SetNull)
+  insight                BusinessInsight?           @relation(fields: [insightId], references: [id], onDelete: SetNull)
+  outcomeEvaluations     DecisionOutcomeEvaluation[]
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, actionType])
+  @@map("decision_proposals")
+}
+
+model DecisionOutcomeEvaluation {
+  id                      String   @id @default(uuid())
+  workspaceId             String
+  proposalId              String
+  targetMetric            String
+  baselineValue           Float
+  postActionValue         Float
+  delta                   Float
+  outcomeVerdict          String   // IMPROVED, WORSENED, NEUTRAL, INSUFFICIENT_DATA
+  confidence              Float    @default(0.85)
+  evaluationWindowMinutes Int      @default(60)
+  evaluatedAt             DateTime @default(now())
+
+  workspace               Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  proposal                DecisionProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, targetMetric])
+  @@index([proposalId])
+  @@map("decision_outcome_evaluations")
+}
+
+model IntelligencePolicy {
+  id                           String   @id @default(uuid())
+  workspaceId                  String   @unique
+  autoApprovalRiskThreshold    String   @default("NONE") // NONE, LOW
+  maxDailyDecisionExecutions   Int      @default(100)
+  allowedActionTypes           Json     // string[] allowlist
+  requireSimulationForHighRisk Boolean  @default(true)
+  evidenceRetentionDays        Int      @default(90)
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  workspace                    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("intelligence_policies")
 }

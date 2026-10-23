@@ -1602,4 +1602,63 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     await queryTab.click();
     await expect(page.locator("text=Query Published Dataset")).toBeVisible();
   });
+
+  test("49. Phase 24 Enterprise AI Intelligence, Predictive Insights & Governed Decision Support Console", async ({ page }) => {
+    await loginAsDemo(page);
+
+    // 1. Navigate to AI Intelligence Console
+    await page.goto("/intelligence");
+    await page.waitForLoadState("networkidle");
+
+    // 2. Verify page header and evidence badge
+    await expect(page.getByRole("heading", { name: "Enterprise AI Intelligence & Decision Support" })).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.locator("text=Evidence-grounded operational insights, statistical outcome forecasts")
+    ).toBeVisible();
+    await expect(page.locator("text=Sensitive Data Redaction Active")).toBeVisible();
+
+    // 3. Trigger telemetry analysis
+    const analyzeBtn = page.getByRole("button", { name: "Analyze Insights" });
+    await expect(analyzeBtn).toBeVisible({ timeout: 10000 });
+    await analyzeBtn.click();
+
+    // 4. Navigate across Intelligence tabs
+    const insightsTab = page.getByRole("button", { name: /Insights \(/i });
+    await expect(insightsTab).toBeVisible();
+    await insightsTab.click();
+    await expect(page.getByRole("button", { name: "Re-run Analysis" })).toBeVisible();
+
+    const forecastsTab = page.getByRole("button", { name: /Predictive Forecasts \(/i });
+    await expect(forecastsTab).toBeVisible();
+    await forecastsTab.click();
+    await expect(page.locator("text=Statistical modeling (mean, standard deviation, P90 bootstrap)")).toBeVisible();
+
+    const invTab = page.getByRole("button", { name: /Root Cause \(/i });
+    await expect(invTab).toBeVisible();
+    await invTab.click();
+    await expect(page.locator("text=Cross-System Root-Cause Investigations")).toBeVisible();
+
+    const decisionsTab = page.getByRole("button", { name: /Governed Decisions \(/i });
+    await expect(decisionsTab).toBeVisible();
+    await decisionsTab.click();
+    await expect(page.locator("text=Governed Decision Automation Center")).toBeVisible();
+
+    // 5. Open Propose Action Modal
+    const proposeBtn = page.getByRole("button", { name: "Propose Action" });
+    await expect(proposeBtn).toBeVisible();
+    await proposeBtn.click();
+    await expect(page.locator("text=Create Governed Decision Proposal")).toBeVisible();
+    await expect(page.getByText("Allowlisted Action", { exact: true })).toBeVisible();
+
+    // Cancel modal
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.locator("text=Create Governed Decision Proposal")).not.toBeVisible();
+
+    // 6. Outcome Feedback Loop Tab
+    const outcomesTab = page.getByRole("button", { name: /Outcome Feedback \(/i });
+    await expect(outcomesTab).toBeVisible();
+    await outcomesTab.click();
+    await expect(page.locator("text=Post-Action Outcome Feedback Loop")).toBeVisible();
+    await expect(page.locator("text=Proposal ID / Action")).toBeVisible();
+  });
 });

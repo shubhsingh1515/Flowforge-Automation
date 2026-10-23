@@ -37,6 +37,13 @@ export const API_KEY_SCOPES = [
   "data:publish",
   "data:pipelines:run",
   "data:quality:manage",
+  "intelligence:read",
+  "intelligence:analyze",
+  "intelligence:forecast",
+  "intelligence:propose",
+  "intelligence:approve",
+  "intelligence:execute",
+  "intelligence:manage",
 ] as const;
 
 export type ApiKeyScope = (typeof API_KEY_SCOPES)[number];

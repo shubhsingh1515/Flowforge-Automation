@@ -1232,6 +1232,99 @@ export class FlowForgeClient {
     },
   };
 
+  // ==========================================
+  // ENTERPRISE AI INTELLIGENCE & DECISION SUPPORT (PHASE 24)
+  // ==========================================
+  public readonly intelligence = {
+    getOverview: async () => {
+      return this.request<any>("/intelligence/overview");
+    },
+    workspaces: {
+      create: async (data: { name: string; description?: string; domain: string; contextFilter?: any }) => {
+        return this.request<any>("/intelligence/workspaces", "POST", data);
+      },
+      list: async () => {
+        return this.request<any>("/intelligence/workspaces");
+      },
+      get: async (id: string) => {
+        return this.request<any>(`/intelligence/workspaces/${id}`);
+      },
+    },
+    insights: {
+      analyze: async (data: { intelligenceWorkspaceId?: string; observationWindowHours?: number; targetCategories?: string[] }) => {
+        return this.request<any>("/intelligence/insights/analyze", "POST", data);
+      },
+      list: async (query?: { intelligenceWorkspaceId?: string; category?: string; severity?: string; status?: string; limit?: number }) => {
+        const q = new URLSearchParams(query as any).toString();
+        return this.request<any>(`/intelligence/insights${q ? "?" + q : ""}`);
+      },
+      updateStatus: async (id: string, status: string) => {
+        return this.request<any>(`/intelligence/insights/${id}/status`, "PATCH", { status });
+      },
+    },
+    forecasts: {
+      run: async (data: { targetMetric: string; targetResourceId: string; horizonHours?: number; lookbackDays?: number }) => {
+        return this.request<any>("/intelligence/forecasts/run", "POST", data);
+      },
+      list: async (query?: { targetResourceId?: string; limit?: number }) => {
+        const q = new URLSearchParams(query as any).toString();
+        return this.request<any>(`/intelligence/forecasts${q ? "?" + q : ""}`);
+      },
+    },
+    investigations: {
+      start: async (data: { incidentId?: string; insightId?: string; symptomDescription: string; lookbackHours?: number }) => {
+        return this.request<any>("/intelligence/investigations", "POST", data);
+      },
+      list: async () => {
+        return this.request<any>("/intelligence/investigations");
+      },
+      get: async (id: string) => {
+        return this.request<any>(`/intelligence/investigations/${id}`);
+      },
+    },
+    proposals: {
+      create: async (data: {
+        title: string;
+        description: string;
+        actionType: string;
+        targetResourceId: string;
+        parameters?: any;
+        preconditions?: any[];
+        expectedImpact?: string;
+        confidenceScore?: number;
+        sourceInsightId?: string;
+        investigationId?: string;
+      }) => {
+        return this.request<any>("/intelligence/proposals", "POST", data);
+      },
+      list: async (query?: { status?: string; limit?: number }) => {
+        const q = new URLSearchParams(query as any).toString();
+        return this.request<any>(`/intelligence/proposals${q ? "?" + q : ""}`);
+      },
+      get: async (id: string) => {
+        return this.request<any>(`/intelligence/proposals/${id}`);
+      },
+      approve: async (id: string, data?: { notes?: string }) => {
+        return this.request<any>(`/intelligence/proposals/${id}/approve`, "POST", data || {});
+      },
+      reject: async (id: string, data?: { notes?: string }) => {
+        return this.request<any>(`/intelligence/proposals/${id}/reject`, "POST", data || {});
+      },
+      execute: async (id: string) => {
+        return this.request<any>(`/intelligence/proposals/${id}/execute`, "POST", {});
+      },
+    },
+    outcomes: {
+      evaluate: async (proposalId: string) => {
+        return this.request<any>(`/intelligence/outcomes/evaluate/${proposalId}`, "POST", {});
+      },
+      list: async () => {
+        return this.request<any>("/intelligence/outcomes");
+      },
+    },
+
+  };
+
 }
 
 export * from "@flowforge/connector-sdk";

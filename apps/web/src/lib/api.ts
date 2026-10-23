@@ -1137,4 +1137,71 @@ export const api = {
       request<any>("/data-lineage/edges", { method: "POST", body: JSON.stringify(body) }),
   },
 
+  intelligence: {
+    getOverview: (query?: { timeRangeHours?: number }) => {
+      const q = new URLSearchParams(query as any).toString();
+      return request<any>(`/intelligence/overview${q ? "?" + q : ""}`);
+    },
+    workspaces: {
+      create: (body: any) =>
+        request<any>("/intelligence/workspaces", { method: "POST", body: JSON.stringify(body) }),
+      list: () => request<any>("/intelligence/workspaces"),
+      get: (id: string) => request<any>(`/intelligence/workspaces/${id}`),
+    },
+    insights: {
+      analyze: (body?: { intelligenceWorkspaceId?: string; timeRangeHours?: number }) =>
+        request<any>("/intelligence/insights/analyze", { method: "POST", body: JSON.stringify(body || {}) }),
+      list: (query?: { category?: string; severity?: string; status?: string }) => {
+        const q = new URLSearchParams(query as any).toString();
+        return request<any>(`/intelligence/insights${q ? "?" + q : ""}`);
+      },
+      get: (id: string) => request<any>(`/intelligence/insights/${id}`),
+      updateStatus: (id: string, status: string) =>
+        request<any>(`/intelligence/insights/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
+      acknowledge: (id: string) =>
+        request<any>(`/intelligence/insights/${id}/acknowledge`, { method: "POST" }),
+      dismiss: (id: string) =>
+        request<any>(`/intelligence/insights/${id}/dismiss`, { method: "POST" }),
+      resolve: (id: string) =>
+        request<any>(`/intelligence/insights/${id}/resolve`, { method: "POST" }),
+    },
+    forecasts: {
+      run: (body: any) =>
+        request<any>("/intelligence/forecasts/run", { method: "POST", body: JSON.stringify(body) }),
+      list: (query?: { targetMetric?: string }) => {
+        const q = new URLSearchParams(query as any).toString();
+        return request<any>(`/intelligence/forecasts${q ? "?" + q : ""}`);
+      },
+    },
+    investigations: {
+      start: (body: any) =>
+        request<any>("/intelligence/investigations", { method: "POST", body: JSON.stringify(body) }),
+      list: () => request<any>("/intelligence/investigations"),
+      get: (id: string) => request<any>(`/intelligence/investigations/${id}`),
+    },
+    proposals: {
+      create: (body: any) =>
+        request<any>("/intelligence/proposals", { method: "POST", body: JSON.stringify(body) }),
+      list: (query?: { status?: string; actionType?: string }) => {
+        const q = new URLSearchParams(query as any).toString();
+        return request<any>(`/intelligence/proposals${q ? "?" + q : ""}`);
+      },
+      get: (id: string) => request<any>(`/intelligence/proposals/${id}`),
+      approve: (id: string, body?: { comment?: string; executeImmediately?: boolean }) =>
+        request<any>(`/intelligence/proposals/${id}/approve`, { method: "POST", body: JSON.stringify(body || {}) }),
+      reject: (id: string, body: { reason: string }) =>
+        request<any>(`/intelligence/proposals/${id}/reject`, { method: "POST", body: JSON.stringify(body) }),
+      execute: (id: string) =>
+        request<any>(`/intelligence/proposals/${id}/execute`, { method: "POST" }),
+    },
+    outcomes: {
+      evaluate: (proposalId: string, body?: any) =>
+        request<any>(`/intelligence/outcomes/evaluate/${proposalId}`, { method: "POST", body: JSON.stringify(body || {}) }),
+      list: (query?: { proposalId?: string }) => {
+        const q = new URLSearchParams(query as any).toString();
+        return request<any>(`/intelligence/outcomes${q ? "?" + q : ""}`);
+      },
+    },
+  },
+
 };

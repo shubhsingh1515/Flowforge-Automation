@@ -1195,4 +1195,196 @@ describe("FlowForge TypeScript SDK Client Suite", () => {
     expect(lineage.data.nodes.length).toBe(1);
   });
 
+  it("supports Phase 24 Enterprise AI Intelligence and Decision Support methods via SDK", async () => {
+    global.fetch = vi.fn().mockImplementation(async (url: any, init: any) => {
+      const u = String(url);
+      const method = init?.method || "GET";
+
+      if (u.includes("/intelligence/overview")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              workspacesCount: 1,
+              activeInsightsCount: 3,
+              pendingProposalsCount: 2,
+              evaluationsCount: 5,
+            },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/intelligence/workspaces") && method === "POST") {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({
+            data: {
+              id: "iw-1",
+              name: "Operations Intelligence",
+              domain: "OPERATIONS",
+            },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/intelligence/insights/analyze") && method === "POST") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              generatedCount: 2,
+              deduplicatedCount: 1,
+              insights: [{ id: "ins-1", category: "WORKFLOW_RELIABILITY_REGRESSION" }],
+            },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/intelligence/forecasts/run") && method === "POST") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              id: "fc-1",
+              targetMetric: "EXECUTION_DURATION",
+              forecastStatus: "COMPLETED",
+              predictedMean: 450.5,
+            },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/intelligence/investigations") && method === "POST") {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({
+            data: {
+              id: "inv-1",
+              symptomDescription: "High retry rate on invoice webhook",
+              timeline: [{ service: "Event Fabric", severity: "CRITICAL" }],
+            },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/approve")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              id: "prop-1",
+              status: "APPROVED",
+              approvalNotes: "Approved by lead SRE",
+            },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/execute")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              id: "prop-1",
+              status: "SUCCEEDED",
+              executionResult: { success: true },
+            },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/outcomes/evaluate")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              id: "eval-1",
+              proposalId: "prop-1",
+              outcomeVerdict: "IMPROVED",
+            },
+          }),
+        } as any;
+      }
+
+      if (u.includes("/intelligence/proposals") && method === "POST") {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({
+            data: {
+              id: "prop-1",
+              title: "Replay dead-letter deliveries",
+              status: "DRAFT",
+              actionType: "REPLAY_EVENT_DELIVERY",
+            },
+          }),
+        } as any;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ data: {} }),
+      } as any;
+    });
+
+    const client = new FlowForgeClient({ apiKey: "ff_live_valid" });
+
+    // Overview
+    const overview = await client.intelligence.getOverview();
+    expect(overview.data.activeInsightsCount).toBe(3);
+
+    // Workspace
+    const ws = await client.intelligence.workspaces.create({
+      name: "Operations Intelligence",
+      domain: "OPERATIONS",
+    });
+    expect(ws.data.id).toBe("iw-1");
+
+    // Insight Analysis
+    const analysis = await client.intelligence.insights.analyze({
+      intelligenceWorkspaceId: "iw-1",
+    });
+    expect(analysis.data.generatedCount).toBe(2);
+
+    // Forecast
+    const forecast = await client.intelligence.forecasts.run({
+      targetMetric: "EXECUTION_DURATION",
+      targetResourceId: "wf-1",
+    });
+    expect(forecast.data.forecastStatus).toBe("COMPLETED");
+
+    // Investigation
+    const inv = await client.intelligence.investigations.start({
+      symptomDescription: "High retry rate on invoice webhook",
+    });
+    expect(inv.data.id).toBe("inv-1");
+
+    // Decision Proposal lifecycle
+    const prop = await client.intelligence.proposals.create({
+      title: "Replay dead-letter deliveries",
+      description: "Auto-replay dead letters",
+      actionType: "REPLAY_EVENT_DELIVERY",
+      targetResourceId: "sub-1",
+    });
+    expect(prop.data.status).toBe("DRAFT");
+
+    const approved = await client.intelligence.proposals.approve("prop-1", { notes: "Approved by lead SRE" });
+    expect(approved.data.status).toBe("APPROVED");
+
+    const executed = await client.intelligence.proposals.execute("prop-1");
+    expect(executed.data.status).toBe("SUCCEEDED");
+
+    const evaluated = await client.intelligence.outcomes.evaluate("prop-1");
+    expect(evaluated.data.outcomeVerdict).toBe("IMPROVED");
+  });
+
 });
