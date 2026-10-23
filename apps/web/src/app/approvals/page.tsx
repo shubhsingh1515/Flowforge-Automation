@@ -12,15 +12,9 @@ import {
   RotateCw,
   AlertCircle,
   ExternalLink,
-  ChevronRight,
   Eye,
   Check,
   X,
-  MessageSquare,
-  Search,
-  Filter,
-  User,
-  Calendar,
   Layers,
 } from "lucide-react";
 import Link from "next/link";
@@ -81,7 +75,6 @@ export default function ApprovalsPage() {
   });
 
   const approvals = data?.data || [];
-  const pendingCount = approvals.filter((a: any) => a.status === "PENDING").length;
 
   return (
     <AppShell
@@ -89,29 +82,29 @@ export default function ApprovalsPage() {
       description="Review workflow steps waiting for human sign-off, inspect payload context, and route decisions."
     >
       {/* Banner */}
-      <div className="mb-6 rounded-xl border border-purple-200/80 bg-gradient-to-r from-purple-50/60 via-slate-50 to-white p-4 shadow-2xs">
+      <div className="mb-6 rounded-2xl border border-indigo-100/80 bg-gradient-to-r from-indigo-50/70 via-purple-50/40 to-white p-5 shadow-card">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-100/80 text-purple-700">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#6558E8] text-white shadow-sm shadow-[#6558E8]/20">
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-slate-900 text-xs">
+                <span className="font-bold text-slate-900 text-sm">
                   Human-in-the-Loop Workflow Governance
                 </span>
                 <span className="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-semibold text-purple-800">
                   Non-blocking Async
                 </span>
               </div>
-              <p className="mt-0.5 text-[11px] text-slate-600 leading-relaxed">
+              <p className="mt-0.5 text-xs text-slate-600 leading-relaxed max-w-2xl">
                 Workflows paused at an Approval node persist their state safely in PostgreSQL and yield worker resources. Once decided, the execution resumes automatically down the matching branch.
               </p>
             </div>
           </div>
           <button
             onClick={() => queryClient.invalidateQueries({ queryKey: ["approvals"] })}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
           >
             <RotateCw className="h-3.5 w-3.5" />
             <span>Refresh</span>
@@ -120,9 +113,9 @@ export default function ApprovalsPage() {
       </div>
 
       {notice && (
-        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800 flex items-center justify-between shadow-2xs">
-          <span>{notice}</span>
-          <button onClick={() => setNotice(null)} className="text-emerald-600 hover:text-emerald-800">
+        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs text-emerald-800 flex items-center justify-between shadow-2xs">
+          <span className="font-medium">{notice}</span>
+          <button onClick={() => setNotice(null)} className="text-emerald-600 hover:text-emerald-800 font-bold">
             ✕
           </button>
         </div>
@@ -130,15 +123,15 @@ export default function ApprovalsPage() {
 
       {/* Filter Tabs */}
       <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
+        <div className="flex items-center gap-1 rounded-xl border border-slate-200/90 bg-white p-1 shadow-2xs">
           {["PENDING", "APPROVED", "REJECTED", "ALL"].map((st) => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
               className={cn(
-                "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                "rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors cursor-pointer",
                 statusFilter === st
-                  ? "bg-purple-50 text-purple-700 font-semibold"
+                  ? "bg-indigo-50 text-indigo-700 font-semibold shadow-2xs"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
               )}
             >
@@ -149,12 +142,12 @@ export default function ApprovalsPage() {
       </div>
 
       {/* Approvals Table */}
-      <div className="rounded-xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
+      <div className="rounded-2xl border border-slate-200/90 bg-white shadow-card overflow-hidden">
         {isLoading ? (
           <div className="py-16 text-center text-xs text-slate-400">Loading approvals...</div>
         ) : approvals.length === 0 ? (
           <div className="py-20 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400 mb-3">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 border border-indigo-100 text-[#6558E8] mb-3 shadow-2xs">
               <ShieldCheck className="h-6 w-6" />
             </div>
             <h4 className="text-sm font-bold text-slate-900">No approvals in this view</h4>
@@ -165,7 +158,7 @@ export default function ApprovalsPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/70 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-100">
+              <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-100 text-[11px]">
                 <tr>
                   <th className="py-3 px-6">Approval Title</th>
                   <th className="py-3 px-6">Workflow</th>
@@ -178,11 +171,11 @@ export default function ApprovalsPage() {
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 {approvals.map((app: any) => (
-                  <tr key={app.id} className="hover:bg-slate-50/50 transition-colors">
+                  <tr key={app.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3.5 px-6">
                       <div className="font-bold text-slate-900">{app.title}</div>
                       {app.description && (
-                        <div className="text-[11px] text-slate-500 line-clamp-1">{app.description}</div>
+                        <div className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">{app.description}</div>
                       )}
                     </td>
                     <td className="py-3.5 px-6 font-medium text-slate-700">
@@ -192,31 +185,31 @@ export default function ApprovalsPage() {
                       </div>
                     </td>
                     <td className="py-3.5 px-6">
-                      <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
                         {app.requiredRole || "MEMBER"}
                       </span>
                     </td>
                     <td className="py-3.5 px-6">
                       <span
                         className={cn(
-                          "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-semibold border",
                           app.status === "APPROVED"
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200/60"
                             : app.status === "REJECTED"
-                            ? "bg-rose-50 text-rose-700 border border-rose-200"
+                            ? "bg-rose-50 text-rose-700 border-rose-200/60"
                             : app.status === "PENDING"
-                            ? "bg-purple-50 text-purple-700 border border-purple-200 animate-pulse"
-                            : "bg-slate-100 text-slate-600 border border-slate-200"
+                            ? "bg-purple-50 text-purple-700 border-purple-200/60 animate-pulse"
+                            : "bg-slate-100 text-slate-600 border-slate-200/60"
                         )}
                       >
                         {app.status === "APPROVED" ? (
-                          <CheckCircle2 className="h-3 w-3" />
+                          <CheckCircle2 className="h-3 w-3 text-emerald-600" />
                         ) : app.status === "REJECTED" ? (
-                          <XCircle className="h-3 w-3" />
+                          <XCircle className="h-3 w-3 text-rose-600" />
                         ) : app.status === "PENDING" ? (
-                          <Clock className="h-3 w-3" />
+                          <Clock className="h-3 w-3 text-purple-600" />
                         ) : (
-                          <AlertCircle className="h-3 w-3" />
+                          <AlertCircle className="h-3 w-3 text-slate-500" />
                         )}
                         <span>{app.status}</span>
                       </span>
@@ -230,7 +223,7 @@ export default function ApprovalsPage() {
                         {/* Context inspect button */}
                         <button
                           onClick={() => setSelectedApproval(app)}
-                          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition-colors shadow-2xs"
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200/90 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition-colors shadow-2xs cursor-pointer"
                           title="Inspect execution context"
                         >
                           <Eye className="h-3 w-3" />
@@ -248,7 +241,7 @@ export default function ApprovalsPage() {
                                   decision: "APPROVED",
                                 })
                               }
-                              className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700 transition-colors shadow-2xs"
+                              className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700 transition-colors shadow-2xs cursor-pointer"
                             >
                               <Check className="h-3 w-3" />
                               <span>Approve</span>
@@ -261,7 +254,7 @@ export default function ApprovalsPage() {
                                   decision: "REJECTED",
                                 })
                               }
-                              className="inline-flex items-center gap-1 rounded-md bg-rose-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-rose-700 transition-colors shadow-2xs"
+                              className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-rose-700 transition-colors shadow-2xs cursor-pointer"
                             >
                               <X className="h-3 w-3" />
                               <span>Reject</span>
@@ -280,7 +273,7 @@ export default function ApprovalsPage() {
 
       {/* Decision Modal */}
       {decisionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fade-in">
           <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
@@ -295,7 +288,7 @@ export default function ApprovalsPage() {
               </div>
               <button
                 onClick={() => setDecisionModal(null)}
-                className="rounded p-1 text-slate-400 hover:text-slate-600"
+                className="rounded-lg p-1 text-slate-400 hover:text-slate-600"
               >
                 ✕
               </button>
@@ -305,29 +298,29 @@ export default function ApprovalsPage() {
               <p className="text-slate-600">
                 You are about to submit a <strong className={decisionModal.decision === "APPROVED" ? "text-emerald-700 font-bold" : "text-rose-700 font-bold"}>{decisionModal.decision}</strong> decision for:
               </p>
-              <div className="rounded-lg bg-slate-50 border border-slate-200/80 p-3 font-semibold text-slate-800">
+              <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3 font-semibold text-slate-800">
                 {decisionModal.title}
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1">
+                <label className="block text-slate-700 font-semibold mb-1">
                   Optional Comment / Reason
                 </label>
                 <textarea
                   rows={3}
                   value={decisionComment}
                   onChange={(e) => setDecisionComment(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-indigo-600 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 text-xs focus:bg-white focus:border-[#6558E8] focus:outline-none focus:ring-2 focus:ring-[#6558E8]/20 transition-all"
                   placeholder="Provide any context or notes for the execution record..."
                 />
               </div>
             </div>
 
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="mt-6 flex justify-end gap-2.5">
               <button
                 type="button"
                 onClick={() => setDecisionModal(null)}
-                className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+                className="rounded-xl bg-slate-100 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition-colors"
               >
                 Cancel
               </button>
@@ -342,7 +335,7 @@ export default function ApprovalsPage() {
                 }
                 disabled={decideMutation.isPending}
                 className={cn(
-                  "rounded-lg px-4 py-1.5 text-xs font-semibold text-white shadow-2xs transition-colors",
+                  "rounded-xl px-4 py-2 text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer",
                   decisionModal.decision === "APPROVED"
                     ? "bg-emerald-600 hover:bg-emerald-700"
                     : "bg-rose-600 hover:bg-rose-700"
@@ -357,12 +350,12 @@ export default function ApprovalsPage() {
 
       {/* Context Inspection Modal */}
       {selectedApproval && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fade-in">
           <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-purple-600" />
+                  <ShieldCheck className="h-4 w-4 text-[#6558E8]" />
                   <h3 className="text-sm font-bold text-slate-900">{selectedApproval.title}</h3>
                 </div>
                 <p className="text-[11px] text-slate-500 mt-0.5">
@@ -371,24 +364,24 @@ export default function ApprovalsPage() {
               </div>
               <button
                 onClick={() => setSelectedApproval(null)}
-                className="rounded p-1 text-slate-400 hover:text-slate-600"
+                className="rounded-lg p-1 text-slate-400 hover:text-slate-600"
               >
                 ✕
               </button>
             </div>
 
             <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-              <div className="rounded-lg bg-slate-50 p-2.5">
-                <span className="text-slate-400 text-[10px]">Status</span>
-                <p className="font-bold text-slate-800">{selectedApproval.status}</p>
+              <div className="rounded-xl bg-slate-50 border border-slate-200/60 p-3">
+                <span className="text-slate-400 text-[10px] uppercase font-semibold">Status</span>
+                <p className="font-bold text-slate-800 mt-0.5">{selectedApproval.status}</p>
               </div>
-              <div className="rounded-lg bg-slate-50 p-2.5">
-                <span className="text-slate-400 text-[10px]">Required Role</span>
-                <p className="font-bold text-slate-800">{selectedApproval.requiredRole}</p>
+              <div className="rounded-xl bg-slate-50 border border-slate-200/60 p-3">
+                <span className="text-slate-400 text-[10px] uppercase font-semibold">Required Role</span>
+                <p className="font-bold text-slate-800 mt-0.5">{selectedApproval.requiredRole}</p>
               </div>
-              <div className="rounded-lg bg-slate-50 p-2.5">
-                <span className="text-slate-400 text-[10px]">Created At</span>
-                <p className="font-bold text-slate-800">{formatDate(selectedApproval.createdAt)}</p>
+              <div className="rounded-xl bg-slate-50 border border-slate-200/60 p-3">
+                <span className="text-slate-400 text-[10px] uppercase font-semibold">Created At</span>
+                <p className="font-bold text-slate-800 mt-0.5">{formatDate(selectedApproval.createdAt)}</p>
               </div>
             </div>
 
@@ -404,7 +397,7 @@ export default function ApprovalsPage() {
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
                 Execution Snapshot Context (Variables & Payload)
               </h4>
-              <pre className="rounded-xl bg-slate-900 p-3 font-mono text-[11px] text-slate-200 overflow-x-auto max-h-72">
+              <pre className="rounded-xl bg-slate-950 p-3.5 font-mono text-[11px] text-slate-200 overflow-x-auto max-h-72 border border-slate-800">
                 {JSON.stringify(selectedApproval.context || {}, null, 2)}
               </pre>
             </div>
@@ -412,14 +405,14 @@ export default function ApprovalsPage() {
             <div className="mt-6 flex justify-between items-center">
               <Link
                 href="/executions"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#6558E8] hover:text-[#5345D8]"
               >
                 <ExternalLink className="h-3.5 w-3.5" />
                 <span>View Full Execution History</span>
               </Link>
               <button
                 onClick={() => setSelectedApproval(null)}
-                className="rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+                className="rounded-xl bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition-colors"
               >
                 Close
               </button>

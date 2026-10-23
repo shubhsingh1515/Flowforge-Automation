@@ -224,7 +224,7 @@ export default function SettingsPage() {
           className={cn(
             "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
             activeTab === "profile"
-              ? "border-indigo-600 text-indigo-600"
+              ? "border-[#6558E8] text-[#6558E8]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           )}
         >
@@ -237,7 +237,7 @@ export default function SettingsPage() {
           className={cn(
             "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
             activeTab === "workspace"
-              ? "border-indigo-600 text-indigo-600"
+              ? "border-[#6558E8] text-[#6558E8]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           )}
         >
@@ -250,7 +250,7 @@ export default function SettingsPage() {
           className={cn(
             "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
             activeTab === "members"
-              ? "border-indigo-600 text-indigo-600"
+              ? "border-[#6558E8] text-[#6558E8]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           )}
         >
@@ -263,7 +263,7 @@ export default function SettingsPage() {
           className={cn(
             "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
             activeTab === "billing"
-              ? "border-indigo-600 text-indigo-600"
+              ? "border-[#6558E8] text-[#6558E8]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           )}
         >
@@ -276,7 +276,7 @@ export default function SettingsPage() {
           className={cn(
             "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
             activeTab === "security"
-              ? "border-indigo-600 text-indigo-600"
+              ? "border-[#6558E8] text-[#6558E8]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           )}
         >
@@ -290,7 +290,7 @@ export default function SettingsPage() {
           className={cn(
             "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
             activeTab === "api-keys"
-              ? "border-indigo-600 text-indigo-600"
+              ? "border-[#6558E8] text-[#6558E8]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           )}
         >
@@ -304,7 +304,7 @@ export default function SettingsPage() {
           className={cn(
             "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
             activeTab === "webhooks"
-              ? "border-indigo-600 text-indigo-600"
+              ? "border-[#6558E8] text-[#6558E8]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           )}
         >
@@ -318,7 +318,7 @@ export default function SettingsPage() {
           className={cn(
             "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
             activeTab === "custom-integrations"
-              ? "border-indigo-600 text-indigo-600"
+              ? "border-[#6558E8] text-[#6558E8]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           )}
         >
@@ -332,7 +332,7 @@ export default function SettingsPage() {
           className={cn(
             "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
             activeTab === "governance"
-              ? "border-indigo-600 text-indigo-600"
+              ? "border-[#6558E8] text-[#6558E8]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           )}
         >
@@ -346,7 +346,7 @@ export default function SettingsPage() {
           className={cn(
             "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
             activeTab === "audit-logs"
-              ? "border-indigo-600 text-indigo-600"
+              ? "border-[#6558E8] text-[#6558E8]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           )}
         >
@@ -360,7 +360,7 @@ export default function SettingsPage() {
           className={cn(
             "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
             activeTab === "data-privacy"
-              ? "border-indigo-600 text-indigo-600"
+              ? "border-[#6558E8] text-[#6558E8]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           )}
         >
@@ -374,7 +374,7 @@ export default function SettingsPage() {
           className={cn(
             "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
             activeTab === "sso"
-              ? "border-indigo-600 text-indigo-600"
+              ? "border-[#6558E8] text-[#6558E8]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           )}
         >
@@ -388,7 +388,7 @@ export default function SettingsPage() {
           className={cn(
             "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
             activeTab === "scim"
-              ? "border-indigo-600 text-indigo-600"
+              ? "border-[#6558E8] text-[#6558E8]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           )}
         >
@@ -402,7 +402,7 @@ export default function SettingsPage() {
           className={cn(
             "pb-3 flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap",
             activeTab === "support"
-              ? "border-indigo-600 text-indigo-600"
+              ? "border-[#6558E8] text-[#6558E8]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           )}
         >

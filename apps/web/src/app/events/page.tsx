@@ -231,9 +231,9 @@ export default function EventFabricPage() {
               refetchSubs();
               refetchDeliveries();
             }}
-            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors cursor-pointer"
           >
-            <RotateCw className="h-4 w-4" />
+            <RotateCw className="h-3.5 w-3.5" />
             Refresh
           </button>
           <button
@@ -243,9 +243,9 @@ export default function EventFabricPage() {
               setActionSuccess(null);
               setIngestModalOpen(true);
             }}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
+            className="flex items-center gap-2 rounded-xl bg-[#6558E8] px-4 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-[#5345D8] transition-colors cursor-pointer"
           >
-            <Send className="h-4 w-4" />
+            <Send className="h-3.5 w-3.5" />
             Ingest Event
           </button>
         </div>
@@ -254,9 +254,9 @@ export default function EventFabricPage() {
       <div className="space-y-6">
         {/* Notice Alerts */}
         {actionSuccess && (
-          <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+          <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs font-semibold text-emerald-800">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
               <span>{actionSuccess}</span>
             </div>
             <button onClick={() => setActionSuccess(null)} className="text-emerald-600 hover:underline">
@@ -266,9 +266,9 @@ export default function EventFabricPage() {
         )}
 
         {actionError && (
-          <div className="flex items-center justify-between rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+          <div className="flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-semibold text-rose-800">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-rose-600" />
+              <AlertTriangle className="h-4 w-4 text-rose-600" />
               <span>{actionError}</span>
             </div>
             <button onClick={() => setActionError(null)} className="text-rose-600 hover:underline">
@@ -279,27 +279,27 @@ export default function EventFabricPage() {
 
         {/* Pipeline Summary Counters */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <span className="text-xs text-slate-400">Total Ingested (24h)</span>
-            <p className="mt-1 text-xl font-bold text-slate-900">{metrics?.ingestedCount || 0}</p>
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card hover:shadow-card-hover transition-all">
+            <span className="text-xs text-slate-400 font-medium">Total Ingested (24h)</span>
+            <p className="mt-1 text-xl font-bold text-slate-900 font-mono tracking-tight">{metrics?.ingestedCount || 0}</p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <span className="text-xs text-slate-400">Delivered Outcomes</span>
-            <p className="mt-1 text-xl font-bold text-emerald-600">{metrics?.deliveredCount || 0}</p>
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card hover:shadow-card-hover transition-all">
+            <span className="text-xs text-slate-400 font-medium">Delivered Outcomes</span>
+            <p className="mt-1 text-xl font-bold text-emerald-600 font-mono tracking-tight">{metrics?.deliveredCount || 0}</p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <span className="text-xs text-slate-400">Active Subscriptions</span>
-            <p className="mt-1 text-xl font-bold text-indigo-600">{subscriptions.length}</p>
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card hover:shadow-card-hover transition-all">
+            <span className="text-xs text-slate-400 font-medium">Active Subscriptions</span>
+            <p className="mt-1 text-xl font-bold text-[#6558E8] font-mono tracking-tight">{subscriptions.length}</p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <span className="text-xs text-slate-400">Dead-Letter Queue</span>
-            <p className={`mt-1 text-xl font-bold ${(metrics?.deadLetterCount || 0) > 0 ? "text-rose-600" : "text-slate-900"}`}>
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card hover:shadow-card-hover transition-all">
+            <span className="text-xs text-slate-400 font-medium">Dead-Letter Queue</span>
+            <p className={`mt-1 text-xl font-bold font-mono tracking-tight ${(metrics?.deadLetterCount || 0) > 0 ? "text-rose-600" : "text-slate-900"}`}>
               {metrics?.deadLetterCount || 0}
             </p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <span className="text-xs text-slate-400">Median Delivery Latency</span>
-            <p className="mt-1 text-xl font-bold text-slate-900">
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card hover:shadow-card-hover transition-all">
+            <span className="text-xs text-slate-400 font-medium">Median Delivery Latency</span>
+            <p className="mt-1 text-xl font-bold text-slate-900 font-mono tracking-tight">
               {metrics?.medianLatencyMs ? `${metrics.medianLatencyMs}ms` : "<10ms"}
             </p>
           </div>

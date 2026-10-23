@@ -56,7 +56,7 @@ export default function AnalyticsPage() {
         <button
           onClick={() => refetch()}
           data-testid="btn-refresh-analytics"
-          className="px-3.5 py-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 shadow-2xs"
+          className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           <span>Refresh Analytics</span>
@@ -65,19 +65,19 @@ export default function AnalyticsPage() {
     >
       <div className="space-y-6" data-testid="analytics-page">
         {/* Filters Bar */}
-        <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-card flex flex-wrap items-center justify-between gap-3">
           {/* Time Range Pills */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+          <div className="flex items-center gap-1 bg-slate-100/70 p-1 rounded-xl shadow-2xs">
             {(["24h", "7d", "30d", "90d"] as const).map((range) => (
               <button
                 key={range}
                 onClick={() => setTimeRange(range)}
                 data-testid={`btn-timerange-${range}`}
                 className={cn(
-                  "px-3 py-1 rounded-md text-xs font-semibold transition",
+                  "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
                   timeRange === range
-                    ? "bg-white text-indigo-600 shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-white text-[#6558E8] shadow-2xs border border-slate-200/60"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
                 )}
               >
                 {range === "24h"
@@ -99,7 +99,7 @@ export default function AnalyticsPage() {
                 value={selectedWorkflowId}
                 onChange={(e) => setSelectedWorkflowId(e.target.value)}
                 data-testid="select-workflow-filter"
-                className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-slate-700 bg-white focus:border-indigo-500 focus:outline-none"
+                className="rounded-xl border border-slate-200/90 px-3 py-1.5 text-xs text-slate-700 bg-white focus:border-[#6558E8] focus:outline-none shadow-2xs"
               >
                 <option value="">All Workflows</option>
                 {workflows.map((wf: any) => (
@@ -114,7 +114,7 @@ export default function AnalyticsPage() {
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
               data-testid="select-status-filter"
-              className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-slate-700 bg-white focus:border-indigo-500 focus:outline-none"
+              className="rounded-xl border border-slate-200/90 px-3 py-1.5 text-xs text-slate-700 bg-white focus:border-[#6558E8] focus:outline-none shadow-2xs"
             >
               <option value="ALL">All Statuses</option>
               <option value="SUCCESS">Success Only</option>
@@ -127,10 +127,10 @@ export default function AnalyticsPage() {
         {/* Top KPI Metrics Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Card 1: Total Executions */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs">
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card hover:shadow-card-hover transition-all">
             <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
               <span className="font-semibold text-slate-700 flex items-center gap-1.5">
-                <Layers className="h-4 w-4 text-indigo-600" />
+                <Layers className="h-4 w-4 text-[#6558E8]" />
                 Total Executions
               </span>
               {overview?.trendVsPreviousPeriod?.executionsChangePercent !== undefined && (
@@ -152,7 +152,7 @@ export default function AnalyticsPage() {
                 </span>
               )}
             </div>
-            <p className="text-2xl font-bold text-slate-900 font-mono">
+            <p className="text-2xl font-bold text-slate-900 font-mono tracking-tight">
               {overview?.totalExecutions ?? 0}
             </p>
             <p className="text-[11px] text-slate-400 mt-1">
@@ -161,7 +161,7 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Card 2: Success Rate */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs">
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card hover:shadow-card-hover transition-all">
             <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
               <span className="font-semibold text-slate-700 flex items-center gap-1.5">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />
@@ -171,7 +171,7 @@ export default function AnalyticsPage() {
                 {overview?.successRatePercent ?? 100}%
               </span>
             </div>
-            <p className="text-2xl font-bold text-slate-900 font-mono">
+            <p className="text-2xl font-bold text-slate-900 font-mono tracking-tight">
               {overview?.successfulExecutions ?? 0}
               <span className="text-xs font-normal text-slate-400"> succeeded</span>
             </p>
@@ -182,7 +182,7 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Card 3: Failure Rate */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs">
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card hover:shadow-card-hover transition-all">
             <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
               <span className="font-semibold text-slate-700 flex items-center gap-1.5">
                 <AlertTriangle className="h-4 w-4 text-rose-600" />
@@ -199,7 +199,7 @@ export default function AnalyticsPage() {
                 {overview?.failureRatePercent ?? 0}%
               </span>
             </div>
-            <p className="text-2xl font-bold text-slate-900 font-mono">
+            <p className="text-2xl font-bold text-slate-900 font-mono tracking-tight">
               {overview?.failedExecutions ?? 0}
               <span className="text-xs font-normal text-slate-400"> failed runs</span>
             </p>
@@ -209,10 +209,10 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Card 4: Duration Percentiles */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs">
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card hover:shadow-card-hover transition-all">
             <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
               <span className="font-semibold text-slate-700 flex items-center gap-1.5">
-                <Clock className="h-4 w-4 text-purple-600" />
+                <Clock className="h-4 w-4 text-[#6558E8]" />
                 Latency Percentiles
               </span>
               <span className="font-mono text-[10px] text-slate-400">Duration</span>

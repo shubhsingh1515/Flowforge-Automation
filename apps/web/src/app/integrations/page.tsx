@@ -7,15 +7,9 @@ import { AppShell } from "../../components/layout/AppShell";
 import {
   Boxes,
   Search,
-  CheckCircle2,
   Clock,
-  Sparkles,
-  ExternalLink,
   X,
   Lock,
-  Zap,
-  Info,
-  ShieldAlert,
   Webhook,
   Globe,
   Mail,
@@ -72,26 +66,26 @@ export default function IntegrationsPage() {
       {/* Category Pills & Search Toolbar */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search integrations by name or description..."
-            className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-4 text-xs text-slate-900 placeholder-slate-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+            className="w-full rounded-xl border border-slate-200/90 bg-white py-2.5 pl-10 pr-4 text-xs text-slate-900 placeholder-slate-400 focus:border-[#6558E8] focus:outline-none focus:ring-2 focus:ring-[#6558E8]/20 shadow-2xs transition-all"
           />
         </div>
 
         {/* Categories */}
-        <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
+        <div className="flex flex-wrap items-center gap-1 rounded-xl border border-slate-200/90 bg-white p-1 shadow-2xs">
           {categories.map((cat: any) => (
             <button
               key={cat.key}
               onClick={() => setSelectedCategory(cat.key)}
               className={cn(
-                "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer",
                 selectedCategory === cat.key
-                  ? "bg-indigo-50 text-indigo-700 font-semibold"
+                  ? "bg-indigo-50 text-indigo-700 font-semibold shadow-2xs"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
               )}
             >
@@ -114,12 +108,12 @@ export default function IntegrationsPage() {
               <div
                 key={item.key}
                 onClick={() => setActiveIntegration(item)}
-                className="group flex flex-col justify-between rounded-xl border border-slate-200/80 bg-white p-5 shadow-2xs hover:border-indigo-300 hover:shadow-xs transition-all cursor-pointer"
+                className="group flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card hover:border-[#6558E8]/40 hover:shadow-card-hover transition-all duration-200 cursor-pointer"
               >
                 <div>
                   <div className="flex items-start justify-between gap-3">
                     <div
-                      className="flex h-11 w-11 items-center justify-center rounded-xl text-white shadow-xs"
+                      className="flex h-11 w-11 items-center justify-center rounded-xl text-white shadow-sm"
                       style={{ backgroundColor: item.accentColor }}
                     >
                       <Icon className="h-5 w-5" />
@@ -138,10 +132,10 @@ export default function IntegrationsPage() {
 
                       <span
                         className={cn(
-                          "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                          "rounded-full px-2 py-0.5 text-[10px] font-semibold border",
                           isAvailable
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200/50"
-                            : "bg-slate-100 text-slate-500"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200/50"
+                            : "bg-slate-100 text-slate-500 border-slate-200/50"
                         )}
                       >
                         {isAvailable ? "Available" : "Planned (Phase 2)"}
@@ -149,7 +143,7 @@ export default function IntegrationsPage() {
                     </div>
                   </div>
 
-                  <h3 className="mt-4 text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                  <h3 className="mt-4 text-sm font-bold text-slate-900 group-hover:text-[#6558E8] transition-colors">
                     {item.name}
                   </h3>
                   <p className="mt-1 text-xs text-slate-500 leading-relaxed line-clamp-2">
@@ -159,7 +153,7 @@ export default function IntegrationsPage() {
 
                 <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] text-slate-400">
                   <span className="capitalize">{item.category.toLowerCase()}</span>
-                  <span className="font-semibold text-indigo-600 group-hover:underline">
+                  <span className="font-semibold text-[#6558E8] group-hover:underline">
                     View Details &rarr;
                   </span>
                 </div>
@@ -171,13 +165,13 @@ export default function IntegrationsPage() {
 
       {/* Integration Details Modal */}
       {activeIntegration && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fade-in">
           <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div
-                  className="flex h-12 w-12 items-center justify-center rounded-xl text-white shadow-xs"
+                  className="flex h-12 w-12 items-center justify-center rounded-xl text-white shadow-sm"
                   style={{ backgroundColor: activeIntegration.accentColor }}
                 >
                   {React.createElement(
@@ -195,10 +189,10 @@ export default function IntegrationsPage() {
                     </span>
                     <span
                       className={cn(
-                        "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                        "rounded-full px-2 py-0.5 text-[10px] font-semibold border",
                         activeIntegration.status === "AVAILABLE"
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
-                          : "bg-slate-100 text-slate-500"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200/60"
+                          : "bg-slate-100 text-slate-500 border-slate-200"
                       )}
                     >
                       {activeIntegration.status === "AVAILABLE"
@@ -211,7 +205,7 @@ export default function IntegrationsPage() {
 
               <button
                 onClick={() => setActiveIntegration(null)}
-                className="rounded p-1 text-slate-400 hover:text-slate-600"
+                className="rounded-lg p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -232,10 +226,10 @@ export default function IntegrationsPage() {
                     {activeIntegration.metadata.triggers.map((t: any) => (
                       <div
                         key={t.name}
-                        className="rounded-lg bg-slate-50 border border-slate-200/60 p-2.5 text-xs"
+                        className="rounded-xl bg-slate-50 border border-slate-200/60 p-3 text-xs"
                       >
                         <p className="font-semibold text-slate-900">{t.name}</p>
-                        <p className="text-[11px] text-slate-500">{t.description}</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">{t.description}</p>
                       </div>
                     ))}
                   </div>
@@ -251,10 +245,10 @@ export default function IntegrationsPage() {
                     {activeIntegration.metadata.actions.map((a: any) => (
                       <div
                         key={a.name || a.id}
-                        className="rounded-lg bg-slate-50 border border-slate-200/60 p-2.5 text-xs"
+                        className="rounded-xl bg-slate-50 border border-slate-200/60 p-3 text-xs"
                       >
                         <p className="font-semibold text-slate-900">{a.name}</p>
-                        <p className="text-[11px] text-slate-500">{a.description}</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">{a.description}</p>
                       </div>
                     ))}
                   </div>
@@ -264,7 +258,7 @@ export default function IntegrationsPage() {
               {/* Authentication Requirements */}
               <div className="border-t border-slate-100 pt-4">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 mb-1">
-                  <Lock className="h-3.5 w-3.5 text-indigo-600" />
+                  <Lock className="h-3.5 w-3.5 text-[#6558E8]" />
                   <span>Authentication Setup & Credentials</span>
                 </div>
                 <p className="text-xs text-slate-500 leading-relaxed">
@@ -283,11 +277,11 @@ export default function IntegrationsPage() {
               </div>
             </div>
 
-            <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-3">
+            <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-3.5">
               {activeIntegration.authType === "OAUTH2" ? (
                 <a
                   href="/connections"
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 shadow-2xs"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#6558E8] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#5345D8] shadow-2xs"
                 >
                   <LinkIcon className="h-3.5 w-3.5" />
                   <span>Manage Connections</span>
@@ -295,7 +289,7 @@ export default function IntegrationsPage() {
               ) : <div />}
               <button
                 onClick={() => setActiveIntegration(null)}
-                className="rounded-lg bg-slate-100 px-4 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+                className="rounded-xl bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
               >
                 Close
               </button>

@@ -35,25 +35,28 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col justify-center bg-slate-50 py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+    <div className="flex min-h-screen flex-col justify-center bg-[#F5F7FB] py-12 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Subtle decorative background ambient glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-gradient-to-b from-[#6558E8]/10 via-[#22B8CF]/5 to-transparent blur-3xl pointer-events-none" />
+
+      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="flex justify-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-200">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#6558E8] to-[#4336BE] text-white shadow-lg shadow-[#6558E8]/30">
             <Layers className="h-6 w-6" />
           </div>
         </div>
         <h2 className="mt-4 text-center text-2xl font-bold tracking-tight text-slate-900">
           Create your account
         </h2>
-        <p className="mt-1 text-center text-sm text-slate-500">
+        <p className="mt-1.5 text-center text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
           Start building custom automations with {APP_CONFIG.name}
         </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="rounded-2xl border border-slate-200/80 bg-white px-6 py-8 shadow-sm sm:px-10">
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
+        <div className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-md px-6 py-8 shadow-card sm:px-10">
           {error && (
-            <div className="mb-5 flex items-center gap-2 rounded-lg bg-rose-50 border border-rose-200 p-3 text-xs font-medium text-rose-700">
+            <div className="mb-5 flex items-center gap-2.5 rounded-xl bg-rose-50 border border-rose-200/80 p-3 text-xs font-medium text-rose-700">
               <AlertCircle className="h-4 w-4 shrink-0 text-rose-500" />
               <span>{error}</span>
             </div>
@@ -64,16 +67,16 @@ export default function RegisterPage() {
               <label className="block text-xs font-semibold text-slate-700">
                 Full Name
               </label>
-              <div className="relative mt-1">
+              <div className="relative mt-1.5">
                 <input
                   type="text"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 pl-9 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 pl-10 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#6558E8] focus:outline-none focus:ring-2 focus:ring-[#6558E8]/20 transition-all"
                   placeholder="Jordan Vance"
                 />
-                <User className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <User className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
               </div>
             </div>
 
@@ -81,16 +84,16 @@ export default function RegisterPage() {
               <label className="block text-xs font-semibold text-slate-700">
                 Email Address
               </label>
-              <div className="relative mt-1">
+              <div className="relative mt-1.5">
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 pl-9 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 pl-10 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#6558E8] focus:outline-none focus:ring-2 focus:ring-[#6558E8]/20 transition-all"
                   placeholder="jordan@company.com"
                 />
-                <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Mail className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
               </div>
             </div>
 
@@ -98,15 +101,15 @@ export default function RegisterPage() {
               <label className="block text-xs font-semibold text-slate-700">
                 Workspace Name
               </label>
-              <div className="relative mt-1">
+              <div className="relative mt-1.5">
                 <input
                   type="text"
                   value={workspaceName}
                   onChange={(e) => setWorkspaceName(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 pl-9 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 pl-10 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#6558E8] focus:outline-none focus:ring-2 focus:ring-[#6558E8]/20 transition-all"
                   placeholder="e.g. Vance Ops or Acme Marketing"
                 />
-                <Building className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Building className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
               </div>
             </div>
 
@@ -114,24 +117,24 @@ export default function RegisterPage() {
               <label className="block text-xs font-semibold text-slate-700">
                 Password
               </label>
-              <div className="relative mt-1">
+              <div className="relative mt-1.5">
                 <input
                   type="password"
                   required
                   minLength={8}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 pl-9 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 pl-10 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#6558E8] focus:outline-none focus:ring-2 focus:ring-[#6558E8]/20 transition-all"
                   placeholder="At least 8 characters"
                 />
-                <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Lock className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
               </div>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2.5 px-4 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:opacity-70 transition-colors"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#6558E8] py-2.5 px-4 text-xs font-semibold text-white shadow-sm hover:bg-[#5345D8] focus:outline-none focus:ring-2 focus:ring-[#6558E8] focus:ring-offset-2 disabled:opacity-70 transition-all cursor-pointer"
             >
               {loading ? (
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -148,7 +151,7 @@ export default function RegisterPage() {
             Already have an account?{" "}
             <Link
               href="/login"
-              className="font-semibold text-indigo-600 hover:text-indigo-500"
+              className="font-semibold text-[#6558E8] hover:text-[#5345D8] transition-colors"
             >
               Sign in here
             </Link>

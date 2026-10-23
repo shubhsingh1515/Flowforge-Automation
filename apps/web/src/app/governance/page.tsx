@@ -490,7 +490,7 @@ export default function EnterpriseGovernancePage() {
         )}
 
         {/* Tab Navigation */}
-        <div className="border-b border-slate-200">
+        <div className="border-b border-slate-200/90 overflow-x-auto">
           <nav className="-mb-px flex space-x-8" aria-label="Tabs">
             {[
               { id: "overview", label: "Stewardship Overview", icon: ShieldCheck },
@@ -511,9 +511,9 @@ export default function EnterpriseGovernancePage() {
                   }}
                   data-testid={`tab-${tab.id}`}
                   className={cn(
-                    "flex items-center gap-2 border-b-2 py-4 px-1 text-sm font-medium transition-colors",
+                    "flex items-center gap-2 border-b-2 py-4 px-1 text-xs font-semibold transition-colors cursor-pointer shrink-0",
                     isActive
-                      ? "border-indigo-600 text-indigo-600"
+                      ? "border-[#6558E8] text-[#6558E8]"
                       : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
                   )}
                 >

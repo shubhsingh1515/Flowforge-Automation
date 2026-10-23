@@ -303,7 +303,7 @@ export default function OperationsPage() {
               refetchRegions();
             }}
             data-testid="btn-refresh-operations"
-            className="px-3.5 py-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 shadow-2xs"
+            className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             <span>Refresh Telemetry</span>

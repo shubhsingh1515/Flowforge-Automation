@@ -457,10 +457,10 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
                 setHistoryDrawerOpen(true);
               }}
               data-testid="version-history-btn"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
               title="View immutable version history and rollbacks"
             >
-              <History className="h-3.5 w-3.5 text-indigo-600" />
+              <History className="h-3.5 w-3.5 text-[#6558E8]" />
               <span className="hidden md:inline">History</span>
             </button>
           )}
@@ -470,7 +470,7 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
             <button
               onClick={handleExport}
               data-testid="export-json-canvas-btn"
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
               title="Export sanitized workflow JSON"
             >
               <Download className="h-3.5 w-3.5 text-slate-500" />
@@ -486,7 +486,7 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
                 setTestModalOpen(true);
               }}
               data-testid="test-flow-btn"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
             >
               <Zap className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
               <span>Test Flow</span>
@@ -500,7 +500,7 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
               disabled={isTogglingStatus || !validationResult.isValid}
               data-testid="toggle-activate-btn"
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all shadow-2xs disabled:opacity-50",
+                "inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all shadow-2xs disabled:opacity-50 cursor-pointer",
                 status === "ACTIVE"
                   ? "border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
                   : "border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
@@ -526,14 +526,14 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
               onClick={() => handleSave(false)}
               disabled={isSaving}
               data-testid="save-graph-btn"
-              className="inline-flex items-center gap-2 rounded-l-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-70 transition-colors"
+              className="inline-flex items-center gap-2 rounded-l-xl bg-[#6558E8] px-4 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-[#5345D8] disabled:opacity-70 transition-colors cursor-pointer"
             >
               <Save className="h-3.5 w-3.5" />
               <span>{isSaving ? "Saving..." : saveSuccess ? "Saved to Cloud" : "Save Graph"}</span>
             </button>
             <button
               onClick={() => setCheckpointModalOpen(true)}
-              className="rounded-r-lg bg-indigo-700 px-2 py-1.5 text-xs font-semibold text-white hover:bg-indigo-800 border-l border-indigo-500"
+              className="rounded-r-xl bg-[#5345D8] px-2.5 py-2 text-xs font-semibold text-white hover:bg-[#4335C8] border-l border-indigo-400/40 cursor-pointer transition-colors"
               title="Save a new version snapshot checkpoint"
             >
               +v

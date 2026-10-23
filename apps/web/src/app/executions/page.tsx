@@ -126,10 +126,10 @@ export default function ExecutionsPage() {
       description="Inspect workflow execution logs, step diagnostics, retry operations, and error traces."
     >
       {/* Live Engine Status Header */}
-      <div className="mb-6 rounded-xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/60 via-slate-50 to-white p-4 shadow-2xs">
+      <div className="mb-6 rounded-2xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50/60 via-slate-50 to-white p-5 shadow-card">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100/80 text-emerald-700">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100/90 text-emerald-700 shadow-2xs">
               <Activity className="h-5 w-5 animate-pulse" />
             </div>
             <div>
@@ -137,7 +137,7 @@ export default function ExecutionsPage() {
                 <span className="font-bold text-slate-900 text-xs">
                   BullMQ Asynchronous Runtime Engine Active
                 </span>
-                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">
                   Workers Ready
                 </span>
               </div>
@@ -149,7 +149,7 @@ export default function ExecutionsPage() {
           <div className="hidden sm:flex items-center gap-2">
             <button
               onClick={() => queryClient.invalidateQueries({ queryKey: ["executions"] })}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
             >
               <RotateCw className="h-3.5 w-3.5" />
               <span>Refresh</span>
@@ -159,11 +159,11 @@ export default function ExecutionsPage() {
       </div>
 
       {retryNotice && (
-        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800 flex items-center justify-between">
+        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs text-emerald-800 flex items-center justify-between">
           <span>{retryNotice}</span>
           <button
             onClick={() => setRetryNotice(null)}
-            className="text-emerald-600 hover:text-emerald-800"
+            className="text-emerald-600 hover:text-emerald-800 font-bold"
           >
             ✕
           </button>
@@ -172,16 +172,16 @@ export default function ExecutionsPage() {
 
       {/* Filter Toolbar */}
       <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
+        <div className="flex items-center gap-1 rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 shadow-2xs">
           {["ALL", "SUCCESS", "FAILED", "RUNNING", "PENDING", "WAITING_APPROVAL", "CANCELLED"].map((st) => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
               className={cn(
-                "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                "rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer",
                 statusFilter === st
-                  ? "bg-indigo-50 text-indigo-700 font-semibold"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  ? "bg-white text-[#6558E8] shadow-2xs border border-slate-200/60"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
               )}
             >
               {st === "ALL"
@@ -195,7 +195,7 @@ export default function ExecutionsPage() {
       </div>
 
       {/* Executions Table */}
-      <div className="rounded-xl border border-slate-200/80 bg-white shadow-2xs overflow-hidden">
+      <div className="rounded-2xl border border-slate-200/90 bg-white shadow-card overflow-hidden">
         {isLoading ? (
           <div className="py-16 text-center text-xs text-slate-400">Loading executions...</div>
         ) : executions.length === 0 ? (
@@ -441,9 +441,9 @@ export default function ExecutionsPage() {
                       data-testid="btn-ai-debug-failure"
                       onClick={() => handleRunAiDebug(detailData.execution.id)}
                       disabled={isDebugLoading}
-                      className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-semibold flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+                      className="px-3.5 py-2 rounded-xl bg-[#6558E8] text-white hover:bg-[#5345D8] text-xs font-semibold flex items-center gap-1.5 shadow-2xs disabled:opacity-50 transition-colors cursor-pointer"
                     >
-                      <Sparkles className="h-3 w-3" />
+                      <Sparkles className="h-3.5 w-3.5" />
                       <span>{isDebugLoading ? "Analyzing..." : "Analyze Failure with AI"}</span>
                     </button>
                   )}

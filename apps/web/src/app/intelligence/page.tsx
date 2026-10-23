@@ -201,7 +201,7 @@ export default function IntelligencePage() {
           <button
             onClick={() => analyzeMutation.mutate()}
             disabled={analyzeMutation.isPending}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-xl bg-[#6558E8] px-4 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-[#5345D8] disabled:opacity-50 transition-colors cursor-pointer"
           >
             <Sparkles className={`h-4 w-4 ${analyzeMutation.isPending ? "animate-spin" : ""}`} />
             {analyzeMutation.isPending ? "Analyzing Telemetry..." : "Analyze Insights"}
@@ -211,15 +211,15 @@ export default function IntelligencePage() {
     >
       {/* Overview Stat Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card hover:shadow-card-hover transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               Workflow Failures
             </span>
-            <Workflow className="h-5 w-5 text-indigo-600" />
+            <Workflow className="h-5 w-5 text-[#6558E8]" />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">
+            <span className="text-2xl font-bold text-slate-900 font-mono tracking-tight">
               {metrics?.failedExecutions ?? 0}
             </span>
             <span className="text-xs font-medium text-slate-500">
@@ -231,7 +231,7 @@ export default function IntelligencePage() {
           </p>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card hover:shadow-card-hover transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               Dead Letter Deliveries
@@ -239,14 +239,14 @@ export default function IntelligencePage() {
             <Radio className="h-5 w-5 text-rose-600" />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">
+            <span className="text-2xl font-bold text-slate-900 font-mono tracking-tight">
               {metrics?.deadLetterDeliveriesCount ?? 0}
             </span>
           </div>
           <p className="mt-1 text-xs text-slate-500">Event fabric integration failures</p>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card hover:shadow-card-hover transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               Active Insights
@@ -254,7 +254,7 @@ export default function IntelligencePage() {
             <Brain className="h-5 w-5 text-amber-600" />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">{insightsList.length}</span>
+            <span className="text-2xl font-bold text-slate-900 font-mono tracking-tight">{insightsList.length}</span>
             <span className="text-xs font-semibold text-rose-600">
               {insightsList.filter((i: any) => i.severity === "CRITICAL").length} critical
             </span>
@@ -262,7 +262,7 @@ export default function IntelligencePage() {
           <p className="mt-1 text-xs text-slate-500">Evidence-grounded findings</p>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card hover:shadow-card-hover transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               Pending Decisions
@@ -270,7 +270,7 @@ export default function IntelligencePage() {
             <ShieldCheck className="h-5 w-5 text-blue-600" />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">
+            <span className="text-2xl font-bold text-slate-900 font-mono tracking-tight">
               {proposalsList.filter((p: any) => p.status === "PENDING_APPROVAL").length}
             </span>
             <span className="text-xs font-medium text-slate-500">awaiting review</span>
@@ -278,7 +278,7 @@ export default function IntelligencePage() {
           <p className="mt-1 text-xs text-slate-500">Strictly allowlisted actions</p>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card hover:shadow-card-hover transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               Outcome Evaluations
@@ -286,7 +286,7 @@ export default function IntelligencePage() {
             <TrendingUp className="h-5 w-5 text-emerald-600" />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">{outcomesList.length}</span>
+            <span className="text-2xl font-bold text-slate-900 font-mono tracking-tight">{outcomesList.length}</span>
             <span className="text-xs font-semibold text-emerald-600">
               {outcomesList.filter((o: any) => o.outcomeVerdict === "IMPROVED").length} improved
             </span>

@@ -355,16 +355,16 @@ export default function EnvironmentsPage() {
             }}
             disabled={createReleaseMutation.isPending || workflows.length === 0}
             data-testid="btn-create-release"
-            className="px-3.5 py-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 shadow-2xs"
+            className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
           >
-            <FileCode2 className="h-3.5 w-3.5 text-indigo-600" />
+            <FileCode2 className="h-3.5 w-3.5 text-[#6558E8]" />
             <span>Create Release Artifact</span>
           </button>
 
           <button
             onClick={() => setShowPromoteModal(true)}
             data-testid="btn-open-promote-modal"
-            className="px-3.5 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-semibold flex items-center gap-1.5 shadow-2xs"
+            className="px-4 py-2 rounded-xl bg-[#6558E8] text-white hover:bg-[#5345D8] text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
           >
             <Play className="h-3.5 w-3.5" />
             <span>Promote to {currentEnv?.name || "Environment"}</span>
@@ -399,21 +399,21 @@ export default function EnvironmentsPage() {
                 onClick={() => setSelectedEnvId(env.id)}
                 data-testid={`card-env-${env.slug}`}
                 className={cn(
-                  "p-5 rounded-2xl border text-left transition-all shadow-2xs relative overflow-hidden",
+                  "p-5 rounded-2xl border text-left transition-all shadow-card relative overflow-hidden cursor-pointer",
                   isSelected
-                    ? "bg-white border-indigo-500 ring-2 ring-indigo-500/20"
-                    : "bg-white border-slate-200 hover:border-slate-300"
+                    ? "bg-white border-[#6558E8] ring-2 ring-[#6558E8]/20"
+                    : "bg-white border-slate-200/90 hover:border-slate-300"
                 )}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span className={cn(
-                      "p-1.5 rounded-lg",
+                      "p-2 rounded-xl",
                       env.type === "PRODUCTION"
-                        ? "bg-rose-50 text-rose-600"
+                        ? "bg-rose-50 text-rose-600 border border-rose-100"
                         : env.type === "STAGING"
-                        ? "bg-amber-50 text-amber-600"
-                        : "bg-indigo-50 text-indigo-600"
+                        ? "bg-amber-50 text-amber-600 border border-amber-100"
+                        : "bg-indigo-50 text-[#6558E8] border border-indigo-100"
                     )}>
                       <Server className="h-4 w-4" />
                     </span>
@@ -421,7 +421,7 @@ export default function EnvironmentsPage() {
                   </div>
 
                   <span className={cn(
-                    "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
+                    "text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider",
                     env.isProtected ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-600"
                   )}>
                     {env.isProtected ? "Protected" : "Standard"}
@@ -432,7 +432,7 @@ export default function EnvironmentsPage() {
                   {env.description || "Workspace execution environment"}
                 </p>
 
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
                   <span className="text-slate-400">Active Release:</span>
                   <span className="font-mono font-bold text-slate-700">
                     {env.activeReleaseArtifactId ? `Artifact ${env.activeReleaseArtifactId.slice(0, 8)}` : "None (Drafts)"}
@@ -451,14 +451,14 @@ export default function EnvironmentsPage() {
         </div>
 
         {/* 2. Environment Navigation Tabs */}
-        <div className="border-b border-slate-200 flex items-center gap-6 text-xs font-semibold">
+        <div className="border-b border-slate-200/90 flex items-center gap-6 text-xs font-semibold overflow-x-auto">
           <button
             onClick={() => setActiveTab("deployments")}
             data-testid="tab-env-deployments"
             className={cn(
-              "pb-3 border-b-2 flex items-center gap-2 transition",
+              "pb-3 border-b-2 flex items-center gap-2 transition cursor-pointer shrink-0",
               activeTab === "deployments"
-                ? "border-indigo-600 text-indigo-600"
+                ? "border-[#6558E8] text-[#6558E8]"
                 : "border-transparent text-slate-500 hover:text-slate-800"
             )}
           >
@@ -470,9 +470,9 @@ export default function EnvironmentsPage() {
             onClick={() => setActiveTab("variables")}
             data-testid="tab-env-variables"
             className={cn(
-              "pb-3 border-b-2 flex items-center gap-2 transition",
+              "pb-3 border-b-2 flex items-center gap-2 transition cursor-pointer shrink-0",
               activeTab === "variables"
-                ? "border-indigo-600 text-indigo-600"
+                ? "border-[#6558E8] text-[#6558E8]"
                 : "border-transparent text-slate-500 hover:text-slate-800"
             )}
           >
@@ -484,9 +484,9 @@ export default function EnvironmentsPage() {
             onClick={() => setActiveTab("bindings")}
             data-testid="tab-env-bindings"
             className={cn(
-              "pb-3 border-b-2 flex items-center gap-2 transition",
+              "pb-3 border-b-2 flex items-center gap-2 transition cursor-pointer shrink-0",
               activeTab === "bindings"
-                ? "border-indigo-600 text-indigo-600"
+                ? "border-[#6558E8] text-[#6558E8]"
                 : "border-transparent text-slate-500 hover:text-slate-800"
             )}
           >
@@ -498,9 +498,9 @@ export default function EnvironmentsPage() {
             onClick={() => setActiveTab("testing")}
             data-testid="tab-env-testing"
             className={cn(
-              "pb-3 border-b-2 flex items-center gap-2 transition",
+              "pb-3 border-b-2 flex items-center gap-2 transition cursor-pointer shrink-0",
               activeTab === "testing"
-                ? "border-indigo-600 text-indigo-600"
+                ? "border-[#6558E8] text-[#6558E8]"
                 : "border-transparent text-slate-500 hover:text-slate-800"
             )}
           >
@@ -512,9 +512,9 @@ export default function EnvironmentsPage() {
             onClick={() => setActiveTab("simulations")}
             data-testid="tab-env-simulations"
             className={cn(
-              "pb-3 border-b-2 flex items-center gap-2 transition",
+              "pb-3 border-b-2 flex items-center gap-2 transition cursor-pointer shrink-0",
               activeTab === "simulations"
-                ? "border-indigo-600 text-indigo-600"
+                ? "border-[#6558E8] text-[#6558E8]"
                 : "border-transparent text-slate-500 hover:text-slate-800"
             )}
           >
@@ -526,9 +526,9 @@ export default function EnvironmentsPage() {
             onClick={() => setActiveTab("chaos")}
             data-testid="tab-env-chaos"
             className={cn(
-              "pb-3 border-b-2 flex items-center gap-2 transition",
+              "pb-3 border-b-2 flex items-center gap-2 transition cursor-pointer shrink-0",
               activeTab === "chaos"
-                ? "border-indigo-600 text-indigo-600"
+                ? "border-[#6558E8] text-[#6558E8]"
                 : "border-transparent text-slate-500 hover:text-slate-800"
             )}
           >

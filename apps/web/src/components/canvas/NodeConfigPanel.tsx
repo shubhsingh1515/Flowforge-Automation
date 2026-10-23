@@ -186,18 +186,18 @@ export function NodeConfigPanel({
   };
 
   return (
-    <div className="w-92 border-l border-slate-200 bg-white flex flex-col h-full shadow-lg z-20">
+    <div className="w-92 border-l border-slate-200/90 bg-white flex flex-col h-full shadow-card z-20">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-100 p-4">
         <div className="flex items-center gap-2">
-          <Sliders className="h-4 w-4 text-indigo-600" />
+          <Sliders className="h-4 w-4 text-[#6558E8]" />
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
             Node Configuration
           </h3>
         </div>
         <button
           onClick={onClose}
-          className="rounded p-1 text-slate-400 hover:text-slate-600"
+          className="rounded-lg p-1 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
           title="Close panel"
         >
           <X className="h-4 w-4" />

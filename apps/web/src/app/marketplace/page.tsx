@@ -240,7 +240,7 @@ export default function MarketplacePage() {
                 setShowConnectorModal(true);
               }}
               data-testid="new-connector-draft-btn"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition shadow-xs"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-[#6558E8] text-white hover:bg-[#5345D8] transition shadow-2xs cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               <span>New Connector Manifest</span>
@@ -252,7 +252,7 @@ export default function MarketplacePage() {
                 setShowSubmitModal(true);
               }}
               data-testid="submit-package-btn"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition shadow-xs"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-[#6558E8] text-white hover:bg-[#5345D8] transition shadow-2xs cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               <span>Submit Integration</span>
@@ -264,41 +264,41 @@ export default function MarketplacePage() {
       <div className="space-y-6">
         {/* Status Alerts */}
         {actionSuccess && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold text-emerald-800 flex items-center justify-between">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs font-semibold text-emerald-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-emerald-600" />
               <span>{actionSuccess}</span>
             </div>
-            <button onClick={() => setActionSuccess(null)} className="text-emerald-600 hover:text-emerald-900">
+            <button onClick={() => setActionSuccess(null)} className="text-emerald-600 hover:text-emerald-900 font-bold">
               <X className="h-4 w-4" />
             </button>
           </div>
         )}
 
         {actionError && (
-          <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-800 flex items-center justify-between">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-semibold text-rose-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-rose-600" />
               <span>{actionError}</span>
             </div>
-            <button onClick={() => setActionError(null)} className="text-rose-600 hover:text-rose-900">
+            <button onClick={() => setActionError(null)} className="text-rose-600 hover:text-rose-900 font-bold">
               <X className="h-4 w-4" />
             </button>
           </div>
         )}
 
         {/* Search, Filter & Tabs Bar */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs space-y-4">
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             {/* Catalog Sub-Tabs */}
-            <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 self-start">
+            <div className="flex items-center gap-1 rounded-xl bg-slate-100/70 p-1 self-start shadow-2xs">
               <button
                 onClick={() => setActiveTab("integrations")}
                 data-testid="tab-marketplace-integrations"
                 className={cn(
-                  "px-4 py-2 text-xs font-bold rounded-lg transition-all",
+                  "px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer",
                   activeTab === "integrations"
-                    ? "bg-white text-indigo-600 shadow-xs"
+                    ? "bg-white text-[#6558E8] shadow-2xs border border-slate-200/60"
                     : "text-slate-600 hover:text-slate-900"
                 )}
               >
@@ -308,9 +308,9 @@ export default function MarketplacePage() {
                 onClick={() => setActiveTab("templates")}
                 data-testid="tab-marketplace-recipes"
                 className={cn(
-                  "px-4 py-2 text-xs font-bold rounded-lg transition-all",
+                  "px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer",
                   activeTab === "templates"
-                    ? "bg-white text-indigo-600 shadow-xs"
+                    ? "bg-white text-[#6558E8] shadow-2xs border border-slate-200/60"
                     : "text-slate-600 hover:text-slate-900"
                 )}
               >
@@ -320,9 +320,9 @@ export default function MarketplacePage() {
                 onClick={() => setActiveTab("connectors")}
                 data-testid="tab-marketplace-connectors"
                 className={cn(
-                  "px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5",
+                  "px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer",
                   activeTab === "connectors"
-                    ? "bg-white text-indigo-600 shadow-xs"
+                    ? "bg-white text-[#6558E8] shadow-2xs border border-slate-200/60"
                     : "text-slate-600 hover:text-slate-900"
                 )}
               >
@@ -333,31 +333,31 @@ export default function MarketplacePage() {
 
             {/* Search Bar */}
             <div className="relative w-full md:w-80">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
               <input
                 type="text"
                 placeholder="Search by name, action, or keyword..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 data-testid="marketplace-search-input"
-                className="w-full rounded-xl border border-slate-200 pl-9 pr-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                className="w-full rounded-xl border border-slate-200/90 pl-10 pr-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#6558E8] focus:outline-none focus:ring-1 focus:ring-[#6558E8] shadow-2xs"
               />
             </div>
           </div>
 
           {/* Category Filter Pills (for Integrations and Recipes) */}
           {activeTab !== "connectors" && (
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-1 text-xs">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-1 text-xs">
               {CATEGORIES.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
                   data-testid={`category-filter-${cat.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
                   className={cn(
-                    "px-3 py-1.5 rounded-full font-medium whitespace-nowrap transition-colors",
+                    "px-3.5 py-1.5 rounded-xl font-semibold whitespace-nowrap transition-all cursor-pointer",
                     selectedCategory === cat
-                      ? "bg-slate-900 text-white font-semibold"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      ? "bg-[#6558E8] text-white shadow-2xs"
+                      : "bg-slate-100/80 text-slate-600 hover:bg-slate-200"
                   )}
                 >
                   {cat}

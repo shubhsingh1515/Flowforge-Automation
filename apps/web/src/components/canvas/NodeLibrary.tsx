@@ -233,19 +233,19 @@ export function NodeLibrary({ onAddNode }: NodeLibraryProps) {
             item.initialConfig
           )
         }
-        className="group flex w-full items-start gap-3 rounded-xl border border-slate-200/80 bg-white p-2.5 text-left transition-all hover:border-indigo-300 hover:shadow-xs"
+        className="group flex w-full items-start gap-3 rounded-xl border border-slate-200/80 bg-white p-2.5 text-left transition-all hover:border-[#6558E8] hover:shadow-2xs cursor-pointer"
       >
         <div
-          className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${item.bg} ${item.color} border-slate-200/60`}
+          className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${item.bg} ${item.color} border-slate-200/60 shadow-2xs`}
         >
           <Icon className="h-4 w-4" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
-            <h4 className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
+            <h4 className="text-xs font-bold text-slate-900 group-hover:text-[#6558E8] transition-colors truncate">
               {item.label}
             </h4>
-            <Plus className="h-3.5 w-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+            <Plus className="h-3.5 w-3.5 text-[#6558E8] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
           </div>
           <p className="mt-0.5 text-[10px] text-slate-500 line-clamp-2 leading-relaxed">
             {item.description}

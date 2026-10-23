@@ -224,7 +224,7 @@ export default function CustomerOperationsPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowNewAccountModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm rounded-lg shadow-sm transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#6558E8] hover:bg-[#5345D8] text-white font-semibold text-xs rounded-xl shadow-2xs transition-colors cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               New Customer Account
@@ -234,40 +234,40 @@ export default function CustomerOperationsPage() {
 
         {/* Top Operational Metrics */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="p-5 bg-white rounded-2xl border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Customer Accounts</span>
-              <Building className="w-4 h-4 text-indigo-500" />
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Customer Accounts</span>
+              <Building className="w-4 h-4 text-[#6558E8]" />
             </div>
-            <div className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{accounts.length}</div>
-            <div className="mt-1 text-xs text-gray-500">Tenant-isolated accounts</div>
+            <div className="mt-2 text-2xl font-bold text-slate-900 font-mono tracking-tight">{accounts.length}</div>
+            <div className="mt-1 text-xs text-slate-500">Tenant-isolated accounts</div>
           </div>
-          <div className="p-5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="p-5 bg-white rounded-2xl border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Active Journeys</span>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Journeys</span>
               <Layers className="w-4 h-4 text-emerald-500" />
             </div>
-            <div className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
+            <div className="mt-2 text-2xl font-bold text-slate-900 font-mono tracking-tight">
               {instances.filter((i: any) => i.status === "IN_PROGRESS").length}
             </div>
             <div className="mt-1 text-xs text-emerald-600">Milestone tracked</div>
           </div>
-          <div className="p-5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="p-5 bg-white rounded-2xl border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Active Risks</span>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Risks</span>
               <AlertTriangle className="w-4 h-4 text-amber-500" />
             </div>
-            <div className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
+            <div className="mt-2 text-2xl font-bold text-slate-900 font-mono tracking-tight">
               {risks.filter((r: any) => r.status === "DETECTED" || r.status === "CONFIRMED").length}
             </div>
             <div className="mt-1 text-xs text-amber-600">Retention & adoption flags</div>
           </div>
-          <div className="p-5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="p-5 bg-white rounded-2xl border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Success Tasks</span>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Success Tasks</span>
               <ShieldCheck className="w-4 h-4 text-purple-500" />
             </div>
-            <div className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
+            <div className="mt-2 text-2xl font-bold text-slate-900 font-mono tracking-tight">
               {tasks.filter((t: any) => t.status === "OPEN" || t.status === "IN_PROGRESS").length}
             </div>
             <div className="mt-1 text-xs text-purple-600">Assigned CSM actions</div>
@@ -275,7 +275,7 @@ export default function CustomerOperationsPage() {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex border-b border-gray-200 dark:border-gray-700 space-x-8">
+        <div className="flex border-b border-slate-200 space-x-8 overflow-x-auto">
           {[
             { id: "accounts", label: "Customer Accounts & 360", icon: Users },
             { id: "journeys", label: "Customer Journeys", icon: Layers },
@@ -289,10 +289,10 @@ export default function CustomerOperationsPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                className={`flex items-center gap-2 py-3 px-1 border-b-2 font-semibold text-xs transition-colors cursor-pointer shrink-0 ${
                   isActive
-                    ? "border-indigo-600 text-indigo-600 dark:text-indigo-400"
-                    : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                    ? "border-[#6558E8] text-[#6558E8]"
+                    : "border-transparent text-slate-500 hover:text-slate-800"
                 }`}
               >
                 <Icon className="w-4 h-4" />

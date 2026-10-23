@@ -114,10 +114,10 @@ function CustomWorkflowNodeComponent({ data, selected }: NodeProps) {
   return (
     <div
       className={cn(
-        "relative min-w-[220px] max-w-[260px] rounded-xl border bg-white p-3.5 shadow-sm transition-all",
+        "relative min-w-[220px] max-w-[260px] rounded-2xl border bg-white p-3.5 shadow-card transition-all duration-200",
         selected
-          ? "border-indigo-600 ring-2 ring-indigo-500/30 shadow-md"
-          : "border-slate-200 hover:border-slate-300"
+          ? "border-[#6558E8] ring-2 ring-[#6558E8]/30 shadow-card-hover scale-[1.02]"
+          : "border-slate-200/90 hover:border-slate-300 hover:shadow-card-hover"
       )}
     >
       {/* Target Handle (Input) - Triggers don't need input */}
@@ -125,16 +125,16 @@ function CustomWorkflowNodeComponent({ data, selected }: NodeProps) {
         <Handle
           type="target"
           position={Position.Left}
-          className="!h-3 !w-3 !bg-slate-400 !border-2 !border-white hover:!bg-indigo-600 transition-colors"
+          className="!h-3 !w-3 !bg-slate-400 !border-2 !border-white hover:!bg-[#6558E8] transition-colors"
         />
       )}
 
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <div
             className={cn(
-              "flex h-7 w-7 items-center justify-center rounded-lg border",
+              "flex h-8 w-8 items-center justify-center rounded-xl border shadow-2xs",
               config.bgColor,
               config.color,
               config.borderColor
@@ -152,10 +152,10 @@ function CustomWorkflowNodeComponent({ data, selected }: NodeProps) {
           </div>
         </div>
 
-        {/* Status Dot */}
+        {/* Status Indicator */}
         <div
           className={cn(
-            "h-2 w-2 rounded-full",
+            "h-2 w-2 rounded-full ring-2 ring-white shadow-2xs",
             nodeData?.isValid !== false ? "bg-emerald-500" : "bg-rose-500 animate-pulse"
           )}
           title={nodeData?.isValid !== false ? "Configured" : "Requires Configuration"}
@@ -164,14 +164,14 @@ function CustomWorkflowNodeComponent({ data, selected }: NodeProps) {
 
       {/* Description */}
       {Boolean(nodeData?.description) && (
-        <p className="mt-2 text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
+        <p className="mt-2 text-[11px] text-slate-500 line-clamp-2 leading-relaxed font-normal">
           {nodeData.description}
         </p>
       )}
 
       {/* Specific Branch Outputs */}
       {isApproval ? (
-        <div className="mt-3 flex justify-between border-t border-slate-100 pt-2 text-[10px] font-semibold text-slate-500">
+        <div className="mt-3 flex justify-between border-t border-slate-100 pt-2 text-[10px] font-bold text-slate-500">
           <div className="relative flex items-center gap-1">
             <span className="text-emerald-600">Approved</span>
             <Handle
@@ -194,7 +194,7 @@ function CustomWorkflowNodeComponent({ data, selected }: NodeProps) {
           </div>
         </div>
       ) : isCondition ? (
-        <div className="mt-3 flex justify-between border-t border-slate-100 pt-2 text-[10px] font-semibold text-slate-500">
+        <div className="mt-3 flex justify-between border-t border-slate-100 pt-2 text-[10px] font-bold text-slate-500">
           <div className="relative flex items-center gap-1">
             <span className="text-emerald-600">True</span>
             <Handle
@@ -222,7 +222,7 @@ function CustomWorkflowNodeComponent({ data, selected }: NodeProps) {
           <Handle
             type="source"
             position={Position.Right}
-            className="!h-3 !w-3 !bg-indigo-600 !border-2 !border-white hover:!bg-indigo-700 transition-colors"
+            className="!h-3 !w-3 !bg-[#6558E8] !border-2 !border-white hover:!bg-[#5345D8] transition-colors"
           />
         )
       )}
