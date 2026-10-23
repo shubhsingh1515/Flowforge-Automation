@@ -26,7 +26,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const PUBLIC_ROUTES = ["/login", "/register", "/pricing"];
+const PUBLIC_ROUTES = ["/", "/login", "/register", "/pricing", "/status"];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -92,13 +92,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await api.auth.logout();
     } catch {
-      // ignore
+      // Ignore errors during logout
+    } finally {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("flowforge_token");
+      }
+      setUser(null);
+      router.push("/login");
     }
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("flowforge_token");
-    }
-    setUser(null);
-    router.push("/login");
   };
 
   return (
