@@ -1325,6 +1325,100 @@ export class FlowForgeClient {
 
   };
 
+
+  // ==========================================
+  // PHASE 25: CUSTOMER JOURNEY INTELLIGENCE & 360
+  // ==========================================
+  public readonly customers = {
+    accounts: {
+      create: async (data: any) => this.request<any>("/customers/accounts", "POST", data),
+      list: async (query?: { tier?: string; lifecycleState?: string; healthStatus?: string; search?: string }) => {
+        const q = new URLSearchParams(query as any).toString();
+        return this.request<any>(`/customers/accounts${q ? "?" + q : ""}`);
+      },
+      get: async (id: string) => this.request<any>(`/customers/accounts/${id}`),
+      update: async (id: string, data: any) => this.request<any>(`/customers/accounts/${id}`, "PUT", data),
+      delete: async (id: string) => this.request<any>(`/customers/accounts/${id}`, "DELETE"),
+      get360: async (id: string) => this.request<any>(`/customers/accounts/${id}/360`),
+    },
+    contacts: {
+      create: async (accountId: string, data: any) => this.request<any>(`/customers/accounts/${accountId}/contacts`, "POST", data),
+      list: async (accountId: string) => this.request<any>(`/customers/accounts/${accountId}/contacts`),
+      update: async (contactId: string, data: any) => this.request<any>(`/customers/contacts/${contactId}`, "PUT", data),
+    },
+    externalIdentities: {
+      link: async (accountId: string, data: any) => this.request<any>(`/customers/accounts/${accountId}/external-identities`, "POST", data),
+      remove: async (accountId: string, system: string) => this.request<any>(`/customers/accounts/${accountId}/external-identities/${system}`, "DELETE"),
+    },
+    journeys: {
+      createDefinition: async (data: any) => this.request<any>("/customers/journeys/definitions", "POST", data),
+      listDefinitions: async () => this.request<any>("/customers/journeys/definitions"),
+      createVersion: async (id: string, data: any) => this.request<any>(`/customers/journeys/definitions/${id}/versions`, "POST", data),
+      startInstance: async (data: any) => this.request<any>("/customers/journeys/instances", "POST", data),
+      listInstances: async (query?: { customerAccountId?: string; status?: string }) => {
+        const q = new URLSearchParams(query as any).toString();
+        return this.request<any>(`/customers/journeys/instances${q ? "?" + q : ""}`);
+      },
+      progressMilestone: async (instanceId: string, data: any) => this.request<any>(`/customers/journeys/instances/${instanceId}/milestones`, "POST", data),
+    },
+    adoption: {
+      createMetric: async (data: any) => this.request<any>("/customers/adoption/metrics", "POST", data),
+      listMetrics: async () => this.request<any>("/customers/adoption/metrics"),
+      getAccountAdoption: async (accountId: string, windowDays?: number) => {
+        return this.request<any>(`/customers/accounts/${accountId}/adoption${windowDays ? "?windowDays=" + windowDays : ""}`);
+      },
+    },
+    health: {
+      configureModel: async (data: any) => this.request<any>("/customers/health/model", "POST", data),
+      getModel: async () => this.request<any>("/customers/health/model"),
+      evaluate: async (accountId: string, lookbackDays?: number) => {
+        return this.request<any>(`/customers/accounts/${accountId}/health/evaluate`, "POST", { lookbackDays });
+      },
+      getHistory: async (accountId: string) => this.request<any>(`/customers/accounts/${accountId}/health`),
+    },
+    risks: {
+      assess: async (accountId: string, data: any) => this.request<any>(`/customers/accounts/${accountId}/risks`, "POST", data),
+      list: async (accountId: string, status?: string) => {
+        return this.request<any>(`/customers/accounts/${accountId}/risks${status ? "?status=" + status : ""}`);
+      },
+      resolve: async (riskId: string, resolutionNotes?: string) => {
+        return this.request<any>(`/customers/risks/${riskId}/resolve`, "PATCH", { resolutionNotes });
+      },
+    },
+    tasks: {
+      create: async (accountId: string, data: any) => this.request<any>(`/customers/accounts/${accountId}/tasks`, "POST", data),
+      list: async (query?: { customerAccountId?: string; status?: string; assigneeId?: string }) => {
+        const q = new URLSearchParams(query as any).toString();
+        return this.request<any>(`/customers/tasks${q ? "?" + q : ""}`);
+      },
+      update: async (taskId: string, data: any) => this.request<any>(`/customers/tasks/${taskId}`, "PATCH", data),
+    },
+    playbooks: {
+      createDefinition: async (data: any) => this.request<any>("/customers/playbooks/definitions", "POST", data),
+      listDefinitions: async () => this.request<any>("/customers/playbooks/definitions"),
+      createVersion: async (id: string, data: any) => this.request<any>(`/customers/playbooks/definitions/${id}/versions`, "POST", data),
+      execute: async (data: any) => this.request<any>("/customers/playbooks/execute", "POST", data),
+      listRuns: async (query?: { playbookDefinitionId?: string }) => {
+        const q = new URLSearchParams(query as any).toString();
+        return this.request<any>(`/customers/playbooks/runs${q ? "?" + q : ""}`);
+      },
+    },
+    communications: {
+      createTemplate: async (data: any) => this.request<any>("/customers/communications/templates", "POST", data),
+      listTemplates: async (category?: string) => {
+        return this.request<any>(`/customers/communications/templates${category ? "?category=" + category : ""}`);
+      },
+      render: async (data: any) => this.request<any>("/customers/communications/render", "POST", data),
+      requestApproval: async (data: any) => this.request<any>("/customers/communications/request-approval", "POST", data),
+      listApprovals: async (status?: string) => {
+        return this.request<any>(`/customers/communications/approvals${status ? "?status=" + status : ""}`);
+      },
+      decideApproval: async (approvalId: string, data: { status: "APPROVED" | "REJECTED"; reviewNotes?: string }) => {
+        return this.request<any>(`/customers/communications/approvals/${approvalId}/decide`, "POST", data);
+      },
+    },
+  };
+
 }
 
 export * from "@flowforge/connector-sdk";

@@ -44,6 +44,16 @@ export const API_KEY_SCOPES = [
   "intelligence:approve",
   "intelligence:execute",
   "intelligence:manage",
+  "customers:read",
+  "customers:manage",
+  "customer_journeys:read",
+  "customer_journeys:manage",
+  "customer_health:read",
+  "customer_health:manage",
+  "customer_tasks:read",
+  "customer_tasks:manage",
+  "customer_playbooks:manage",
+  "customer_communications:approve",
 ] as const;
 
 export type ApiKeyScope = (typeof API_KEY_SCOPES)[number];

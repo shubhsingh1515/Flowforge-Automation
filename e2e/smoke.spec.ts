@@ -1661,4 +1661,70 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     await expect(page.locator("text=Post-Action Outcome Feedback Loop")).toBeVisible();
     await expect(page.locator("text=Proposal ID / Action")).toBeVisible();
   });
+
+  test("50. Phase 25 Customer Operations, Customer 360, Health & Playbooks Console", async ({
+    page,
+  }) => {
+    // 1. Login
+    await loginAsDemo(page);
+
+    // 2. Navigate to Customer Operations
+    await page.goto("/customers");
+    await page.waitForLoadState("networkidle");
+
+    // 3. Verify Customer Operations Header & Metric Cards
+    await expect(page.locator("text=Customer Operations & 360")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=Phase 25")).toBeVisible();
+    await expect(page.locator("text=Customer Accounts").first()).toBeVisible();
+    await expect(page.locator("text=Active Journeys").first()).toBeVisible();
+    await expect(page.locator("text=Active Risks").first()).toBeVisible();
+    await expect(page.locator("text=Success Tasks").first()).toBeVisible();
+
+    // 4. Navigate across Customer Operations tabs
+    // Tab: Customer Journeys
+    const journeysTab = page.getByRole("button", { name: "Customer Journeys" });
+    await expect(journeysTab).toBeVisible();
+    await journeysTab.click();
+    await expect(page.locator("text=Journey Blueprints").first()).toBeVisible();
+    await expect(page.locator("text=Active Progressions").first()).toBeVisible();
+
+    // Tab: Adoption & Health
+    const healthTab = page.getByRole("button", { name: "Adoption & Health" });
+    await expect(healthTab).toBeVisible();
+    await healthTab.click();
+    await expect(page.locator("text=Active Health Scoring Model").first()).toBeVisible();
+
+    // Tab: Risks & Success Tasks
+    const risksTab = page.getByRole("button", { name: "Risks & Success Tasks" });
+    await expect(risksTab).toBeVisible();
+    await risksTab.click();
+    await expect(page.locator("text=Customer Risk Assessments").first()).toBeVisible();
+    await expect(page.locator("text=Customer Success Tasks").first()).toBeVisible();
+
+    // Tab: Playbooks & Communications
+    const playbooksTab = page.getByRole("button", { name: "Playbooks & Communications" });
+    await expect(playbooksTab).toBeVisible();
+    await playbooksTab.click();
+    await expect(page.locator("text=Customer Success Playbooks").first()).toBeVisible();
+    await expect(page.locator("text=Governed Communication Templates").first()).toBeVisible();
+
+    // 5. Back to Accounts & 360 Tab
+    const accountsTab = page.getByRole("button", { name: "Customer Accounts & 360" });
+    await expect(accountsTab).toBeVisible();
+    await accountsTab.click();
+
+    // 6. Test New Customer Account Modal
+    const newAccountBtn = page.getByRole("button", { name: "New Customer Account" });
+    await expect(newAccountBtn).toBeVisible();
+    await newAccountBtn.click();
+
+    await expect(page.locator("text=Company / Account Name").first()).toBeVisible();
+    await expect(page.locator("text=Account Slug").first()).toBeVisible();
+    await expect(page.locator("text=Domain").first()).toBeVisible();
+
+    // Close modal
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.locator("text=Company / Account Name")).not.toBeVisible();
+  });
+
 });

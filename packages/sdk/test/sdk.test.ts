@@ -1387,4 +1387,70 @@ describe("FlowForge TypeScript SDK Client Suite", () => {
     expect(evaluated.data.outcomeVerdict).toBe("IMPROVED");
   });
 
+
+  it("Phase 25: verifies Customer Operations and Customer 360 client namespace methods", async () => {
+    const client = new FlowForgeClient({ apiKey: "ff_live_testkey123" });
+
+    global.fetch = vi.fn().mockImplementation(async (url: string, init: any) => {
+      const u = url.toString();
+      const method = init?.method || "GET";
+
+      if (u.includes("/customers/accounts") && method === "POST") {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({ success: true, data: { id: "cust-1", name: "Acme Corp", slug: "acme-corp" } }),
+        };
+      }
+      if (u.includes("/customers/accounts/cust-1/360")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, data: { account: { id: "cust-1", name: "Acme Corp" }, healthScore: 92 } }),
+        };
+      }
+      if (u.includes("/customers/journeys/definitions")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, data: [{ id: "jd-1", name: "Enterprise Onboarding" }] }),
+        };
+      }
+      if (u.includes("/customers/health/model")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, data: { name: "Standard Health Model", version: 1 } }),
+        };
+      }
+      if (u.includes("/customers/playbooks/runs")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, data: [{ id: "run-1", status: "RUNNING" }] }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, data: {} }),
+      };
+    });
+
+    const account = await client.customers.accounts.create({ name: "Acme Corp", slug: "acme-corp" });
+    expect(account.data.slug).toBe("acme-corp");
+
+    const profile360 = await client.customers.accounts.get360("cust-1");
+    expect(profile360.data.account.name).toBe("Acme Corp");
+
+    const definitions = await client.customers.journeys.listDefinitions();
+    expect(definitions.data.length).toBe(1);
+
+    const healthModel = await client.customers.health.getModel();
+    expect(healthModel.data.version).toBe(1);
+
+    const playbookRuns = await client.customers.playbooks.listRuns();
+    expect(playbookRuns.data.length).toBe(1);
+  });
+
 });

@@ -24,3 +24,4 @@ export * from "./process-p21.js";
 export * from "./events-p22.js";
 export * from "./data-intelligence-p23.js";
 export * from "./intelligence-p24.js";
+export * from "./customer-operations-p25.js";

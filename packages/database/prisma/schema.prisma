@@ -200,6 +200,21 @@ model Workspace {
   decisionProposals          DecisionProposal[]
   decisionOutcomeEvaluations DecisionOutcomeEvaluation[]
   intelligencePolicy         IntelligencePolicy?
+  // Phase 25: Enterprise Customer Journey Intelligence & Customer 360
+  customerAccounts             CustomerAccount[]
+  customerContacts             CustomerContact[]
+  customerExternalIdentities   CustomerExternalIdentity[]
+  customerJourneyDefinitions   CustomerJourneyDefinition[]
+  customerJourneyInstances     CustomerJourneyInstance[]
+  customerAdoptionMetrics      CustomerAdoptionMetricDefinition[]
+  customerHealthModels         CustomerHealthModel[]
+  customerHealthEvaluations    CustomerHealthEvaluation[]
+  customerRiskAssessments      CustomerRiskAssessment[]
+  customerSuccessTasks         CustomerSuccessTask[]
+  customerPlaybookDefinitions  CustomerPlaybookDefinition[]
+  customerPlaybookRuns         CustomerPlaybookRun[]
+  customerCommTemplates        CustomerCommunicationTemplate[]
+  customerCommApprovals        CustomerCommunicationApproval[]
 
   @@map("workspaces")
 }
@@ -2826,4 +2841,388 @@ model IntelligencePolicy {
   workspace                    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@map("intelligence_policies")
+}
+
+// ==========================================
+// Phase 25: Enterprise Customer Journey Intelligence, Customer 360 & Operations
+// ==========================================
+
+model CustomerAccount {
+  id                    String    @id @default(uuid())
+  workspaceId           String
+  slug                  String
+  name                  String
+  domain                String?
+  tier                  String    @default("STANDARD") // ENTERPRISE, GROWTH, STANDARD, FREE
+  lifecycleState        String    @default("ONBOARDING") // PROSPECT, ONBOARDING, ACTIVE, AT_RISK, RENEWAL_PENDING, CHURNED, ARCHIVED
+  ownerUserId           String?
+  ownerTeamId           String?
+  annualContractValue   Float?
+  dataClassification    String    @default("INTERNAL") // INTERNAL, CONFIDENTIAL, RESTRICTED
+  consentMetadata       Json      @default("{}")
+  customAttributes      Json      @default("{}")
+  healthStatus          String    @default("HEALTHY") // HEALTHY, NEEDS_ATTENTION, AT_RISK, INSUFFICIENT_DATA
+  healthScore           Float?
+  lastHealthEvaluatedAt DateTime?
+  lastActivityAt        DateTime?
+  archivedAt            DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  workspace             Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contacts              CustomerContact[]
+  externalIdentities    CustomerExternalIdentity[]
+  journeys              CustomerJourneyInstance[]
+  healthEvaluations     CustomerHealthEvaluation[]
+  riskAssessments       CustomerRiskAssessment[]
+  tasks                 CustomerSuccessTask[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, lifecycleState])
+  @@index([workspaceId, healthStatus])
+  @@index([workspaceId, ownerUserId])
+  @@map("customer_accounts")
+}
+
+model CustomerContact {
+  id                String   @id @default(uuid())
+  workspaceId       String
+  customerAccountId String
+  name              String
+  email             String
+  role              String?  @default("END_USER") // PRIMARY_ADMIN, DECISION_MAKER, BILLING_CONTACT, END_USER
+  phone             String?
+  isPrimary         Boolean  @default(false)
+  consentStatus     String   @default("OPTED_IN") // OPTED_IN, OPTED_OUT, PENDING
+  consentMetadata   Json     @default("{}")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  workspace         Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([customerAccountId, email])
+  @@index([workspaceId, email])
+  @@map("customer_contacts")
+}
+
+model CustomerExternalIdentity {
+  id                String   @id @default(uuid())
+  workspaceId       String
+  customerAccountId String
+  systemType        String   // CRM, BILLING, SUPPORT, ANALYTICS, IDENTITY_PROVIDER
+  connectorId       String?
+  externalSystem    String   // salesforce, stripe, zendesk, hubspot
+  externalId        String
+  externalData      Json     @default("{}")
+  confidence        Float    @default(1.0)
+  isPrimary         Boolean  @default(true)
+  verified          Boolean  @default(true)
+  provenance        Json     @default("{}")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  workspace         Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, externalSystem, externalId])
+  @@index([customerAccountId, systemType])
+  @@map("customer_external_identities")
+}
+
+model CustomerJourneyDefinition {
+  id                 String   @id @default(uuid())
+  workspaceId        String
+  name               String
+  slug               String
+  description        String?
+  journeyType        String   @default("ONBOARDING") // ONBOARDING, ACTIVATION, ADOPTION, RENEWAL, RECOVERY, OFFBOARDING
+  targetSegment      String?  @default("ALL")
+  status             String   @default("ACTIVE") // DRAFT, ACTIVE, ARCHIVED
+  publishedVersionId String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  workspace          Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  versions           CustomerJourneyVersion[]
+  instances          CustomerJourneyInstance[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, journeyType])
+  @@map("customer_journey_definitions")
+}
+
+model CustomerJourneyVersion {
+  id                  String   @id @default(uuid())
+  definitionId        String
+  versionNumber       Int
+  isPublished         Boolean  @default(false)
+  entryConditions     Json     // { triggerEvent, filters }
+  milestones          Json     // [{ id, name, targetDurationHours, requiredProcessDefId, isHumanCheckpoint }]
+  exitConditions      Json     // { successCriteria, timeoutHours }
+  targetDurationHours Int      @default(168)
+  slaPolicy           Json     @default("{}")
+  createdAt           DateTime @default(now())
+
+  definition          CustomerJourneyDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  instances           CustomerJourneyInstance[]
+
+  @@unique([definitionId, versionNumber])
+  @@map("customer_journey_versions")
+}
+
+model CustomerJourneyInstance {
+  id                       String    @id @default(uuid())
+  workspaceId              String
+  journeyDefinitionId      String
+  journeyVersionId         String
+  customerAccountId        String
+  status                   String    @default("IN_PROGRESS") // IN_PROGRESS, BLOCKED, COMPLETED, FAILED, CANCELLED
+  currentMilestoneId       String?
+  currentMilestoneName     String?
+  milestoneHistory         Json      @default("[]")
+  relatedProcessInstanceId String?
+  startedAt                DateTime  @default(now())
+  completedAt              DateTime?
+  durationMs               Int?
+  slaStatus                String    @default("MET") // MET, AT_RISK, BREACHED
+  idempotencyKey           String?
+  metadata                 Json      @default("{}")
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  workspace                Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  journeyDefinition        CustomerJourneyDefinition @relation(fields: [journeyDefinitionId], references: [id], onDelete: Cascade)
+  journeyVersion           CustomerJourneyVersion    @relation(fields: [journeyVersionId], references: [id], onDelete: Cascade)
+  customerAccount          CustomerAccount           @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+  tasks                    CustomerSuccessTask[]
+
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, status])
+  @@index([customerAccountId, status])
+  @@map("customer_journey_instances")
+}
+
+model CustomerAdoptionMetricDefinition {
+  id                    String   @id @default(uuid())
+  workspaceId           String
+  slug                  String
+  name                  String
+  description           String?
+  metricType            String   @default("EVENT_COUNT") // EVENT_COUNT, ACTIVE_USERS, FEATURE_FREQUENCY, TIME_TO_ACTION, REPEATED_USAGE
+  sourceEventType       String?
+  dataProductId         String?
+  filterExpression      Json     @default("{}")
+  aggregationWindowDays Int      @default(30)
+  minSampleRequired     Int      @default(1)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  workspace             Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, metricType])
+  @@map("customer_adoption_metrics")
+}
+
+model CustomerHealthModel {
+  id               String   @id @default(uuid())
+  workspaceId      String
+  name             String
+  version          Int      @default(1)
+  isActive         Boolean  @default(true)
+  dimensions       Json     // [{ name, weight, metricType, evaluationWindowDays, missingDataBehavior }]
+  statusThresholds Json     // { healthyMin: 75, needsAttentionMin: 50, atRiskMin: 0 }
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  workspace        Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  evaluations      CustomerHealthEvaluation[]
+
+  @@unique([workspaceId, version])
+  @@map("customer_health_models")
+}
+
+model CustomerHealthEvaluation {
+  id                    String   @id @default(uuid())
+  workspaceId           String
+  customerAccountId     String
+  healthModelId         String
+  score                 Float
+  status                String   // HEALTHY, NEEDS_ATTENTION, AT_RISK, INSUFFICIENT_DATA
+  dimensionScores       Json     // { adoption: 85, onboarding: 90, support: 60 }
+  influentialFactors    Json     // string[]
+  missingDataDimensions Json     // string[]
+  confidence            Float    @default(1.0)
+  evaluatedAt           DateTime @default(now())
+
+  workspace             Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerAccount       CustomerAccount     @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+  healthModel           CustomerHealthModel @relation(fields: [healthModelId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, customerAccountId, evaluatedAt])
+  @@index([workspaceId, status])
+  @@map("customer_health_evaluations")
+}
+
+model CustomerRiskAssessment {
+  id                 String    @id @default(uuid())
+  workspaceId        String
+  customerAccountId  String
+  riskCategory       String    // ONBOARDING_STALL, ADOPTION_DROP, SLA_BREACH_SPIKE, SUPPORT_ESCALATION, CHURN_INDICATOR
+  severity           String    // CRITICAL, HIGH, MEDIUM, LOW
+  status             String    @default("DETECTED") // DETECTED, INVESTIGATING, MITIGATING, RESOLVED, DISMISSED
+  summary            String
+  evidenceReferences Json      // [{ sourceService, metricName, value, timestamp }]
+  probability        Float?
+  confidence         Float     @default(0.85)
+  recommendedAction  String?
+  journeyInstanceId  String?
+  firstDetectedAt    DateTime  @default(now())
+  lastObservedAt     DateTime  @default(now())
+  resolvedAt         DateTime?
+  resolutionNotes    String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  workspace          Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerAccount    CustomerAccount @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, customerAccountId, status])
+  @@index([workspaceId, riskCategory])
+  @@map("customer_risk_assessments")
+}
+
+model CustomerSuccessTask {
+  id                String    @id @default(uuid())
+  workspaceId       String
+  customerAccountId String
+  journeyInstanceId String?
+  riskAssessmentId  String?
+  taskType          String    // AT_RISK_REVIEW, ONBOARDING_FOLLOWUP, RENEWAL_CHECK, SUPPORT_ESCALATION, DATA_SYNC_INVESTIGATION, COMMUNICATION_APPROVAL
+  title             String
+  description       String
+  priority          String    @default("MEDIUM") // URGENT, HIGH, MEDIUM, LOW
+  status            String    @default("OPEN") // OPEN, IN_PROGRESS, WAITING_ON_CUSTOMER, RESOLVED, CANCELLED
+  assignedUserId    String?
+  assignedTeamId    String?
+  dueAt             DateTime?
+  resolvedAt        DateTime?
+  resolutionNotes   String?
+  evidence          Json      @default("{}")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  workspace         Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerAccount   CustomerAccount          @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+  journeyInstance   CustomerJourneyInstance? @relation(fields: [journeyInstanceId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status])
+  @@index([customerAccountId, status])
+  @@map("customer_success_tasks")
+}
+
+model CustomerPlaybookDefinition {
+  id                 String   @id @default(uuid())
+  workspaceId        String
+  name               String
+  slug               String
+  description        String?
+  triggerType        String   @default("RISK_DETECTED") // RISK_DETECTED, JOURNEY_BLOCKED, HEALTH_DROP, MANUAL
+  status             String   @default("ACTIVE") // ACTIVE, PAUSED, DRAFT
+  publishedVersionId String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  workspace          Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  versions           CustomerPlaybookVersion[]
+  runs               CustomerPlaybookRun[]
+
+  @@unique([workspaceId, slug])
+  @@map("customer_playbook_definitions")
+}
+
+model CustomerPlaybookVersion {
+  id                        String   @id @default(uuid())
+  playbookDefinitionId      String
+  versionNumber             Int
+  isPublished               Boolean  @default(false)
+  triggerCondition          Json     // { riskCategory, minSeverity }
+  steps                     Json     // [{ stepId, type, config }]
+  loopPreventionWindowHours Int      @default(24)
+  maxRunsPerDay             Int      @default(100)
+  createdAt                 DateTime @default(now())
+
+  playbookDefinition        CustomerPlaybookDefinition @relation(fields: [playbookDefinitionId], references: [id], onDelete: Cascade)
+  runs                      CustomerPlaybookRun[]
+
+  @@unique([playbookDefinitionId, versionNumber])
+  @@map("customer_playbook_versions")
+}
+
+model CustomerPlaybookRun {
+  id                   String    @id @default(uuid())
+  workspaceId          String
+  playbookDefinitionId String
+  playbookVersionId    String
+  customerAccountId    String
+  triggerEventId       String?
+  status               String    @default("RUNNING") // RUNNING, SUCCEEDED, FAILED, WAITING_APPROVAL, CANCELLED
+  currentStepIndex     Int       @default(0)
+  stepResults          Json      @default("[]")
+  executionError       String?
+  startedAt            DateTime  @default(now())
+  completedAt          DateTime?
+
+  workspace            Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  playbookDefinition   CustomerPlaybookDefinition @relation(fields: [playbookDefinitionId], references: [id], onDelete: Cascade)
+  playbookVersion      CustomerPlaybookVersion    @relation(fields: [playbookVersionId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, playbookDefinitionId, status])
+  @@index([customerAccountId, startedAt])
+  @@map("customer_playbook_runs")
+}
+
+model CustomerCommunicationTemplate {
+  id                String   @id @default(uuid())
+  workspaceId       String
+  name              String
+  slug              String
+  category          String   @default("ONBOARDING") // ONBOARDING, RISK_CHECKIN, RENEWAL, INCIDENT_NOTICE
+  subject           String
+  bodyTemplate      String
+  requiredVariables String[]
+  requiresApproval  Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  workspace         Workspace                        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  approvals         CustomerCommunicationApproval[]
+
+  @@unique([workspaceId, slug])
+  @@map("customer_communication_templates")
+}
+
+model CustomerCommunicationApproval {
+  id                String    @id @default(uuid())
+  workspaceId       String
+  templateId        String
+  customerAccountId String
+  contactId         String?
+  recipientEmail    String
+  renderedSubject   String
+  renderedBody      String
+  status            String    @default("PENDING_APPROVAL") // PENDING_APPROVAL, APPROVED, REJECTED, SENT, CANCELLED
+  approvedById      String?
+  approvedAt        DateTime?
+  sentAt            DateTime?
+  deliveryStatus    String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  workspace         Workspace                     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  template          CustomerCommunicationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@map("customer_communication_approvals")
 }

@@ -1204,4 +1204,75 @@ export const api = {
     },
   },
 
+
+  // Phase 25: Customer Operations & 360 Intelligence
+  customers: {
+    listAccounts: (params?: { lifecycleState?: string; healthStatus?: string; tier?: string; search?: string }) => {
+      const q = new URLSearchParams(params as any).toString();
+      return request<{ data: any[] }>(`/customers${q ? `?${q}` : ""}`);
+    },
+    getAccount: (id: string) => request<{ data: any }>(`/customers/${id}`),
+    createAccount: (body: any) =>
+      request<{ data: any }>("/customers", { method: "POST", body: JSON.stringify(body) }),
+    updateAccount: (id: string, body: any) =>
+      request<{ data: any }>(`/customers/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    get360Profile: (id: string) => request<{ data: any }>(`/customers/${id}/360`),
+    addContact: (id: string, body: any) =>
+      request<{ data: any }>(`/customers/${id}/contacts`, { method: "POST", body: JSON.stringify(body) }),
+    linkIdentity: (id: string, body: any) =>
+      request<{ data: any }>(`/customers/${id}/identities`, { method: "POST", body: JSON.stringify(body) }),
+    listJourneys: () => request<{ data: any[] }>("/customer-journeys/definitions"),
+    createJourney: (body: any) =>
+      request<{ data: any }>("/customer-journeys/definitions", { method: "POST", body: JSON.stringify(body) }),
+    listJourneyInstances: (params?: { customerAccountId?: string; status?: string }) => {
+      const q = new URLSearchParams(params as any).toString();
+      return request<{ data: any[] }>(`/customer-journeys/instances${q ? `?${q}` : ""}`);
+    },
+    startJourneyInstance: (body: any) =>
+      request<{ data: any }>("/customer-journeys/instances", { method: "POST", body: JSON.stringify(body) }),
+    progressMilestone: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-journeys/instances/${id}/milestones`, { method: "POST", body: JSON.stringify(body) }),
+    getHealthModel: () => request<{ data: any }>("/customer-health/model"),
+    configureHealthModel: (body: any) =>
+      request<{ data: any }>("/customer-health/model", { method: "POST", body: JSON.stringify(body) }),
+    evaluateHealth: (accountId: string) =>
+      request<{ data: any }>(`/customer-health/evaluate/${accountId}`, { method: "POST" }),
+    getHealthHistory: (accountId: string) =>
+      request<{ data: any[] }>(`/customer-health/history/${accountId}`),
+    listRisks: (params?: { customerAccountId?: string; status?: string; severity?: string }) => {
+      const q = new URLSearchParams(params as any).toString();
+      return request<{ data: any[] }>(`/customer-risks${q ? `?${q}` : ""}`);
+    },
+    recordRisk: (body: any) =>
+      request<{ data: any }>("/customer-risks", { method: "POST", body: JSON.stringify(body) }),
+    resolveRisk: (id: string, body: { status: string; notes?: string }) =>
+      request<{ data: any }>(`/customer-risks/${id}/resolve`, { method: "POST", body: JSON.stringify(body) }),
+    listTasks: (params?: { customerAccountId?: string; status?: string; priority?: string }) => {
+      const q = new URLSearchParams(params as any).toString();
+      return request<{ data: any[] }>(`/customer-tasks${q ? `?${q}` : ""}`);
+    },
+    createTask: (body: any) =>
+      request<{ data: any }>("/customer-tasks", { method: "POST", body: JSON.stringify(body) }),
+    updateTask: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-tasks/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    listPlaybooks: () => request<{ data: any[] }>("/customer-playbooks/definitions"),
+    createPlaybook: (body: any) =>
+      request<{ data: any }>("/customer-playbooks/definitions", { method: "POST", body: JSON.stringify(body) }),
+    triggerPlaybook: (definitionId: string, body: { customerAccountId: string }) =>
+      request<{ data: any }>(`/customer-playbooks/definitions/${definitionId}/trigger`, { method: "POST", body: JSON.stringify(body) }),
+    listPlaybookRuns: (params?: { playbookDefinitionId?: string }) => {
+      const q = new URLSearchParams(params as any).toString();
+      return request<{ data: any[] }>(`/customer-playbooks/runs${q ? `?${q}` : ""}`);
+    },
+    listTemplates: () => request<{ data: any[] }>("/customer-communications/templates"),
+    createTemplate: (body: any) =>
+      request<{ data: any }>("/customer-communications/templates", { method: "POST", body: JSON.stringify(body) }),
+    requestApproval: (body: any) =>
+      request<{ data: any }>("/customer-communications/approvals", { method: "POST", body: JSON.stringify(body) }),
+    approveCommunication: (id: string) =>
+      request<{ data: any }>(`/customer-communications/approvals/${id}/approve`, { method: "POST" }),
+    rejectCommunication: (id: string) =>
+      request<{ data: any }>(`/customer-communications/approvals/${id}/reject`, { method: "POST" }),
+  },
+
 };

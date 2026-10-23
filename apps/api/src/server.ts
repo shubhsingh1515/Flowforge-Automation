@@ -62,6 +62,7 @@ import { processRoutes } from "./routes/processes.js";
 import { eventRoutes } from "./routes/events.js";
 import { dataIntelligenceRoutes } from "./routes/dataIntelligence.js";
 import { intelligenceRoutes } from "./routes/intelligence.js";
+import { customerRoutes } from "./routes/customers.js";
 import { startWorker, stopWorker } from "./worker/worker.js";
 import { startOutboundWebhookWorker, stopOutboundWebhookWorker } from "./worker/outboundWebhookWorker.js";
 import { workflowScheduler } from "./worker/scheduler.js";
@@ -296,6 +297,7 @@ export async function buildServer(options: BuildServerOptions = {}) {
       await api.register(eventRoutes);
       await api.register(dataIntelligenceRoutes);
       await api.register(intelligenceRoutes);
+      await api.register(customerRoutes);
     },
     { prefix: config.apiPrefix }
   );
