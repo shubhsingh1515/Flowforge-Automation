@@ -171,8 +171,8 @@ export default function ExecutionsPage() {
       )}
 
       {/* Filter Toolbar */}
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-1 rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 shadow-2xs">
+      <div className="mb-6 flex items-center justify-between overflow-x-auto min-w-0 pb-1">
+        <div className="flex items-center gap-1 rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 shadow-2xs shrink-0">
           {["ALL", "SUCCESS", "FAILED", "RUNNING", "PENDING", "WAITING_APPROVAL", "CANCELLED"].map((st) => (
             <button
               key={st}
@@ -426,9 +426,9 @@ export default function ExecutionsPage() {
             {/* Phase 13: Intelligent Execution Failure Analysis */}
             {detailData.execution.status === "FAILED" && (
               <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/50 p-3.5 space-y-3" data-testid="ai-debug-container">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <div className="p-1 rounded bg-indigo-100 text-indigo-700">
+                    <div className="p-1 rounded bg-indigo-100 text-indigo-700 shrink-0">
                       <Sparkles className="h-4 w-4" />
                     </div>
                     <div>
@@ -441,7 +441,7 @@ export default function ExecutionsPage() {
                       data-testid="btn-ai-debug-failure"
                       onClick={() => handleRunAiDebug(detailData.execution.id)}
                       disabled={isDebugLoading}
-                      className="px-3.5 py-2 rounded-xl bg-[#6558E8] text-white hover:bg-[#5345D8] text-xs font-semibold flex items-center gap-1.5 shadow-2xs disabled:opacity-50 transition-colors cursor-pointer"
+                      className="px-3.5 py-2 rounded-xl bg-[#6558E8] text-white hover:bg-[#5345D8] text-xs font-semibold flex items-center gap-1.5 shadow-2xs disabled:opacity-50 transition-colors cursor-pointer shrink-0 self-start sm:self-auto"
                     >
                       <Sparkles className="h-3.5 w-3.5" />
                       <span>{isDebugLoading ? "Analyzing..." : "Analyze Failure with AI"}</span>

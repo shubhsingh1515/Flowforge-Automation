@@ -875,7 +875,7 @@ export default function EnvironmentsPage() {
         {/* TAB 5: DIGITAL TWIN SIMULATION */}
         {activeTab === "simulations" && (
           <div className="space-y-4" data-testid="simulations-view">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Workflow Digital Twin & Deterministic Simulation</h3>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -883,7 +883,7 @@ export default function EnvironmentsPage() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <select
                   value={selectedWorkflowId || workflows[0]?.id || ""}
                   onChange={(e) => setSelectedWorkflowId(e.target.value)}
@@ -916,7 +916,7 @@ export default function EnvironmentsPage() {
                     if (targetWf) runSimulationMutation.mutate({ workflowId: targetWf, faultType: selectedFaultType });
                   }}
                   disabled={runSimulationMutation.isPending || workflows.length === 0}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors shadow-2xs disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors shadow-2xs disabled:opacity-50 shrink-0"
                 >
                   <Play className="h-3.5 w-3.5" />
                   <span>{runSimulationMutation.isPending ? "Simulating..." : "Run Digital Twin"}</span>
@@ -1011,7 +1011,7 @@ export default function EnvironmentsPage() {
         {/* TAB 6: CHAOS ENGINEERING */}
         {activeTab === "chaos" && (
           <div className="space-y-4" data-testid="chaos-view">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Controlled Chaos Engineering</h3>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -1020,12 +1020,12 @@ export default function EnvironmentsPage() {
               </div>
 
               {currentEnv?.type === "PRODUCTION" ? (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs font-semibold">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs font-semibold shrink-0">
                   <ShieldAlert className="h-4 w-4" />
                   <span>Chaos Prohibited on PRODUCTION</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <select
                     value={chaosFaultType}
                     onChange={(e) => setChaosFaultType(e.target.value)}
@@ -1043,7 +1043,7 @@ export default function EnvironmentsPage() {
                     data-testid="btn-create-chaos"
                     onClick={() => createChaosMutation.mutate()}
                     disabled={createChaosMutation.isPending}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors shadow-2xs disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors shadow-2xs disabled:opacity-50 shrink-0"
                   >
                     <ShieldAlert className="h-3.5 w-3.5" />
                     <span>{createChaosMutation.isPending ? "Registering..." : "Register Chaos Drill"}</span>

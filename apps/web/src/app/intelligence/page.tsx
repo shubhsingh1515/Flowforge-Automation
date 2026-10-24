@@ -296,8 +296,8 @@ export default function IntelligencePage() {
       </div>
 
       {/* Tabs */}
-      <div className="mt-6 border-b border-slate-200">
-        <nav className="-mb-px flex space-x-6">
+      <div className="mt-6 border-b border-slate-200 overflow-x-auto min-w-0">
+        <nav className="-mb-px flex space-x-6 min-w-max">
           {[
             { id: "OVERVIEW", label: "Context & Evidence" },
             { id: "INSIGHTS", label: `Insights (${insightsList.length})` },
@@ -309,7 +309,7 @@ export default function IntelligencePage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`border-b-2 py-3 text-sm font-semibold transition-colors ${
+              className={`border-b-2 py-3 text-sm font-semibold transition-colors shrink-0 whitespace-nowrap ${
                 activeTab === tab.id
                   ? "border-indigo-600 text-indigo-600"
                   : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
@@ -657,7 +657,7 @@ export default function IntelligencePage() {
       {/* TAB 5: GOVERNED DECISIONS */}
       {activeTab === "DECISIONS" && (
         <div className="mt-6 space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-semibold text-slate-900">Governed Decision Automation Center</h3>
               <p className="mt-1 text-sm text-slate-500">
@@ -666,7 +666,7 @@ export default function IntelligencePage() {
             </div>
             <button
               onClick={() => setCreateProposalOpen(true)}
-              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 shrink-0 self-start sm:self-auto"
             >
               <Plus className="h-4 w-4" />
               Propose Action
@@ -821,7 +821,7 @@ export default function IntelligencePage() {
       {/* Modal: Generate Forecast */}
       {runForecastOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-slate-900">Generate Predictive Outcome Forecast</h3>
             <div className="mt-4 space-y-4">
               <div>
@@ -903,7 +903,7 @@ export default function IntelligencePage() {
       {/* Modal: Approve Decision */}
       {approveProposalId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-slate-900">Authorize Governed Action Execution</h3>
             <p className="mt-1 text-sm text-slate-500">
               Only workspace ADMIN or OWNER roles may authorize production actions.
@@ -963,7 +963,7 @@ export default function IntelligencePage() {
       {/* Modal: Create Decision Proposal */}
       {createProposalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-slate-900">Create Governed Decision Proposal</h3>
             <p className="mt-1 text-sm text-slate-500">
               Propose an allowlisted FlowForge action for policy evaluation and authorization.

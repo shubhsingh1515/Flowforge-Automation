@@ -174,16 +174,16 @@ console.log("Execution initiated with ID:", execution.id);`;
 
           {/* Primary Headline */}
           <h1 className="mt-6 text-4xl font-extrabold tracking-tight text-slate-900 sm:text-6xl sm:leading-tight max-w-4xl mx-auto">
-            Automate workflows. <br className="hidden sm:inline" />
+            Automate the work. <br className="hidden sm:inline" />
             <span className="bg-gradient-to-r from-[#6558E8] via-[#4F46E5] to-[#22B8CF] bg-clip-text text-transparent">
-              Orchestrate your business.
+              Orchestrate the flow.
             </span>{" "}
-            Stay in control.
+            See the whole picture.
           </h1>
 
           {/* Supporting Copy */}
           <p className="mt-6 text-base sm:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
-            Connect your tools, coordinate complex business processes, and gain visibility into every execution with governed automation built for growing teams and enterprise operations.
+            Build connected workflows, coordinate complex processes, and monitor every execution with a platform designed for reliable, governed automation.
           </p>
 
           {/* Action CTAs */}
@@ -192,7 +192,7 @@ console.log("Execution initiated with ID:", execution.id);`;
               href={user ? "/dashboard" : "/register"}
               className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-[#6558E8] px-6 py-3 text-sm font-semibold text-white shadow-md shadow-[#6558E8]/25 hover:bg-[#5345D8] transition-all"
             >
-              <span>{user ? "Open Console Dashboard" : "Get Started Free"}</span>
+              <span>{user ? "Open Console Dashboard" : "Get Started"}</span>
               <ArrowRight className="h-4 w-4" />
             </Link>
 
@@ -200,7 +200,7 @@ console.log("Execution initiated with ID:", execution.id);`;
               href="#showcase"
               className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-all"
             >
-              <span>Explore Platform</span>
+              <span>Explore the Platform</span>
             </a>
           </div>
 

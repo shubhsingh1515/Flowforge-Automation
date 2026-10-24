@@ -8,6 +8,10 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      spacing: {
+        18: "4.5rem", // 72px icon rail width
+        68: "17rem",
+      },
       colors: {
         midnight: {
           950: "#0B0F19",

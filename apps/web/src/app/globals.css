@@ -18,7 +18,15 @@
     --border-card: #D8DFEA;
   }
 
+  html {
+    scroll-padding-top: 5rem;
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
   body {
+    overflow-x: hidden;
+    max-width: 100vw;
     background-color: var(--canvas-bg);
     color: #0F172A;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";

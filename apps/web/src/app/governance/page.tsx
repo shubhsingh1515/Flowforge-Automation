@@ -490,8 +490,8 @@ export default function EnterpriseGovernancePage() {
         )}
 
         {/* Tab Navigation */}
-        <div className="border-b border-slate-200/90 overflow-x-auto">
-          <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+        <div className="border-b border-slate-200/90 overflow-x-auto min-w-0 max-w-full">
+          <nav className="-mb-px flex space-x-6 min-w-max" aria-label="Tabs">
             {[
               { id: "overview", label: "Stewardship Overview", icon: ShieldCheck },
               { id: "orgs_teams", label: "Organizations & Teams", icon: Building2 },
@@ -680,7 +680,7 @@ export default function EnterpriseGovernancePage() {
             {/* Stewardship Edit Modal */}
             {editingWorkflow && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-                <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl space-y-4">
+                <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
                   <div className="flex items-center justify-between border-b pb-3">
                     <h4 className="font-semibold text-slate-900">
                       Update Stewardship: {editingWorkflow.name}
@@ -967,14 +967,14 @@ export default function EnterpriseGovernancePage() {
             </div>
 
             {/* Filter pills */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 overflow-x-auto min-w-0 pb-1">
               {["ALL", "SUBMITTED", "APPROVED", "CHANGES_REQUESTED", "REJECTED", "SUPERSEDED"].map(
                 (status) => (
                   <button
                     key={status}
                     onClick={() => setReviewFilterStatus(status)}
                     className={cn(
-                      "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                      "rounded-full px-3 py-1 text-xs font-medium transition-colors shrink-0",
                       reviewFilterStatus === status
                         ? "bg-indigo-600 text-white"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -988,7 +988,8 @@ export default function EnterpriseGovernancePage() {
 
             {/* Reviews Table */}
             <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-              <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
                 <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
                   <tr>
                     <th className="px-6 py-3">Review Title</th>
@@ -1050,12 +1051,13 @@ export default function EnterpriseGovernancePage() {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
 
             {/* Submit Review Modal */}
             {showSubmitReviewModal && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-                <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl space-y-4">
+              <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 p-4 flex items-start sm:items-center justify-center">
+                <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl my-auto space-y-4">
                   <div className="flex items-center justify-between border-b pb-3">
                     <h4 className="font-semibold text-slate-900">Submit Workflow for Review</h4>
                     <button
@@ -1119,7 +1121,7 @@ export default function EnterpriseGovernancePage() {
                     </div>
                   </div>
 
-                  <div className="flex justify-end gap-2 pt-2 border-t">
+                  <div className="flex justify-end gap-2 pt-3 border-t">
                     <button
                       onClick={() => setShowSubmitReviewModal(false)}
                       className="rounded-md border border-slate-300 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
@@ -1642,7 +1644,7 @@ export default function EnterpriseGovernancePage() {
             {/* Create SLO Modal */}
             {showCreateSloModal && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-                <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl space-y-4">
+                <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
                   <div className="flex items-center justify-between border-b pb-3">
                     <h4 className="font-semibold text-slate-900">Define Reliability Objective (SLO)</h4>
                     <button
