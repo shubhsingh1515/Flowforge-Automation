@@ -114,9 +114,9 @@ function CustomWorkflowNodeComponent({ data, selected }: NodeProps) {
   return (
     <div
       className={cn(
-        "relative min-w-[220px] max-w-[260px] rounded-2xl border bg-white p-3.5 shadow-card transition-all duration-200",
+        "relative min-w-[220px] max-w-[260px] rounded-2xl border bg-white p-3.5 shadow-card ring-1 ring-slate-900/5 transition-all duration-200",
         selected
-          ? "border-[#6558E8] ring-2 ring-[#6558E8]/30 shadow-card-hover scale-[1.02]"
+          ? "border-[#6558E8] ring-2 ring-[#6558E8]/40 shadow-card-hover scale-[1.02]"
           : "border-slate-200/90 hover:border-slate-300 hover:shadow-card-hover"
       )}
     >

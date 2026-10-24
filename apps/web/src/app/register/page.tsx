@@ -54,7 +54,7 @@ export default function RegisterPage() {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <div className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-md px-6 py-8 shadow-card sm:px-10">
+        <div className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-md px-6 py-8 shadow-card ring-1 ring-slate-900/5 sm:px-10">
           {error && (
             <div className="mb-5 flex items-center gap-2.5 rounded-xl bg-rose-50 border border-rose-200/80 p-3 text-xs font-medium text-rose-700">
               <AlertCircle className="h-4 w-4 shrink-0 text-rose-500" />
@@ -73,7 +73,7 @@ export default function RegisterPage() {
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 pl-10 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#6558E8] focus:outline-none focus:ring-2 focus:ring-[#6558E8]/20 transition-all"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 pl-10 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#6558E8] focus:outline-none focus:ring-2 focus:ring-[#6558E8]/20 transition-all shadow-2xs"
                   placeholder="Jordan Vance"
                 />
                 <User className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
@@ -90,7 +90,7 @@ export default function RegisterPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 pl-10 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#6558E8] focus:outline-none focus:ring-2 focus:ring-[#6558E8]/20 transition-all"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 pl-10 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#6558E8] focus:outline-none focus:ring-2 focus:ring-[#6558E8]/20 transition-all shadow-2xs"
                   placeholder="jordan@company.com"
                 />
                 <Mail className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
@@ -106,7 +106,7 @@ export default function RegisterPage() {
                   type="text"
                   value={workspaceName}
                   onChange={(e) => setWorkspaceName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 pl-10 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#6558E8] focus:outline-none focus:ring-2 focus:ring-[#6558E8]/20 transition-all"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 pl-10 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#6558E8] focus:outline-none focus:ring-2 focus:ring-[#6558E8]/20 transition-all shadow-2xs"
                   placeholder="e.g. Vance Ops or Acme Marketing"
                 />
                 <Building className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
@@ -124,7 +124,7 @@ export default function RegisterPage() {
                   minLength={8}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 pl-10 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#6558E8] focus:outline-none focus:ring-2 focus:ring-[#6558E8]/20 transition-all"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 pl-10 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#6558E8] focus:outline-none focus:ring-2 focus:ring-[#6558E8]/20 transition-all shadow-2xs"
                   placeholder="At least 8 characters"
                 />
                 <Lock className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
@@ -134,7 +134,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#6558E8] py-2.5 px-4 text-xs font-semibold text-white shadow-sm hover:bg-[#5345D8] focus:outline-none focus:ring-2 focus:ring-[#6558E8] focus:ring-offset-2 disabled:opacity-70 transition-all cursor-pointer"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#6558E8] to-[#5345D8] hover:from-[#5C4FE0] hover:to-[#4A3CCF] py-2.5 px-4 text-xs font-semibold text-white shadow-sm shadow-[#6558E8]/25 ring-1 ring-inset ring-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6558E8] focus-visible:ring-offset-1 active:scale-[0.98] disabled:opacity-70 transition-all cursor-pointer"
             >
               {loading ? (
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -156,6 +156,18 @@ export default function RegisterPage() {
               Sign in here
             </Link>
           </div>
+        </div>
+
+        {/* Enterprise trust badges */}
+        <div className="mt-6 flex items-center justify-center gap-4 text-[11px] font-medium text-slate-400">
+          <span className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            14-Day Free Trial
+          </span>
+          <span>•</span>
+          <span>No Credit Card Required</span>
+          <span>•</span>
+          <span>Cancel Anytime</span>
         </div>
       </div>
     </div>

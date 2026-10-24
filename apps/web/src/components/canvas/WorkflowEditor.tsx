@@ -521,19 +521,19 @@ export function WorkflowEditor({ initialWorkflow, onSave }: WorkflowEditorProps)
           )}
 
           {/* Save Button & Checkpoint Dropdown */}
-          <div className="flex items-center">
+          <div className="flex items-center shadow-sm shadow-[#6558E8]/20">
             <button
               onClick={() => handleSave(false)}
               disabled={isSaving}
               data-testid="save-graph-btn"
-              className="inline-flex items-center gap-2 rounded-l-xl bg-[#6558E8] px-4 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-[#5345D8] disabled:opacity-70 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-l-xl bg-gradient-to-b from-[#6558E8] to-[#5345D8] hover:from-[#5C4FE0] hover:to-[#4A3CCF] px-4 py-2 text-xs font-semibold text-white ring-1 ring-inset ring-white/20 disabled:opacity-70 transition-all cursor-pointer active:scale-[0.99]"
             >
               <Save className="h-3.5 w-3.5" />
               <span>{isSaving ? "Saving..." : saveSuccess ? "Saved to Cloud" : "Save Graph"}</span>
             </button>
             <button
               onClick={() => setCheckpointModalOpen(true)}
-              className="rounded-r-xl bg-[#5345D8] px-2.5 py-2 text-xs font-semibold text-white hover:bg-[#4335C8] border-l border-indigo-400/40 cursor-pointer transition-colors"
+              className="rounded-r-xl bg-gradient-to-b from-[#5345D8] to-[#4336BE] hover:from-[#5C4FE0] hover:to-[#4A3CCF] px-2.5 py-2 text-xs font-semibold text-white border-l border-indigo-400/40 ring-1 ring-inset ring-white/10 cursor-pointer transition-all active:scale-[0.99]"
               title="Save a new version snapshot checkpoint"
             >
               +v

@@ -47,7 +47,7 @@ export default function LoginPage() {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <div className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-md px-6 py-8 shadow-card sm:px-10">
+        <div className="rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-md px-6 py-8 shadow-card ring-1 ring-slate-900/5 sm:px-10">
           {error && (
             <div className="mb-5 flex items-center gap-2.5 rounded-xl bg-rose-50 border border-rose-200/80 p-3 text-xs font-medium text-rose-700">
               <AlertCircle className="h-4 w-4 shrink-0 text-rose-500" />
@@ -66,7 +66,7 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 pl-10 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#6558E8] focus:outline-none focus:ring-2 focus:ring-[#6558E8]/20 transition-all"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 pl-10 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#6558E8] focus:outline-none focus:ring-2 focus:ring-[#6558E8]/20 transition-all shadow-2xs"
                   placeholder="you@company.com"
                 />
                 <Mail className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
@@ -83,17 +83,29 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 pl-10 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#6558E8] focus:outline-none focus:ring-2 focus:ring-[#6558E8]/20 transition-all"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 pl-10 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#6558E8] focus:outline-none focus:ring-2 focus:ring-[#6558E8]/20 transition-all shadow-2xs"
                   placeholder="••••••••"
                 />
                 <Lock className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
               </div>
             </div>
 
-            <div className="rounded-xl bg-slate-50 border border-slate-200/70 p-3.5 text-[11px] text-slate-600 leading-relaxed">
-              <div className="flex items-center gap-1.5 font-semibold text-slate-800 mb-1">
-                <ShieldCheck className="h-3.5 w-3.5 text-[#6558E8]" />
-                <span>Pre-seeded Demo Account:</span>
+            <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3.5 text-[11px] text-slate-600 leading-relaxed shadow-2xs">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                  <ShieldCheck className="h-3.5 w-3.5 text-[#6558E8]" />
+                  <span>Pre-seeded Demo Account:</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail("demo@flowforge.dev");
+                    setPassword("Password123!");
+                  }}
+                  className="text-[10px] font-semibold text-[#6558E8] hover:underline"
+                >
+                  Auto-fill
+                </button>
               </div>
               <p>Email: <code className="bg-slate-200/70 px-1.5 py-0.5 rounded text-slate-900 font-mono text-[10px]">demo@flowforge.dev</code></p>
               <p className="mt-1">Password: <code className="bg-slate-200/70 px-1.5 py-0.5 rounded text-slate-900 font-mono text-[10px]">Password123!</code></p>
@@ -102,7 +114,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#6558E8] py-2.5 px-4 text-xs font-semibold text-white shadow-sm hover:bg-[#5345D8] focus:outline-none focus:ring-2 focus:ring-[#6558E8] focus:ring-offset-2 disabled:opacity-70 transition-all cursor-pointer"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#6558E8] to-[#5345D8] hover:from-[#5C4FE0] hover:to-[#4A3CCF] py-2.5 px-4 text-xs font-semibold text-white shadow-sm shadow-[#6558E8]/25 ring-1 ring-inset ring-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6558E8] focus-visible:ring-offset-1 active:scale-[0.98] disabled:opacity-70 transition-all cursor-pointer"
             >
               {loading ? (
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -124,6 +136,21 @@ export default function LoginPage() {
               Register here
             </Link>
           </div>
+        </div>
+
+        {/* Enterprise trust badges */}
+        <div className="mt-6 flex items-center justify-center gap-4 text-[11px] font-medium text-slate-400">
+          <span className="flex items-center gap-1">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+            SOC2 Ready
+          </span>
+          <span>•</span>
+          <span className="flex items-center gap-1">
+            <Lock className="h-3 w-3 text-slate-500" />
+            AES-256 Encrypted
+          </span>
+          <span>•</span>
+          <span>99.99% Uptime</span>
         </div>
       </div>
     </div>

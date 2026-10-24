@@ -6,10 +6,12 @@
   :root {
     --canvas-bg: #F5F7FB;
     --surface-bg: #FFFFFF;
+    --midnight-950: #0B0F19;
     --midnight-900: #101522;
     --midnight-800: #171F31;
     --midnight-700: #24304A;
     --flowforge-indigo: #6558E8;
+    --flowforge-indigo-hover: #5345D8;
     --signal-cyan: #22B8CF;
     --signal-green: #16A36A;
     --signal-amber: #D97706;
@@ -49,17 +51,19 @@
 
 /* Glassmorphism surfaces */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(216, 223, 234, 0.7);
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 1px 3px 0 rgba(16, 21, 34, 0.04), 0 1px 2px -1px rgba(16, 21, 34, 0.04);
 }
 
 .glass-panel-dark {
-  background: rgba(16, 21, 34, 0.92);
+  background: rgba(16, 21, 34, 0.94);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
 }
 
 /* Refined React Flow canvas styling */
@@ -78,7 +82,7 @@
   background-color: #6558E8;
   border: 2px solid #FFFFFF;
   border-radius: 9999px;
-  box-shadow: 0 0 0 2px rgba(101, 88, 232, 0.2);
+  box-shadow: 0 0 0 2px rgba(101, 88, 232, 0.25);
   transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -101,10 +105,10 @@
 }
 
 .react-flow__controls {
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 14px -2px rgba(16, 21, 34, 0.08);
-  border: 1px solid #D8DFEA;
+  box-shadow: 0 4px 16px -2px rgba(16, 21, 34, 0.08);
+  border: 1px solid #E2E8F0;
   background: #FFFFFF;
 }
 
@@ -144,13 +148,21 @@
 }
 
 /* Dark scrollbar for Midnight shell */
+.midnight-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.midnight-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .midnight-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.16);
   border-radius: 9999px;
 }
 
 .midnight-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.28);
 }
 
 /* Respect user's motion preferences */

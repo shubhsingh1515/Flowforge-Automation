@@ -26,17 +26,17 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ) => {
     const variantStyles = {
       primary:
-        "bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 shadow-sm shadow-indigo-200/50 border border-transparent focus-visible:ring-indigo-600",
+        "bg-gradient-to-b from-[#6558E8] to-[#5345D8] text-white hover:from-[#5C4FE0] hover:to-[#4A3CCF] active:from-[#4A3CCF] active:to-[#3F32BD] shadow-sm shadow-[#6558E8]/25 border border-indigo-700/40 ring-1 ring-inset ring-white/20 focus-visible:ring-[#6558E8]",
       secondary:
-        "bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 border border-slate-200/90 shadow-2xs active:bg-slate-100 focus-visible:ring-slate-400",
+        "bg-white text-slate-700 hover:bg-slate-50/90 hover:text-slate-900 border border-slate-200/90 shadow-2xs active:bg-slate-100 hover:border-slate-300/80 focus-visible:ring-slate-400",
       outline:
-        "bg-transparent text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-300 active:bg-slate-200",
+        "bg-transparent text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 border border-slate-300 active:bg-slate-200/90",
       ghost:
-        "bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-transparent",
+        "bg-transparent text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent",
       danger:
-        "bg-rose-600 text-white hover:bg-rose-700 active:bg-rose-800 shadow-sm border border-transparent focus-visible:ring-rose-600",
+        "bg-gradient-to-b from-rose-600 to-rose-700 text-white hover:from-rose-500 hover:to-rose-600 active:from-rose-700 active:to-rose-800 shadow-sm shadow-rose-600/25 border border-rose-800/40 ring-1 ring-inset ring-white/20 focus-visible:ring-rose-600",
       cyan:
-        "bg-cyan-600 text-white hover:bg-cyan-700 active:bg-cyan-800 shadow-sm shadow-cyan-200/50 border border-transparent focus-visible:ring-cyan-600",
+        "bg-gradient-to-b from-[#22B8CF] to-[#129EA3] text-white hover:from-[#31C1D6] hover:to-[#17A5AA] active:from-[#129EA3] active:to-[#0F868B] shadow-sm shadow-cyan-500/25 border border-cyan-700/40 ring-1 ring-inset ring-white/20 focus-visible:ring-cyan-600",
     };
 
     const sizeStyles = {
@@ -51,7 +51,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={disabled || loading}
         className={cn(
-          "inline-flex items-center justify-center transition-all duration-150 select-none disabled:opacity-50 disabled:pointer-events-none cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1",
+          "inline-flex items-center justify-center transition-all duration-150 select-none disabled:opacity-50 disabled:pointer-events-none cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 active:scale-[0.98]",
           variantStyles[variant],
           sizeStyles[size],
           className

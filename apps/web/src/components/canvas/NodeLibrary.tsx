@@ -233,7 +233,7 @@ export function NodeLibrary({ onAddNode }: NodeLibraryProps) {
             item.initialConfig
           )
         }
-        className="group flex w-full items-start gap-3 rounded-xl border border-slate-200/80 bg-white p-2.5 text-left transition-all hover:border-[#6558E8] hover:shadow-2xs cursor-pointer"
+        className="group flex w-full items-start gap-3 rounded-xl border border-slate-200/80 bg-white p-2.5 text-left transition-all ring-1 ring-slate-900/5 hover:border-[#6558E8] hover:ring-[#6558E8]/20 hover:shadow-2xs cursor-pointer active:scale-[0.99]"
       >
         <div
           className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${item.bg} ${item.color} border-slate-200/60 shadow-2xs`}
