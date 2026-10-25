@@ -21,6 +21,7 @@ import {
   Database,
   Brain,
   Users,
+  DollarSign,
   Layers,
   Sparkles,
   ArrowRight,
@@ -60,6 +61,7 @@ const COMMAND_ITEMS: CommandItem[] = [
   { id: "processes", title: "Business Process Mining", category: "Intelligence & Data", href: "/processes", icon: Layers, keywords: ["orchestration", "bottlenecks"] },
   { id: "data-products", title: "Governed Data Products", category: "Intelligence & Data", href: "/data-products", icon: Database, keywords: ["lineage", "pipelines"] },
   { id: "customers", title: "Customer Operations & 360", category: "Intelligence & Data", href: "/customers", icon: Users, badge: "P25", keywords: ["accounts", "health", "journey"] },
+  { id: "revenue", title: "Revenue Intelligence & Retention", category: "Intelligence & Data", href: "/revenue", icon: DollarSign, badge: "P26", keywords: ["contracts", "renewals", "expansion", "arr", "risk"] },
 
   // Operations & Governance
   { id: "environments", title: "Environments & Digital Twin", category: "Platform & Reliability", href: "/environments", icon: GitBranch, keywords: ["simulation", "chaos", "staging"] },

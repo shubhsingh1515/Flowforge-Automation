@@ -1453,4 +1453,110 @@ describe("FlowForge TypeScript SDK Client Suite", () => {
     expect(playbookRuns.data.length).toBe(1);
   });
 
+  it("should support Phase 26 Revenue Intelligence, Renewals, Risk, and Expansion methods", async () => {
+    const client = new FlowForgeClient({ apiKey: "ff_live_testkey123" });
+    global.fetch = vi.fn().mockImplementation(async (url: string, init?: any) => {
+      const u = url.toString();
+      if (u.includes("/evaluate-risk")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, data: { riskLevel: "LOW", riskScore: 10, isLatest: true } }),
+        };
+      }
+      if (u.includes("/customer-contracts") && init?.method === "POST") {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({ success: true, data: { id: "cnt-1", contractNumber: "CNT-2026-001", contractValue: 120000, currency: "USD" } }),
+        };
+      }
+      if (u.includes("/customer-renewals") && init?.method === "POST") {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({ success: true, data: { id: "ren-1", opportunityNumber: "REN-2026-001", renewalAmount: 120000, stage: "UPCOMING" } }),
+        };
+      }
+      if (u.includes("/customer-expansion") && init?.method === "POST") {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({ success: true, data: { id: "exp-1", opportunityNumber: "EXP-2026-001", stage: "DETECTED", estimatedValue: 35000 } }),
+        };
+      }
+      if (u.includes("/customer-revenue/policy") && (!init || init?.method === "GET")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, data: { policyVersion: "1.0", renewalPreparationDays: 90, autoTaskGeneration: true } }),
+        };
+      }
+      if (u.includes("/revenue/overview")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            data: {
+              currency: "USD",
+              totalActiveContracts: 12,
+              totalContractValue: 480000,
+              totalAnnualRecurringRevenue: 480000,
+              upcomingRenewalsCount: 3,
+              revenueAtRiskValue: 50000,
+              expansionPipeline: { totalDetected: 2, totalQualified: 4, pipelineValue: 125000, opportunitiesCount: 6 },
+            },
+          }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, data: {} }),
+      };
+    });
+
+    // 1. Contract creation
+    const contract = await client.revenue.contracts.create({
+      customerAccountId: "acc-1",
+      contractNumber: "CNT-2026-001",
+      name: "Acme Master Subscription",
+      contractValue: 120000,
+      currency: "USD",
+    });
+    expect(contract.data.contractNumber).toBe("CNT-2026-001");
+
+    // 2. Renewal opportunity creation
+    const renewal = await client.revenue.renewals.create({
+      contractId: "cnt-1",
+      opportunityNumber: "REN-2026-001",
+      renewalAmount: 120000,
+      targetDate: "2027-01-01T00:00:00Z",
+    });
+    expect(renewal.data.stage).toBe("UPCOMING");
+
+    // 3. Risk evaluation
+    const risk = await client.revenue.renewals.evaluateRisk("ren-1");
+    expect(risk.data.riskLevel).toBe("LOW");
+
+    // 4. Expansion opportunity
+    const expansion = await client.revenue.expansion.create({
+      customerAccountId: "acc-1",
+      opportunityNumber: "EXP-2026-001",
+      opportunityType: "ADDITIONAL_CAPACITY",
+      title: "Scale 100k API calls",
+      estimatedValue: 35000,
+    });
+    expect(expansion.data.stage).toBe("DETECTED");
+
+    // 5. Policy & Overview
+    const policy = await client.revenue.policy.get();
+    expect(policy.data.renewalPreparationDays).toBe(90);
+
+    const overview = await client.revenue.getOverview("USD");
+    expect(overview.data.totalActiveContracts).toBe(12);
+    expect(overview.data.expansionPipeline.pipelineValue).toBe(125000);
+  });
+
 });

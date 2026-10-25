@@ -215,6 +215,11 @@ model Workspace {
   customerPlaybookRuns         CustomerPlaybookRun[]
   customerCommTemplates        CustomerCommunicationTemplate[]
   customerCommApprovals        CustomerCommunicationApproval[]
+  // Phase 26: Enterprise Revenue Intelligence, Renewal Management & Expansion
+  customerContracts            CustomerContract[]
+  customerRenewalOpportunities CustomerRenewalOpportunity[]
+  customerExpansionOpportunities CustomerExpansionOpportunity[]
+  customerRevenuePolicy        CustomerRevenuePolicy?
 
   @@map("workspaces")
 }
@@ -2876,6 +2881,9 @@ model CustomerAccount {
   healthEvaluations     CustomerHealthEvaluation[]
   riskAssessments       CustomerRiskAssessment[]
   tasks                 CustomerSuccessTask[]
+  contracts             CustomerContract[]
+  renewalOpportunities  CustomerRenewalOpportunity[]
+  expansionOpportunities CustomerExpansionOpportunity[]
 
   @@unique([workspaceId, slug])
   @@index([workspaceId, lifecycleState])
@@ -3225,4 +3233,216 @@ model CustomerCommunicationApproval {
 
   @@index([workspaceId, status])
   @@map("customer_communication_approvals")
+}
+
+// ==========================================
+// Phase 26: Enterprise Revenue Intelligence, Renewal Management & Retention Governance
+// ==========================================
+
+model CustomerContract {
+  id                    String    @id @default(uuid())
+  workspaceId           String
+  customerAccountId     String
+  contractNumber        String
+  name                  String
+  externalReference     String?
+  status                String    @default("ACTIVE") // DRAFT, ACTIVE, RENEWAL_PENDING, RENEWED, EXPIRED, CANCELLED, TERMINATED
+  ownerUserId           String?
+  startDate             DateTime
+  termEndDate           DateTime
+  renewalDate           DateTime
+  renewalNoticeDeadline DateTime?
+  contractValue         Float
+  annualRecurringValue  Float?
+  currency              String    @default("USD")
+  contractType          String    @default("SUBSCRIPTION") // SUBSCRIPTION, USAGE_BASED, FIXED_TERM, PROFESSIONAL_SERVICES, HYBRID
+  renewalType           String    @default("MANUAL") // MANUAL, AUTO_RENEW, EVERGREEN, OPT_OUT_NOTICE
+  autoRenew             Boolean   @default(false)
+  renewalTermsDays      Int       @default(365)
+  noticePeriodDays      Int       @default(30)
+  sourceSystem          String?   // CRM, MANUAL, BILLING, CONTRACT_MGMT
+  externalContractId    String?
+  dataClassification    String    @default("CONFIDENTIAL") // INTERNAL, CONFIDENTIAL, RESTRICTED
+  previousContractId    String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  createdById           String?
+  updatedById           String?
+
+  workspace             Workspace                    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerAccount       CustomerAccount              @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+  changes               CustomerContractChange[]
+  renewalOpportunities  CustomerRenewalOpportunity[]
+  previousContract      CustomerContract?            @relation("ContractSuccession", fields: [previousContractId], references: [id], onDelete: SetNull)
+  successorContracts    CustomerContract[]           @relation("ContractSuccession")
+
+  @@unique([workspaceId, contractNumber])
+  @@index([workspaceId, status])
+  @@index([workspaceId, renewalDate])
+  @@index([workspaceId, customerAccountId])
+  @@map("customer_contracts")
+}
+
+model CustomerContractChange {
+  id            String   @id @default(uuid())
+  workspaceId   String
+  contractId    String
+  changeType    String   // CREATED, VALUE_ADJUSTED, TERM_EXTENDED, RENEWED, CANCELLED, STATUS_CHANGED, METADATA_UPDATED
+  fieldName     String?
+  previousValue String?
+  newValue      String?
+  reason        String?
+  actorId       String?
+  source        String   @default("SYSTEM") // USER, SYSTEM, INTEGRATION, RENEWAL_WORKFLOW
+  correlationId String?
+  createdAt     DateTime @default(now())
+
+  contract      CustomerContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, contractId])
+  @@map("customer_contract_changes")
+}
+
+model CustomerRenewalOpportunity {
+  id                 String    @id @default(uuid())
+  workspaceId        String
+  contractId         String
+  customerAccountId  String
+  opportunityNumber  String
+  ownerUserId        String?
+  targetDate         DateTime
+  renewalAmount      Float
+  currency           String    @default("USD")
+  stage              String    @default("UPCOMING") // UPCOMING, PREPARATION, CUSTOMER_ENGAGEMENT, COMMERCIAL_REVIEW, NEGOTIATION, COMMIT_PENDING, RENEWED, LOST, ON_HOLD
+  outcome            String?   // RENEWED_AS_IS, RENEWED_EXPANSION, RENEWED_CONTRACTION, CHURNED, CANCELLED
+  riskClassification String    @default("INSUFFICIENT_DATA") // LOW, MODERATE, HIGH, CRITICAL, INSUFFICIENT_DATA
+  riskScore          Float?
+  nextAction         String?
+  nextActionDueDate  DateTime?
+  qualificationNotes String?
+  supportingEvidence Json      @default("[]")
+  lastActivityAt     DateTime?
+  closedAt           DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  workspace          Workspace                       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contract           CustomerContract                @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  customerAccount    CustomerAccount                 @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+  timelineEvents     CustomerRenewalTimelineEvent[]
+  riskEvaluations    CustomerRenewalRiskEvaluation[]
+
+  @@unique([workspaceId, opportunityNumber])
+  @@index([workspaceId, stage])
+  @@index([workspaceId, targetDate])
+  @@index([workspaceId, riskClassification])
+  @@index([workspaceId, customerAccountId])
+  @@map("customer_renewal_opportunities")
+}
+
+model CustomerRenewalTimelineEvent {
+  id                   String   @id @default(uuid())
+  workspaceId          String
+  renewalOpportunityId String
+  eventType            String   // OPPORTUNITY_CREATED, OWNER_ASSIGNED, STAGE_CHANGED, RISK_EVALUATED, TASK_GENERATED, COMMUNICATION_APPROVED, DECISION_RECORDED, CONTRACT_EXTENDED, OUTCOME_FINALIZED
+  eventTitle           String
+  description          String?
+  previousStage        String?
+  newStage             String?
+  actorId              String?
+  idempotencyKey       String?
+  metadata             Json     @default("{}")
+  createdAt            DateTime @default(now())
+
+  renewalOpportunity   CustomerRenewalOpportunity @relation(fields: [renewalOpportunityId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, renewalOpportunityId, createdAt])
+  @@map("customer_renewal_timeline_events")
+}
+
+model CustomerRenewalRiskEvaluation {
+  id                   String   @id @default(uuid())
+  workspaceId          String
+  renewalOpportunityId String
+  policyVersion        String   @default("1.0")
+  riskLevel            String   // INSUFFICIENT_DATA, LOW, MODERATE, HIGH, CRITICAL
+  riskScore            Float    // 0 to 100
+  evaluationTimestamp  DateTime @default(now())
+  contributingSignals  Json     @default("[]")
+  explanation          String
+  inputsSnapshot       Json     @default("{}")
+  isLatest             Boolean  @default(true)
+
+  renewalOpportunity   CustomerRenewalOpportunity @relation(fields: [renewalOpportunityId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, renewalOpportunityId, evaluationTimestamp])
+  @@map("customer_renewal_risk_evaluations")
+}
+
+model CustomerExpansionOpportunity {
+  id                 String    @id @default(uuid())
+  workspaceId        String
+  customerAccountId  String
+  opportunityNumber  String
+  opportunityType    String    // ADDITIONAL_CAPACITY, HIGHER_TIER, ADDITIONAL_PRODUCT, NEW_BUSINESS_UNIT, CONTRACT_SCOPE_EXPANSION
+  stage              String    @default("DETECTED") // DETECTED, NEEDS_REVIEW, QUALIFIED, PROPOSAL_IN_PROGRESS, WON, LOST, DISMISSED
+  title              String
+  description        String?
+  ownerUserId        String?
+  estimatedValue     Float?
+  currency           String    @default("USD")
+  estimateSource     String?   // MANUAL_INPUT, USAGE_PROJECTION, CONTRACT_RATE, TIER_DELTA
+  evidenceSignals    Json      @default("[]")
+  qualificationNotes String?
+  nextAction         String?
+  nextActionDueDate  DateTime?
+  closedAt           DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  workspace          Workspace                       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerAccount    CustomerAccount                 @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+  stageHistory       CustomerExpansionStageHistory[]
+
+  @@unique([workspaceId, opportunityNumber])
+  @@index([workspaceId, stage])
+  @@index([workspaceId, customerAccountId])
+  @@map("customer_expansion_opportunities")
+}
+
+model CustomerExpansionStageHistory {
+  id            String   @id @default(uuid())
+  workspaceId   String
+  opportunityId String
+  fromStage     String?
+  toStage       String
+  notes         String?
+  actorId       String?
+  changedAt     DateTime @default(now())
+
+  opportunity   CustomerExpansionOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, opportunityId, changedAt])
+  @@map("customer_expansion_stage_histories")
+}
+
+model CustomerRevenuePolicy {
+  id                     String   @id @default(uuid())
+  workspaceId            String   @unique
+  policyVersion          String   @default("1.0")
+  renewalPreparationDays Int      @default(90)
+  healthReviewDays       Int      @default(60)
+  engagementDays         Int      @default(45)
+  commercialReviewDays   Int      @default(30)
+  riskThresholds         Json     @default("{\"moderate\": 30, \"high\": 60, \"critical\": 80}")
+  alertCooldownHours     Int      @default(72)
+  autoTaskGeneration     Boolean  @default(true)
+  expansionRules         Json     @default("{\"utilizationGrowthPercent\": 25, \"consecutiveHighUsageDays\": 14}")
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  workspace              Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("customer_revenue_policies")
 }

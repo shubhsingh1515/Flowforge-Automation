@@ -1419,6 +1419,53 @@ export class FlowForgeClient {
     },
   };
 
+  // ==========================================
+  // PHASE 26: REVENUE INTELLIGENCE & RETENTION GOVERNANCE
+  // ==========================================
+  public readonly revenue = {
+    contracts: {
+      create: async (data: any) => this.request<any>("/customer-contracts", "POST", data),
+      list: async (query?: { customerAccountId?: string; status?: string }) => {
+        const q = new URLSearchParams(query as any).toString();
+        return this.request<any>(`/customer-contracts${q ? "?" + q : ""}`);
+      },
+      get: async (id: string) => this.request<any>(`/customer-contracts/${id}`),
+      update: async (id: string, data: any) => this.request<any>(`/customer-contracts/${id}`, "PATCH", data),
+      getChanges: async (id: string) => this.request<any>(`/customer-contracts/${id}/changes`),
+    },
+    renewals: {
+      create: async (data: any) => this.request<any>("/customer-renewals", "POST", data),
+      list: async (query?: { contractId?: string; customerAccountId?: string; stage?: string; riskClassification?: string }) => {
+        const q = new URLSearchParams(query as any).toString();
+        return this.request<any>(`/customer-renewals${q ? "?" + q : ""}`);
+      },
+      get: async (id: string) => this.request<any>(`/customer-renewals/${id}`),
+      updateStage: async (id: string, data: any) => this.request<any>(`/customer-renewals/${id}/stage`, "PATCH", data),
+      recordOutcome: async (id: string, data: any) => this.request<any>(`/customer-renewals/${id}/outcome`, "POST", data),
+      getTimeline: async (id: string) => this.request<any>(`/customer-renewals/${id}/timeline`),
+      evaluateRisk: async (id: string, data?: { dryRun?: boolean; triggerReason?: string }) =>
+        this.request<any>(`/customer-renewals/${id}/evaluate-risk`, "POST", data),
+      getRiskHistory: async (id: string) => this.request<any>(`/customer-renewals/${id}/risk-history`),
+    },
+    expansion: {
+      create: async (data: any) => this.request<any>("/customer-expansion", "POST", data),
+      list: async (query?: { customerAccountId?: string; stage?: string; opportunityType?: string }) => {
+        const q = new URLSearchParams(query as any).toString();
+        return this.request<any>(`/customer-expansion${q ? "?" + q : ""}`);
+      },
+      get: async (id: string) => this.request<any>(`/customer-expansion/${id}`),
+      qualify: async (id: string, data: any) => this.request<any>(`/customer-expansion/${id}/qualify`, "POST", data),
+      updateStage: async (id: string, data: any) => this.request<any>(`/customer-expansion/${id}/stage`, "PATCH", data),
+      getHistory: async (id: string) => this.request<any>(`/customer-expansion/${id}/history`),
+    },
+    policy: {
+      get: async () => this.request<any>("/customer-revenue/policy"),
+      configure: async (data: any) => this.request<any>("/customer-revenue/policy", "PUT", data),
+      generateTasks: async (data?: { contractId?: string }) =>
+        this.request<any>("/customer-revenue/generate-tasks", "POST", data),
+    },
+    getOverview: async (currency = "USD") => this.request<any>(`/revenue/overview?currency=${currency}`),
+  };
 }
 
 export * from "@flowforge/connector-sdk";

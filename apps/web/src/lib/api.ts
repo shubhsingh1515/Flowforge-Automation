@@ -1275,4 +1275,58 @@ export const api = {
       request<{ data: any }>(`/customer-communications/approvals/${id}/reject`, { method: "POST" }),
   },
 
+  // Phase 26: Enterprise Revenue Intelligence & Retention Governance
+  revenue: {
+    // Contracts
+    listContracts: (params?: { customerAccountId?: string; status?: string }) => {
+      const q = new URLSearchParams(params as any).toString();
+      return request<{ data: any[] }>(`/customer-contracts${q ? `?${q}` : ""}`);
+    },
+    getContract: (id: string) => request<{ data: any }>(`/customer-contracts/${id}`),
+    createContract: (body: any) =>
+      request<{ data: any }>("/customer-contracts", { method: "POST", body: JSON.stringify(body) }),
+    updateContract: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-contracts/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    getContractChanges: (id: string) => request<{ data: any[] }>(`/customer-contracts/${id}/changes`),
+
+    // Renewals
+    listRenewals: (params?: { contractId?: string; customerAccountId?: string; stage?: string; riskClassification?: string }) => {
+      const q = new URLSearchParams(params as any).toString();
+      return request<{ data: any[] }>(`/customer-renewals${q ? `?${q}` : ""}`);
+    },
+    getRenewal: (id: string) => request<{ data: any }>(`/customer-renewals/${id}`),
+    createRenewal: (body: any) =>
+      request<{ data: any }>("/customer-renewals", { method: "POST", body: JSON.stringify(body) }),
+    updateRenewalStage: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-renewals/${id}/stage`, { method: "PATCH", body: JSON.stringify(body) }),
+    recordRenewalOutcome: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-renewals/${id}/outcome`, { method: "POST", body: JSON.stringify(body) }),
+    getRenewalTimeline: (id: string) => request<{ data: any[] }>(`/customer-renewals/${id}/timeline`),
+    evaluateRenewalRisk: (id: string, body?: { dryRun?: boolean; triggerReason?: string }) =>
+      request<{ data: any }>(`/customer-renewals/${id}/evaluate-risk`, { method: "POST", body: JSON.stringify(body || {}) }),
+    getRenewalRiskHistory: (id: string) => request<{ data: any[] }>(`/customer-renewals/${id}/risk-history`),
+
+    // Expansion
+    listExpansion: (params?: { customerAccountId?: string; stage?: string; opportunityType?: string }) => {
+      const q = new URLSearchParams(params as any).toString();
+      return request<{ data: any[] }>(`/customer-expansion${q ? `?${q}` : ""}`);
+    },
+    getExpansion: (id: string) => request<{ data: any }>(`/customer-expansion/${id}`),
+    createExpansion: (body: any) =>
+      request<{ data: any }>("/customer-expansion", { method: "POST", body: JSON.stringify(body) }),
+    qualifyExpansion: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-expansion/${id}/qualify`, { method: "POST", body: JSON.stringify(body) }),
+    updateExpansionStage: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-expansion/${id}/stage`, { method: "PATCH", body: JSON.stringify(body) }),
+    getExpansionHistory: (id: string) => request<{ data: any[] }>(`/customer-expansion/${id}/history`),
+
+    // Policy & Overview
+    getPolicy: () => request<{ data: any }>("/customer-revenue/policy"),
+    configurePolicy: (body: any) =>
+      request<{ data: any }>("/customer-revenue/policy", { method: "PUT", body: JSON.stringify(body) }),
+    generateTasks: (body?: { contractId?: string }) =>
+      request<{ data: any }>("/customer-revenue/generate-tasks", { method: "POST", body: JSON.stringify(body || {}) }),
+    getOverview: (currency = "USD") => request<{ data: any }>(`/revenue/overview?currency=${currency}`),
+  },
+
 };

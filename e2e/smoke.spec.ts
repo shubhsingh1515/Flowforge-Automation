@@ -1727,4 +1727,79 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     await expect(page.locator("text=Company / Account Name")).not.toBeVisible();
   });
 
+  test("51. Phase 26 Revenue Intelligence, Renewal Pipeline, Risk Evaluation & Expansion Console", async ({
+    page,
+  }) => {
+    // 1. Login
+    await loginAsDemo(page);
+
+    // 2. Navigate to Revenue Intelligence
+    await page.goto("/revenue");
+    await page.waitForLoadState("networkidle");
+
+    // 3. Verify Header and Phase 26 Badge
+    await expect(page.locator("text=Revenue Intelligence & Retention Governance")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=Phase 26")).toBeVisible();
+    await expect(page.locator("text=Active Contracts").first()).toBeVisible();
+    await expect(page.locator("text=Contracted ARR").first()).toBeVisible();
+    await expect(page.locator("text=Upcoming Renewals").first()).toBeVisible();
+    await expect(page.locator("text=Revenue At Risk").first()).toBeVisible();
+    await expect(page.locator("text=Expansion Pipeline").first()).toBeVisible();
+
+    // 4. Test Currency Selector Switch
+    const eurBtn = page.getByRole("button", { name: "EUR" });
+    await expect(eurBtn).toBeVisible();
+    await eurBtn.click();
+    const usdBtn = page.getByRole("button", { name: "USD" });
+    await expect(usdBtn).toBeVisible();
+    await usdBtn.click();
+
+    // 5. Test Tab: Renewals Pipeline
+    const renewalsTab = page.getByRole("button", { name: /Renewals Pipeline/i });
+    await expect(renewalsTab).toBeVisible();
+    await renewalsTab.scrollIntoViewIfNeeded();
+    await renewalsTab.click();
+    await expect(page.locator("text=Opportunity #").first()).toBeVisible();
+    await expect(page.locator("text=Risk Classification").first()).toBeVisible();
+
+    // 6. Test Tab: At-Risk Accounts
+    const atRiskTab = page.getByRole("button", { name: /At-Risk Accounts/i });
+    await expect(atRiskTab).toBeVisible();
+    await atRiskTab.scrollIntoViewIfNeeded();
+    await atRiskTab.click();
+    await expect(page.locator("text=Active Renewal Risk Interventions").first()).toBeVisible();
+
+    // 7. Test Tab: Expansion Pipeline
+    const expansionTab = page.getByRole("button", { name: /Expansion/i });
+    await expect(expansionTab).toBeVisible();
+    await expansionTab.scrollIntoViewIfNeeded();
+    await expansionTab.click();
+    await expect(page.locator("text=Register Expansion Opportunity").first()).toBeVisible();
+
+    // 8. Test Tab: Contracts Registry
+    const contractsTab = page.getByRole("button", { name: /Contracts Registry/i });
+    await expect(contractsTab).toBeVisible();
+    await contractsTab.scrollIntoViewIfNeeded();
+    await contractsTab.click();
+    await expect(page.locator("text=Register Contract").first()).toBeVisible();
+
+    // 9. Test Tab: Revenue Policy & Tasks
+    const policyTab = page.getByRole("button", { name: /Revenue Policy & Tasks/i });
+    await expect(policyTab).toBeVisible();
+    await policyTab.scrollIntoViewIfNeeded();
+    await policyTab.click();
+    await expect(page.locator("text=Workspace Revenue Governance Policy").first()).toBeVisible();
+    await expect(page.locator("text=Deterministic Retention Governance Evaluator").first()).toBeVisible();
+
+    // 10. Test New Contract Modal
+    await page.getByRole("button", { name: "New Contract" }).click();
+    await expect(page.locator("text=Register Customer Contract").first()).toBeVisible();
+    await expect(page.locator("text=Customer Account").first()).toBeVisible();
+    await expect(page.locator("text=Contract Number").first()).toBeVisible();
+
+    // Close Modal
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.locator("text=Register Customer Contract")).not.toBeVisible();
+  });
+
 });

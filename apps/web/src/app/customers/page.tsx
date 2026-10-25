@@ -23,6 +23,7 @@ import {
   Activity,
   Layers,
   FileText,
+  DollarSign,
 } from "lucide-react";
 
 export default function CustomerOperationsPage() {
@@ -67,6 +68,12 @@ export default function CustomerOperationsPage() {
   const { data: profile360Data, isLoading: profileLoading } = useQuery({
     queryKey: ["customers", "360", selectedAccountId],
     queryFn: () => (selectedAccountId ? api.customers.get360Profile(selectedAccountId) : null),
+    enabled: !!selectedAccountId,
+  });
+
+  const { data: accountContractsData } = useQuery({
+    queryKey: ["revenue", "contracts", selectedAccountId],
+    queryFn: () => (selectedAccountId ? api.revenue.listContracts({ customerAccountId: selectedAccountId }) : null),
     enabled: !!selectedAccountId,
   });
 
@@ -502,6 +509,44 @@ export default function CustomerOperationsPage() {
                       External identity mapping links {profile.provenanceSummary?.externalSystemsLinked?.length || 0} upstream systems
                       with strict redaction applied to sensitive authorization credentials.
                     </p>
+                  </div>
+
+                  {/* Commercial & Contract Registry Card (Phase 26) */}
+                  <div className="p-5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-gray-900 dark:text-white text-sm flex items-center gap-2">
+                        <DollarSign className="w-4 h-4 text-emerald-500" />
+                        Commercial Contracts & Revenue ({accountContractsData?.data?.length || 0})
+                      </h3>
+                      <a
+                        href="/revenue"
+                        className="text-xs text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1"
+                      >
+                        Revenue Console <ArrowRight className="w-3 h-3" />
+                      </a>
+                    </div>
+                    <div className="space-y-2">
+                      {!accountContractsData?.data || accountContractsData.data.length === 0 ? (
+                        <div className="text-xs text-gray-400 py-2 text-center">No contracts active for this account.</div>
+                      ) : (
+                        accountContractsData.data.map((c: any) => (
+                          <div key={c.id} className="p-2.5 bg-gray-50 dark:bg-gray-900/50 rounded-lg text-xs flex items-center justify-between">
+                            <div>
+                              <span className="font-mono font-medium text-gray-900 dark:text-white">{c.contractNumber}</span>
+                              <span className="text-gray-500 ml-2">Renew: {new Date(c.renewalDate).toLocaleDateString()}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                                ${(c.annualRecurringValue || c.contractValue)?.toLocaleString()}
+                              </span>
+                              <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                                {c.status}
+                              </span>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : null}
