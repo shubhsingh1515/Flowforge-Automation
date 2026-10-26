@@ -1802,4 +1802,89 @@ test.describe("FlowForge Automation SaaS — Browser Smoke Suite", () => {
     await expect(page.locator("text=Register Customer Contract")).not.toBeVisible();
   });
 
+  test("52. Phase 27 Strategic Account Planning, Objectives, Stakeholders & Executive Reviews Console", async ({
+    page,
+  }) => {
+    // 1. Login
+    await loginAsDemo(page);
+
+    // 2. Navigate to Account Planning Console
+    await page.goto("/account-planning");
+    await page.waitForLoadState("networkidle");
+
+    // 3. Verify Header and Phase 27 Badge
+    await expect(page.locator("text=Strategic Account Planning & Portfolio Intelligence")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=Phase 27")).toBeVisible();
+    await expect(page.locator('span:has-text("Managed Accounts")')).toBeVisible();
+    await expect(page.locator('span:has-text("Attention Required")')).toBeVisible();
+    await expect(page.locator('span:has-text("Single-Thread Risk")')).toBeVisible();
+    await expect(page.locator('span:has-text("Active Account Plans")')).toBeVisible();
+    await expect(page.locator('span:has-text("Blocked / At-Risk")')).toBeVisible();
+    await expect(page.locator('span:has-text("Overdue EBRs")')).toBeVisible();
+
+    // 4. Test Tab: Prioritized Queue
+    const queueTab = page.getByRole("button", { name: /Prioritized Queue/i });
+    await expect(queueTab).toBeVisible();
+    await queueTab.click();
+    await expect(page.locator("text=Rank & Account").first()).toBeVisible();
+    await expect(page.locator("text=Priority Score").first()).toBeVisible();
+    await expect(page.locator("text=Attention Level").first()).toBeVisible();
+    await expect(page.locator("text=Recommended Action").first()).toBeVisible();
+
+    // 5. Test Tab: Account Plans
+    const plansTab = page.getByRole("button", { name: /Account Plans/i });
+    await expect(plansTab).toBeVisible();
+    await plansTab.click();
+    await expect(page.locator("text=Strategic Account Plans").first()).toBeVisible();
+
+    // 6. Test Tab: Customer Objectives
+    const objectivesTab = page.getByRole("button", { name: /Customer Objectives/i });
+    await expect(objectivesTab).toBeVisible();
+    await objectivesTab.click();
+    await expect(page.locator("text=Customer Business Objectives & Value Realization").first()).toBeVisible();
+
+    // 7. Test Tab: Stakeholders & Coverage
+    const stakeholdersTab = page.getByRole("button", { name: /Stakeholders & Coverage/i });
+    await expect(stakeholdersTab).toBeVisible();
+    await stakeholdersTab.click();
+    await expect(page.locator("text=Please select an account in the top filter").first()).toBeVisible();
+
+    // 8. Test Tab: Strategic Initiatives
+    const initiativesTab = page.getByRole("button", { name: /Strategic Initiatives/i });
+    await expect(initiativesTab).toBeVisible();
+    await initiativesTab.click();
+    await expect(page.locator("text=Strategic Initiatives & Project Milestones").first()).toBeVisible();
+
+    // 9. Test Tab: Executive Reviews (EBR)
+    const reviewsTab = page.getByRole("button", { name: /Executive Reviews \(EBR\)/i });
+    await expect(reviewsTab).toBeVisible();
+    await reviewsTab.click();
+    await expect(page.locator("text=Executive Business Reviews (EBR / QBR)").first()).toBeVisible();
+
+    // 10. Test Modals
+    // Configure Profile Modal
+    await page.getByRole("button", { name: "Configure Profile" }).click();
+    await expect(page.locator("text=Configure Strategic Profile").first()).toBeVisible();
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.locator("text=Configure Strategic Profile")).not.toBeVisible();
+
+    // New Account Plan Modal
+    await page.getByRole("button", { name: "New Account Plan" }).first().click();
+    await expect(page.locator("text=Create Strategic Account Plan").first()).toBeVisible();
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.locator("text=Create Strategic Account Plan")).not.toBeVisible();
+
+    // New Objective Modal
+    await page.getByRole("button", { name: "New Objective" }).first().click();
+    await expect(page.locator("text=Create Quantified Customer Objective").first()).toBeVisible();
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.locator("text=Create Quantified Customer Objective")).not.toBeVisible();
+
+    // Schedule EBR Modal
+    await page.getByRole("button", { name: "Schedule EBR" }).first().click();
+    await expect(page.locator("text=Schedule Executive Business Review").first()).toBeVisible();
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.locator("text=Schedule Executive Business Review")).not.toBeVisible();
+  });
+
 });

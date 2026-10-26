@@ -1559,4 +1559,180 @@ describe("FlowForge TypeScript SDK Client Suite", () => {
     expect(overview.data.expansionPipeline.pipelineValue).toBe(125000);
   });
 
+  it("should support Phase 27 Strategic Account Planning, Objectives, Stakeholders & Reviews", async () => {
+    const client = new FlowForgeClient({ apiKey: "ff_live_testkey123" });
+    global.fetch = vi.fn().mockImplementation(async (url: string, init?: any) => {
+      const u = url.toString();
+      const method = init?.method || "GET";
+
+      if (u.includes("/customer-strategic-profiles/acc-1/coverage")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            data: {
+              customerAccountId: "acc-1",
+              totalContacts: 4,
+              mappedRolesCount: 3,
+              hasExecutiveSponsor: true,
+              hasBusinessDecisionMaker: true,
+              hasTechnicalDecisionMaker: true,
+              hasChampion: true,
+              isRecentlyVerified: true,
+              isSingleThreaded: false,
+              coverageStatus: "COMPREHENSIVE",
+            },
+          }),
+        };
+      }
+
+      if (u.includes("/customer-strategic-profiles/acc-1") && method === "POST") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            data: { customerAccountId: "acc-1", accountSegment: "STRATEGIC", strategicTier: "TIER_1_CORE" },
+          }),
+        };
+      }
+
+      if (u.includes("/customer-stakeholders") && method === "POST") {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({
+            success: true,
+            data: { id: "rel-1", role: "EXECUTIVE_SPONSOR", status: "ACTIVE" },
+          }),
+        };
+      }
+
+      if (u.includes("/customer-account-plans") && method === "POST") {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({
+            success: true,
+            data: { id: "plan-1", planNumber: "PLN-2027-001", status: "DRAFT", currentVersion: 1 },
+          }),
+        };
+      }
+
+      if (u.includes("/customer-objectives") && method === "POST") {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({
+            success: true,
+            data: { id: "obj-1", objectiveNumber: "OBJ-001", status: "DRAFT", targetValue: 100 },
+          }),
+        };
+      }
+
+      if (u.includes("/customer-executive-reviews") && method === "POST") {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({
+            success: true,
+            data: { id: "ebr-1", reviewNumber: "EBR-2027-Q1", status: "PLANNED" },
+          }),
+        };
+      }
+
+      if (u.includes("/customer-portfolio/overview")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            data: {
+              totalManagedAccounts: 18,
+              strategicAccountsCount: 5,
+              singleThreadedAccountsCount: 2,
+              overdueReviewsCount: 1,
+              blockedObjectivesCount: 0,
+            },
+          }),
+        };
+      }
+
+      if (u.includes("/customer-portfolio/queue")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            data: [
+              {
+                customerAccountId: "acc-1",
+                accountName: "Acme Corp",
+                priorityLevel: "CRITICAL_ATTENTION",
+                priorityScore: 85,
+              },
+            ],
+          }),
+        };
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, data: {} }),
+      };
+    });
+
+    // 1. Profile configure & coverage
+    const profile = await client.accountPlanning.profiles.configure("acc-1", {
+      accountSegment: "STRATEGIC",
+      strategicTier: "TIER_1_CORE",
+    });
+    expect(profile.data.strategicTier).toBe("TIER_1_CORE");
+
+    const coverage = await client.accountPlanning.profiles.getCoverage("acc-1");
+    expect(coverage.data.coverageStatus).toBe("COMPREHENSIVE");
+    expect(coverage.data.isSingleThreaded).toBe(false);
+
+    // 2. Assign stakeholder
+    const stakeholder = await client.accountPlanning.stakeholders.assignRole("acc-1", {
+      contactId: "con-1",
+      role: "EXECUTIVE_SPONSOR",
+    });
+    expect(stakeholder.data.role).toBe("EXECUTIVE_SPONSOR");
+
+    // 3. Plan & Objective
+    const plan = await client.accountPlanning.plans.create({
+      customerAccountId: "acc-1",
+      planNumber: "PLN-2027-001",
+      title: "2027 Enterprise Scale Plan",
+    });
+    expect(plan.data.planNumber).toBe("PLN-2027-001");
+
+    const objective = await client.accountPlanning.objectives.create({
+      customerAccountId: "acc-1",
+      objectiveNumber: "OBJ-001",
+      title: "Automate 95% of claims",
+      targetDate: "2027-06-30T00:00:00Z",
+    });
+    expect(objective.data.objectiveNumber).toBe("OBJ-001");
+
+    // 4. Executive review
+    const review = await client.accountPlanning.reviews.schedule({
+      customerAccountId: "acc-1",
+      reviewNumber: "EBR-2027-Q1",
+      reviewPeriod: "Q1 2027",
+      plannedDate: "2027-03-15T00:00:00Z",
+    });
+    expect(review.data.status).toBe("PLANNED");
+
+    // 5. Portfolio metrics & queue
+    const overview = await client.accountPlanning.portfolio.getOverview();
+    expect(overview.data.totalManagedAccounts).toBe(18);
+
+    const queue = await client.accountPlanning.portfolio.getQueue();
+    expect(queue.data[0].priorityScore).toBe(85);
+  });
+
 });

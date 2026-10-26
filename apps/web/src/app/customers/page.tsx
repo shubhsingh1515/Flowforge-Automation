@@ -24,6 +24,7 @@ import {
   Layers,
   FileText,
   DollarSign,
+  Target,
 } from "lucide-react";
 
 export default function CustomerOperationsPage() {
@@ -74,6 +75,18 @@ export default function CustomerOperationsPage() {
   const { data: accountContractsData } = useQuery({
     queryKey: ["revenue", "contracts", selectedAccountId],
     queryFn: () => (selectedAccountId ? api.revenue.listContracts({ customerAccountId: selectedAccountId }) : null),
+    enabled: !!selectedAccountId,
+  });
+
+  const { data: accountObjectivesData } = useQuery({
+    queryKey: ["accountPlanning", "objectives", selectedAccountId],
+    queryFn: () => (selectedAccountId ? api.accountPlanning.listObjectives({ customerAccountId: selectedAccountId }) : null),
+    enabled: !!selectedAccountId,
+  });
+
+  const { data: accountCoverageData } = useQuery({
+    queryKey: ["accountPlanning", "coverage", selectedAccountId],
+    queryFn: () => (selectedAccountId ? api.accountPlanning.getCoverage(selectedAccountId) : null),
     enabled: !!selectedAccountId,
   });
 
@@ -511,37 +524,47 @@ export default function CustomerOperationsPage() {
                     </p>
                   </div>
 
-                  {/* Commercial & Contract Registry Card (Phase 26) */}
+                  {/* Strategic Account Planning & Business Objectives (Phase 27) */}
                   <div className="p-5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold text-gray-900 dark:text-white text-sm flex items-center gap-2">
-                        <DollarSign className="w-4 h-4 text-emerald-500" />
-                        Commercial Contracts & Revenue ({accountContractsData?.data?.length || 0})
+                        <Target className="w-4 h-4 text-indigo-500" />
+                        Strategic Objectives & Coverage ({accountObjectivesData?.data?.length || 0})
                       </h3>
                       <a
-                        href="/revenue"
+                        href="/account-planning"
                         className="text-xs text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1"
                       >
-                        Revenue Console <ArrowRight className="w-3 h-3" />
+                        Account Planning Console <ArrowRight className="w-3 h-3" />
                       </a>
                     </div>
+                    {accountCoverageData?.data && (
+                      <div className="p-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/50 flex items-center justify-between text-xs">
+                        <div className="text-indigo-900 dark:text-indigo-200">
+                          Coverage: <strong>{accountCoverageData.data.coverageStatus.replace(/_/g, " ")}</strong>
+                        </div>
+                        <div className="text-slate-500 text-[11px]">
+                          {accountCoverageData.data.mappedRolesCount} Stakeholders Mapped
+                        </div>
+                      </div>
+                    )}
                     <div className="space-y-2">
-                      {!accountContractsData?.data || accountContractsData.data.length === 0 ? (
-                        <div className="text-xs text-gray-400 py-2 text-center">No contracts active for this account.</div>
+                      {!accountObjectivesData?.data || accountObjectivesData.data.length === 0 ? (
+                        <div className="text-xs text-gray-400 py-2 text-center">No strategic objectives defined for this account.</div>
                       ) : (
-                        accountContractsData.data.map((c: any) => (
-                          <div key={c.id} className="p-2.5 bg-gray-50 dark:bg-gray-900/50 rounded-lg text-xs flex items-center justify-between">
-                            <div>
-                              <span className="font-mono font-medium text-gray-900 dark:text-white">{c.contractNumber}</span>
-                              <span className="text-gray-500 ml-2">Renew: {new Date(c.renewalDate).toLocaleDateString()}</span>
+                        accountObjectivesData.data.map((obj: any) => (
+                          <div key={obj.id} className="p-2.5 bg-gray-50 dark:bg-gray-900/50 rounded-lg text-xs space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-gray-900 dark:text-white">{obj.title}</span>
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                {Math.round(obj.progressPercent ?? 0)}%
+                              </span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
-                                ${(c.annualRecurringValue || c.contractValue)?.toLocaleString()}
-                              </span>
-                              <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-                                {c.status}
-                              </span>
+                            <div className="h-1.5 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                              <div
+                                className="h-full bg-emerald-500 transition-all"
+                                style={{ width: `${Math.min(100, obj.progressPercent ?? 0)}%` }}
+                              />
                             </div>
                           </div>
                         ))

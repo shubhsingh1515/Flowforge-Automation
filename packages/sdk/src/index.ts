@@ -1466,6 +1466,98 @@ export class FlowForgeClient {
     },
     getOverview: async (currency = "USD") => this.request<any>(`/revenue/overview?currency=${currency}`),
   };
+
+  public accountPlanning = {
+    profiles: {
+      list: async (query?: { tier?: string; segment?: string; search?: string }) => {
+        const q = new URLSearchParams(query as any).toString();
+        return this.request<any>(`/customer-strategic-profiles${q ? "?" + q : ""}`);
+      },
+      get: async (customerAccountId: string) => this.request<any>(`/customer-strategic-profiles/${customerAccountId}`),
+      configure: async (customerAccountId: string, data: any) =>
+        this.request<any>(`/customer-strategic-profiles/${customerAccountId}`, "POST", data),
+      getCoverage: async (customerAccountId: string) =>
+        this.request<any>(`/customer-strategic-profiles/${customerAccountId}/coverage`),
+    },
+    stakeholders: {
+      list: async (customerAccountId: string, includeInactive?: boolean) =>
+        this.request<any>(`/customer-stakeholders?customerAccountId=${customerAccountId}${includeInactive ? "&includeInactive=true" : ""}`),
+      assignRole: async (customerAccountId: string, data: any) =>
+        this.request<any>(`/customer-stakeholders/${customerAccountId}`, "POST", data),
+      updateRole: async (id: string, data: any) =>
+        this.request<any>(`/customer-stakeholders/${id}`, "PATCH", data),
+      removeRole: async (id: string) =>
+        this.request<any>(`/customer-stakeholders/${id}`, "DELETE"),
+      getHistory: async (id: string) =>
+        this.request<any>(`/customer-stakeholders/${id}/history`),
+    },
+    plans: {
+      list: async (query?: { customerAccountId?: string; status?: string }) => {
+        const q = new URLSearchParams(query as any).toString();
+        return this.request<any>(`/customer-account-plans${q ? "?" + q : ""}`);
+      },
+      create: async (data: any) => this.request<any>("/customer-account-plans", "POST", data),
+      get: async (id: string) => this.request<any>(`/customer-account-plans/${id}`),
+      update: async (id: string, data: any) => this.request<any>(`/customer-account-plans/${id}`, "PATCH", data),
+      updateStatus: async (id: string, status: string) =>
+        this.request<any>(`/customer-account-plans/${id}/status`, "POST", { status }),
+      approve: async (id: string, data?: { changeSummary?: string }) =>
+        this.request<any>(`/customer-account-plans/${id}/approve`, "POST", data || {}),
+      archive: async (id: string) => this.request<any>(`/customer-account-plans/${id}/archive`, "POST"),
+    },
+    objectives: {
+      list: async (query?: { customerAccountId?: string; accountPlanId?: string; status?: string }) => {
+        const q = new URLSearchParams(query as any).toString();
+        return this.request<any>(`/customer-objectives${q ? "?" + q : ""}`);
+      },
+      create: async (data: any) => this.request<any>("/customer-objectives", "POST", data),
+      get: async (id: string) => this.request<any>(`/customer-objectives/${id}`),
+      update: async (id: string, data: any) => this.request<any>(`/customer-objectives/${id}`, "PATCH", data),
+      recordEvidence: async (id: string, data: any) =>
+        this.request<any>(`/customer-objectives/${id}/evidence`, "POST", data),
+      recordBlocker: async (id: string, data: any) =>
+        this.request<any>(`/customer-objectives/${id}/blockers`, "POST", data),
+      resolveBlocker: async (blockerId: string, data: { resolutionNotes: string }) =>
+        this.request<any>(`/customer-objectives/blockers/${blockerId}/resolve`, "POST", data),
+    },
+    initiatives: {
+      list: async (query?: { customerAccountId?: string; accountPlanId?: string; status?: string }) => {
+        const q = new URLSearchParams(query as any).toString();
+        return this.request<any>(`/customer-strategic-initiatives${q ? "?" + q : ""}`);
+      },
+      create: async (data: any) => this.request<any>("/customer-strategic-initiatives", "POST", data),
+      get: async (id: string) => this.request<any>(`/customer-strategic-initiatives/${id}`),
+      update: async (id: string, data: any) =>
+        this.request<any>(`/customer-strategic-initiatives/${id}`, "PATCH", data),
+      addMilestone: async (id: string, data: { title: string; targetDate: string }) =>
+        this.request<any>(`/customer-strategic-initiatives/${id}/milestones`, "POST", data),
+      updateMilestone: async (milestoneId: string, data: any) =>
+        this.request<any>(`/customer-strategic-initiatives/milestones/${milestoneId}`, "PATCH", data),
+    },
+    reviews: {
+      getPrep: async (customerAccountId: string, reviewPeriod?: string) =>
+        this.request<any>(`/customer-executive-reviews/prep/${customerAccountId}${reviewPeriod ? "?reviewPeriod=" + reviewPeriod : ""}`),
+      list: async (query?: { customerAccountId?: string; status?: string }) => {
+        const q = new URLSearchParams(query as any).toString();
+        return this.request<any>(`/customer-executive-reviews${q ? "?" + q : ""}`);
+      },
+      schedule: async (data: any) => this.request<any>("/customer-executive-reviews", "POST", data),
+      get: async (id: string) => this.request<any>(`/customer-executive-reviews/${id}`),
+      update: async (id: string, data: any) => this.request<any>(`/customer-executive-reviews/${id}`, "PATCH", data),
+      complete: async (id: string, data: any) =>
+        this.request<any>(`/customer-executive-reviews/${id}/complete`, "POST", data),
+      recordCommitment: async (id: string, data: any) =>
+        this.request<any>(`/customer-executive-reviews/${id}/commitments`, "POST", data),
+      updateCommitmentStatus: async (commitmentId: string, status: string) =>
+        this.request<any>(`/customer-executive-reviews/commitments/${commitmentId}/status`, "PATCH", { status }),
+    },
+    portfolio: {
+      getOverview: async () => this.request<any>("/customer-portfolio/overview"),
+      getQueue: async () => this.request<any>("/customer-portfolio/queue"),
+      recalculate: async (customerAccountId: string) =>
+        this.request<any>(`/customer-portfolio/recalculate/${customerAccountId}`, "POST"),
+    },
+  };
 }
 
 export * from "@flowforge/connector-sdk";

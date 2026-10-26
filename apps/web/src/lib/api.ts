@@ -1217,6 +1217,7 @@ export const api = {
     updateAccount: (id: string, body: any) =>
       request<{ data: any }>(`/customers/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
     get360Profile: (id: string) => request<{ data: any }>(`/customers/${id}/360`),
+    listContacts: (id: string) => request<{ data: any[] }>(`/customers/${id}/contacts`),
     addContact: (id: string, body: any) =>
       request<{ data: any }>(`/customers/${id}/contacts`, { method: "POST", body: JSON.stringify(body) }),
     linkIdentity: (id: string, body: any) =>
@@ -1327,6 +1328,113 @@ export const api = {
     generateTasks: (body?: { contractId?: string }) =>
       request<{ data: any }>("/customer-revenue/generate-tasks", { method: "POST", body: JSON.stringify(body || {}) }),
     getOverview: (currency = "USD") => request<{ data: any }>(`/revenue/overview?currency=${currency}`),
+  },
+
+  // Phase 27: Enterprise Customer Portfolio Intelligence & Strategic Account Planning
+  accountPlanning: {
+    // Strategic Profiles
+    listProfiles: (params?: { tier?: string; segment?: string; search?: string }) => {
+      const q = new URLSearchParams(params as any).toString();
+      return request<{ data: any[] }>(`/customer-strategic-profiles${q ? `?${q}` : ""}`);
+    },
+    getProfile: (customerAccountId: string) =>
+      request<{ data: any }>(`/customer-strategic-profiles/${customerAccountId}`),
+    configureProfile: (customerAccountId: string, body: any) =>
+      request<{ data: any }>(`/customer-strategic-profiles/${customerAccountId}`, { method: "POST", body: JSON.stringify(body) }),
+    getCoverage: (customerAccountId: string) =>
+      request<{ data: any }>(`/customer-strategic-profiles/${customerAccountId}/coverage`),
+
+    // Stakeholders
+    listStakeholders: (customerAccountId: string, includeInactive?: boolean) =>
+      request<{ data: any[] }>(`/customer-stakeholders?customerAccountId=${customerAccountId}${includeInactive ? "&includeInactive=true" : ""}`),
+    assignStakeholderRole: (customerAccountId: string, body: any) =>
+      request<{ data: any }>(`/customer-stakeholders/${customerAccountId}`, { method: "POST", body: JSON.stringify(body) }),
+    updateStakeholderRole: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-stakeholders/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    removeStakeholderRole: (id: string) =>
+      request<{ data: any }>(`/customer-stakeholders/${id}`, { method: "DELETE" }),
+    getStakeholderHistory: (id: string) =>
+      request<{ data: any[] }>(`/customer-stakeholders/${id}/history`),
+
+    // Account Plans
+    listPlans: (params?: { customerAccountId?: string; status?: string }) => {
+      const q = new URLSearchParams(params as any).toString();
+      return request<{ data: any[] }>(`/customer-account-plans${q ? `?${q}` : ""}`);
+    },
+    createPlan: (body: any) =>
+      request<{ data: any }>("/customer-account-plans", { method: "POST", body: JSON.stringify(body) }),
+    getPlan: (id: string) =>
+      request<{ data: any }>(`/customer-account-plans/${id}`),
+    updatePlan: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-account-plans/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    updatePlanStatus: (id: string, status: string) =>
+      request<{ data: any }>(`/customer-account-plans/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
+    approvePlan: (id: string, body?: { changeSummary?: string }) =>
+      request<{ data: any }>(`/customer-account-plans/${id}/approve`, { method: "POST", body: JSON.stringify(body || {}) }),
+    archivePlan: (id: string) =>
+      request<{ data: any }>(`/customer-account-plans/${id}/archive`, { method: "POST" }),
+
+    // Customer Objectives
+    listObjectives: (params?: { customerAccountId?: string; accountPlanId?: string; status?: string }) => {
+      const q = new URLSearchParams(params as any).toString();
+      return request<{ data: any[] }>(`/customer-objectives${q ? `?${q}` : ""}`);
+    },
+    createObjective: (body: any) =>
+      request<{ data: any }>("/customer-objectives", { method: "POST", body: JSON.stringify(body) }),
+    getObjective: (id: string) =>
+      request<{ data: any }>(`/customer-objectives/${id}`),
+    updateObjective: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-objectives/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    recordEvidence: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-objectives/${id}/evidence`, { method: "POST", body: JSON.stringify(body) }),
+    recordBlocker: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-objectives/${id}/blockers`, { method: "POST", body: JSON.stringify(body) }),
+    resolveBlocker: (id: string, body: { resolutionNotes: string }) =>
+      request<{ data: any }>(`/customer-objectives/blockers/${id}/resolve`, { method: "POST", body: JSON.stringify(body) }),
+
+    // Strategic Initiatives
+    listInitiatives: (params?: { customerAccountId?: string; accountPlanId?: string; status?: string }) => {
+      const q = new URLSearchParams(params as any).toString();
+      return request<{ data: any[] }>(`/customer-strategic-initiatives${q ? `?${q}` : ""}`);
+    },
+    createInitiative: (body: any) =>
+      request<{ data: any }>("/customer-strategic-initiatives", { method: "POST", body: JSON.stringify(body) }),
+    getInitiative: (id: string) =>
+      request<{ data: any }>(`/customer-strategic-initiatives/${id}`),
+    updateInitiative: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-strategic-initiatives/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    addMilestone: (id: string, body: { title: string; targetDate: string }) =>
+      request<{ data: any }>(`/customer-strategic-initiatives/${id}/milestones`, { method: "POST", body: JSON.stringify(body) }),
+    updateMilestone: (milestoneId: string, body: any) =>
+      request<{ data: any }>(`/customer-strategic-initiatives/milestones/${milestoneId}`, { method: "PATCH", body: JSON.stringify(body) }),
+
+    // Executive Reviews
+    getPrepSnapshot: (customerAccountId: string, reviewPeriod?: string) =>
+      request<{ data: any }>(`/customer-executive-reviews/prep/${customerAccountId}${reviewPeriod ? `?reviewPeriod=${reviewPeriod}` : ""}`),
+    listReviews: (params?: { customerAccountId?: string; status?: string }) => {
+      const q = new URLSearchParams(params as any).toString();
+      return request<{ data: any[] }>(`/customer-executive-reviews${q ? `?${q}` : ""}`);
+    },
+    scheduleReview: (body: any) =>
+      request<{ data: any }>("/customer-executive-reviews", { method: "POST", body: JSON.stringify(body) }),
+    getReview: (id: string) =>
+      request<{ data: any }>(`/customer-executive-reviews/${id}`),
+    updateReview: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-executive-reviews/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    completeReview: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-executive-reviews/${id}/complete`, { method: "POST", body: JSON.stringify(body) }),
+    recordReviewCommitment: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-executive-reviews/${id}/commitments`, { method: "POST", body: JSON.stringify(body) }),
+    updateCommitmentStatus: (commitmentId: string, status: string) =>
+      request<{ data: any }>(`/customer-executive-reviews/commitments/${commitmentId}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
+
+    // Portfolio Prioritization
+    getPortfolioOverview: () =>
+      request<{ data: any }>("/customer-portfolio/overview"),
+    getPortfolioQueue: () =>
+      request<{ data: any[] }>("/customer-portfolio/queue"),
+    recalculatePriority: (customerAccountId: string) =>
+      request<{ data: any }>(`/customer-portfolio/recalculate/${customerAccountId}`, { method: "POST" }),
   },
 
 };

@@ -26,3 +26,4 @@ export * from "./data-intelligence-p23.js";
 export * from "./intelligence-p24.js";
 export * from "./customer-operations-p25.js";
 export * from "./revenue-intelligence-p26.js";
+export * from "./account-planning-p27.js";

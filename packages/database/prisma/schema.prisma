@@ -220,6 +220,14 @@ model Workspace {
   customerRenewalOpportunities CustomerRenewalOpportunity[]
   customerExpansionOpportunities CustomerExpansionOpportunity[]
   customerRevenuePolicy        CustomerRevenuePolicy?
+  // Phase 27: Enterprise Customer Portfolio Intelligence & Strategic Account Planning
+  customerStrategicProfiles    CustomerStrategicAccountProfile[]
+  customerStakeholderRelationships CustomerStakeholderRelationship[]
+  customerAccountPlans         CustomerAccountPlan[]
+  customerSuccessObjectives    CustomerSuccessObjective[]
+  customerStrategicInitiatives CustomerStrategicInitiative[]
+  customerExecutiveReviews     CustomerExecutiveReview[]
+  customerPortfolioPriorities  CustomerPortfolioPriorityEvaluation[]
 
   @@map("workspaces")
 }
@@ -2884,6 +2892,13 @@ model CustomerAccount {
   contracts             CustomerContract[]
   renewalOpportunities  CustomerRenewalOpportunity[]
   expansionOpportunities CustomerExpansionOpportunity[]
+  strategicProfile             CustomerStrategicAccountProfile?
+  stakeholderRelationships     CustomerStakeholderRelationship[]
+  accountPlans                 CustomerAccountPlan[]
+  successObjectives            CustomerSuccessObjective[]
+  strategicInitiatives         CustomerStrategicInitiative[]
+  executiveReviews             CustomerExecutiveReview[]
+  portfolioPriorities          CustomerPortfolioPriorityEvaluation[]
 
   @@unique([workspaceId, slug])
   @@index([workspaceId, lifecycleState])
@@ -2908,6 +2923,8 @@ model CustomerContact {
 
   workspace         Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+  stakeholderRelationships CustomerStakeholderRelationship[]
+  reviewParticipations     CustomerExecutiveReviewParticipant[]
 
   @@unique([customerAccountId, email])
   @@index([workspaceId, email])
@@ -3445,4 +3462,329 @@ model CustomerRevenuePolicy {
   workspace              Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@map("customer_revenue_policies")
+}
+
+// ==========================================
+// Phase 27: Enterprise Customer Portfolio Intelligence, Strategic Account Planning & Stakeholder Mapping
+// ==========================================
+
+model CustomerStrategicAccountProfile {
+  id                         String   @id @default(uuid())
+  workspaceId                String
+  customerAccountId          String   @unique
+  accountSegment             String   @default("STANDARD") // STRATEGIC, ENTERPRISE, GROWTH, STANDARD
+  strategicTier              String   @default("TIER_4_FOUNDATIONAL") // TIER_1_CORE, TIER_2_EXPANSION, TIER_3_SCALE, TIER_4_FOUNDATIONAL
+  primaryAccountOwnerId      String?
+  customerSuccessOwnerId     String?
+  executiveSponsorId         String?
+  technicalOwnerId           String?
+  reviewCadence              String   @default("QUARTERLY") // MONTHLY, QUARTERLY, BI_ANNUAL, ANNUAL
+  lastStrategicReviewAt      DateTime?
+  nextStrategicReviewAt      DateTime?
+  industry                   String?
+  businessDomain             String?
+  targetOutcomes             Json     @default("[]")
+  internalStrategicNotes     String?
+  relationshipCoverageStatus String   @default("INSUFFICIENT_DATA") // COMPREHENSIVE, ADEQUATE, PARTIAL, SINGLE_THREADED_RISK, INSUFFICIENT_DATA
+  priorityLevel              String   @default("ROUTINE_MANAGEMENT") // CRITICAL_ATTENTION, HIGH_PRIORITY, ROUTINE_MANAGEMENT, HEALTHY_STRATEGIC
+  priorityScore              Float?
+  priorityFactors            Json     @default("[]")
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  workspace                  Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerAccount            CustomerAccount @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, accountSegment])
+  @@index([workspaceId, priorityLevel])
+  @@map("customer_strategic_account_profiles")
+}
+
+model CustomerStakeholderRelationship {
+  id                   String    @id @default(uuid())
+  workspaceId          String
+  customerAccountId    String
+  contactId            String
+  role                 String    // EXECUTIVE_SPONSOR, BUSINESS_DECISION_MAKER, TECHNICAL_DECISION_MAKER, DAY_TO_DAY_CHAMPION, OPERATIONAL_CONTACT, PROCUREMENT_CONTACT, FINANCE_CONTACT, SECURITY_COMPLIANCE_CONTACT
+  department           String?
+  relationshipOwnerId  String?
+  status               String    @default("ACTIVE") // ACTIVE, INACTIVE, FORMER
+  verifiedAt           DateTime?
+  verificationSource   String?   // EBR, CALL, EMAIL, MEETING, MANUAL
+  notes                String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  workspace            Workspace                       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerAccount      CustomerAccount                 @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+  contact              CustomerContact                 @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  history              CustomerStakeholderRoleHistory[]
+
+  @@unique([customerAccountId, contactId, role])
+  @@index([workspaceId, customerAccountId, role])
+  @@map("customer_stakeholder_relationships")
+}
+
+model CustomerStakeholderRoleHistory {
+  id             String                          @id @default(uuid())
+  workspaceId    String
+  relationshipId String
+  previousRole   String?
+  newRole        String
+  previousStatus String?
+  newStatus      String
+  changeReason   String?
+  actorId        String?
+  changedAt      DateTime                        @default(now())
+
+  relationship   CustomerStakeholderRelationship @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, relationshipId, changedAt])
+  @@map("customer_stakeholder_role_histories")
+}
+
+model CustomerAccountPlan {
+  id               String                        @id @default(uuid())
+  workspaceId      String
+  customerAccountId String
+  planNumber       String
+  title            String
+  planYear         Int                           @default(2027)
+  status           String                        @default("DRAFT") // DRAFT, IN_REVIEW, APPROVED, ACTIVE, ARCHIVED
+  executiveSummary String?
+  visionStatement  String?
+  currentVersion   Int                           @default(1)
+  ownerUserId      String?
+  approvedById     String?
+  approvedAt       DateTime?
+  reviewDueAt      DateTime?
+  createdAt        DateTime                      @default(now())
+  updatedAt        DateTime                      @updatedAt
+
+  workspace        Workspace                     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerAccount  CustomerAccount               @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+  versions         CustomerAccountPlanVersion[]
+  objectives       CustomerSuccessObjective[]
+  initiatives      CustomerStrategicInitiative[]
+
+  @@unique([workspaceId, planNumber])
+  @@index([workspaceId, customerAccountId, status])
+  @@map("customer_account_plans")
+}
+
+model CustomerAccountPlanVersion {
+  id            String              @id @default(uuid())
+  workspaceId   String
+  accountPlanId String
+  versionNumber Int
+  snapshotJson  Json
+  changeSummary String?
+  approvedById  String?
+  approvedAt    DateTime            @default(now())
+
+  accountPlan   CustomerAccountPlan @relation(fields: [accountPlanId], references: [id], onDelete: Cascade)
+
+  @@unique([accountPlanId, versionNumber])
+  @@map("customer_account_plan_versions")
+}
+
+model CustomerSuccessObjective {
+  id                 String                     @id @default(uuid())
+  workspaceId        String
+  customerAccountId  String
+  accountPlanId      String?
+  objectiveNumber    String
+  title              String
+  description        String?
+  businessRationale  String?
+  status             String                     @default("DRAFT") // DRAFT, ACTIVE, AT_RISK, BLOCKED, ACHIEVED, CANCELLED
+  priority           String                     @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  category           String                     @default("ADOPTION_SCALE") // ADOPTION_SCALE, EFFICIENCY_GAIN, COMPLIANCE_READINESS, REVENUE_GROWTH, RELIABILITY_IMPROVEMENT
+  targetDate         DateTime
+  achievedAt         DateTime?
+  ownerUserId        String?
+  successCriteria    String?
+  measurementMethod  String?                    // TELEMETRY, DATA_PRODUCT, TASK_AUDIT, MANUAL_VERIFICATION
+  baselineValue      Float?
+  targetValue        Float?
+  currentValue       Float?
+  unit               String?
+  progressPercent    Float                      @default(0)
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  workspace          Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerAccount    CustomerAccount            @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+  accountPlan        CustomerAccountPlan?       @relation(fields: [accountPlanId], references: [id], onDelete: SetNull)
+  evidence           CustomerObjectiveEvidence[]
+  blockers           CustomerObjectiveBlocker[]
+
+  @@unique([workspaceId, objectiveNumber])
+  @@index([workspaceId, customerAccountId, status])
+  @@index([workspaceId, targetDate])
+  @@map("customer_success_objectives")
+}
+
+model CustomerObjectiveEvidence {
+  id                   String                   @id @default(uuid())
+  workspaceId          String
+  objectiveId          String
+  evidenceType         String                   // DATA_PRODUCT_METRIC, JOURNEY_MILESTONE, TELEMETRY_OBSERVATION, TASK_COMPLETION, VERIFIED_USER_RECORD
+  observedValue        Float?
+  observationTimestamp DateTime                 @default(now())
+  description          String
+  sourceRef            String?
+  recordedById         String?
+  createdAt            DateTime                 @default(now())
+
+  objective            CustomerSuccessObjective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, objectiveId, observationTimestamp])
+  @@map("customer_objective_evidences")
+}
+
+model CustomerObjectiveBlocker {
+  id                     String                   @id @default(uuid())
+  workspaceId            String
+  objectiveId            String
+  title                  String
+  description            String?
+  severity               String                   @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  status                 String                   @default("OPEN") // OPEN, INVESTIGATING, RESOLVED
+  identifiedAt           DateTime                 @default(now())
+  expectedResolutionDate DateTime?
+  resolvedAt             DateTime?
+  resolutionNotes        String?
+  linkedTaskId           String?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+
+  objective              CustomerSuccessObjective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, objectiveId, status])
+  @@map("customer_objective_blockers")
+}
+
+model CustomerStrategicInitiative {
+  id                          String                       @id @default(uuid())
+  workspaceId                 String
+  customerAccountId           String
+  accountPlanId               String?
+  initiativeNumber            String
+  title                       String
+  description                 String?
+  ownerUserId                 String?
+  status                      String                       @default("PROPOSED") // PROPOSED, IN_PROGRESS, BLOCKED, ON_TRACK, COMPLETED, CANCELLED
+  targetCompletionDate        DateTime
+  completedAt                 DateTime?
+  linkedRevenueOpportunityId  String?
+  createdAt                   DateTime                     @default(now())
+  updatedAt                   DateTime                     @updatedAt
+
+  workspace                   Workspace                    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerAccount             CustomerAccount              @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+  accountPlan                 CustomerAccountPlan?         @relation(fields: [accountPlanId], references: [id], onDelete: SetNull)
+  milestones                  CustomerStrategicMilestone[]
+
+  @@unique([workspaceId, initiativeNumber])
+  @@index([workspaceId, customerAccountId, status])
+  @@map("customer_strategic_initiatives")
+}
+
+model CustomerStrategicMilestone {
+  id           String                      @id @default(uuid())
+  workspaceId  String
+  initiativeId String
+  title        String
+  targetDate   DateTime
+  completedAt  DateTime?
+  status       String                      @default("PENDING") // PENDING, COMPLETED, OVERDUE
+
+  initiative   CustomerStrategicInitiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+
+  @@map("customer_strategic_milestones")
+}
+
+model CustomerExecutiveReview {
+  id                 String                                @id @default(uuid())
+  workspaceId        String
+  customerAccountId  String
+  reviewNumber       String
+  reviewPeriod       String                                // Q1 2027, Annual 2026
+  plannedDate        DateTime
+  conductedDate      DateTime?
+  status             String                                @default("PLANNED") // PLANNED, PREPARATION, READY_FOR_REVIEW, COMPLETED, CANCELLED
+  reviewOwnerId      String?
+  executiveSponsorId String?
+  meetingNotes       String?
+  agreedSummary      String?
+  nextReviewDate     DateTime?
+  prepDataSnapshot   Json                                  @default("{}")
+  createdAt          DateTime                              @default(now())
+  updatedAt          DateTime                              @updatedAt
+
+  workspace          Workspace                             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerAccount    CustomerAccount                       @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+  participants       CustomerExecutiveReviewParticipant[]
+  commitments        CustomerExecutiveReviewCommitment[]
+
+  @@unique([workspaceId, reviewNumber])
+  @@index([workspaceId, customerAccountId, plannedDate])
+  @@map("customer_executive_reviews")
+}
+
+model CustomerExecutiveReviewParticipant {
+  id               String                  @id @default(uuid())
+  workspaceId      String
+  reviewId         String
+  contactId        String?
+  userId           String?
+  role             String
+  attendanceStatus String                  @default("INVITED") // INVITED, ATTENDED, DECLINED
+
+  review           CustomerExecutiveReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  contact          CustomerContact?        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@map("customer_executive_review_participants")
+}
+
+model CustomerExecutiveReviewCommitment {
+  id             String                  @id @default(uuid())
+  workspaceId    String
+  reviewId       String
+  title          String
+  description    String?
+  ownerUserId    String?
+  dueDate        DateTime?
+  status         String                  @default("OPEN") // OPEN, IN_PROGRESS, COMPLETED
+  linkedTaskId   String?
+  idempotencyKey String?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  review         CustomerExecutiveReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, idempotencyKey])
+  @@map("customer_executive_review_commitments")
+}
+
+model CustomerPortfolioPriorityEvaluation {
+  id                   String          @id @default(uuid())
+  workspaceId          String
+  customerAccountId    String
+  policyVersion        String          @default("1.0")
+  priorityLevel        String          // CRITICAL_ATTENTION, HIGH_PRIORITY, ROUTINE_MANAGEMENT, HEALTHY_STRATEGIC
+  priorityScore        Float           // 0 to 100
+  evaluationTimestamp  DateTime        @default(now())
+  contributingFactors  Json            @default("[]")
+  recommendedActions   Json            @default("[]")
+  explanation          String
+  isLatest             Boolean         @default(true)
+
+  workspace            Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerAccount      CustomerAccount @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, customerAccountId, isLatest])
+  @@index([workspaceId, priorityLevel])
+  @@map("customer_portfolio_priority_evaluations")
 }
