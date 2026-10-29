@@ -1558,6 +1558,74 @@ export class FlowForgeClient {
         this.request<any>(`/customer-portfolio/recalculate/${customerAccountId}`, "POST"),
     },
   };
+
+  public customerExperience = {
+    overview: {
+      get: async (customerAccountId?: string) =>
+        this.request<any>(`/customer-experience/overview${customerAccountId ? "?customerAccountId=" + customerAccountId : ""}`),
+    },
+    feedback: {
+      create: async (data: any) => this.request<any>("/customer-feedback", "POST", data),
+      list: async (query?: any) => {
+        const q = new URLSearchParams(query as any).toString();
+        return this.request<any>(`/customer-feedback${q ? "?" + q : ""}`);
+      },
+      get: async (id: string) => this.request<any>(`/customer-feedback/${id}`),
+      updateStatus: async (id: string, data: any) => this.request<any>(`/customer-feedback/${id}/status`, "PATCH", data),
+      resolve: async (id: string, data: any) => this.request<any>(`/customer-feedback/${id}/resolve`, "POST", data),
+      linkDuplicate: async (id: string, duplicateOfFeedbackId: string) =>
+        this.request<any>(`/customer-feedback/${id}/duplicate`, "POST", { duplicateOfFeedbackId }),
+      classify: async (id: string, data?: any) => this.request<any>(`/customer-feedback/${id}/classify`, "POST", data || {}),
+    },
+    surveys: {
+      create: async (data: any) => this.request<any>("/customer-surveys", "POST", data),
+      list: async () => this.request<any>("/customer-surveys"),
+      get: async (id: string) => this.request<any>(`/customer-surveys/${id}`),
+      update: async (id: string, data: any) => this.request<any>(`/customer-surveys/${id}`, "PATCH", data),
+      createVersion: async (id: string, data: any) => this.request<any>(`/customer-surveys/${id}/versions`, "POST", data),
+      publishVersion: async (id: string, versionNumber: number) =>
+        this.request<any>(`/customer-surveys/${id}/versions/${versionNumber}/publish`, "POST"),
+      deliver: async (data: any) => this.request<any>("/customer-surveys/deliver", "POST", data),
+      submitResponse: async (id: string, data: any) => this.request<any>(`/customer-surveys/${id}/responses`, "POST", data),
+      submitPublicResponse: async (data: any) => this.request<any>("/customer-surveys/public/respond", "POST", data),
+      listResponses: async (query?: any) => {
+        const q = new URLSearchParams(query as any).toString();
+        return this.request<any>(`/customer-surveys/responses${q ? "?" + q : ""}`);
+      },
+    },
+    metrics: {
+      evaluate: async (query: any) => {
+        const q = new URLSearchParams(query as any).toString();
+        return this.request<any>(`/customer-experience/metrics/evaluate${q ? "?" + q : ""}`);
+      },
+      getHistory: async (metricType?: string) =>
+        this.request<any>(`/customer-experience/metrics/history${metricType ? "?metricType=" + metricType : ""}`),
+    },
+    themes: {
+      list: async () => this.request<any>("/customer-experience/themes"),
+      create: async (data: any) => this.request<any>("/customer-experience/themes", "POST", data),
+      getAnalytics: async (windowDays = 30) =>
+        this.request<any>(`/customer-experience/themes/analytics?windowDays=${windowDays}`),
+      reviewClassification: async (id: string, data: any) =>
+        this.request<any>(`/customer-experience/classifications/${id}/review`, "POST", data),
+    },
+    issues: {
+      create: async (data: any) => this.request<any>("/customer-experience/issues", "POST", data),
+      list: async (query?: any) => {
+        const q = new URLSearchParams(query as any).toString();
+        return this.request<any>(`/customer-experience/issues${q ? "?" + q : ""}`);
+      },
+      get: async (id: string) => this.request<any>(`/customer-experience/issues/${id}`),
+      update: async (id: string, data: any) => this.request<any>(`/customer-experience/issues/${id}`, "PATCH", data),
+      linkFeedback: async (id: string, feedbackId: string) =>
+        this.request<any>(`/customer-experience/issues/${id}/feedback`, "POST", { feedbackId }),
+      createActionPlan: async (issueId: string, data: any) =>
+        this.request<any>(`/customer-experience/issues/${issueId}/actions`, "POST", data),
+      updateActionPlan: async (actionPlanId: string, data: any) =>
+        this.request<any>(`/customer-experience/actions/${actionPlanId}`, "PATCH", data),
+    },
+  };
+
 }
 
 export * from "@flowforge/connector-sdk";

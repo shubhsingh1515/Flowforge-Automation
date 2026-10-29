@@ -1437,4 +1437,87 @@ export const api = {
       request<{ data: any }>(`/customer-portfolio/recalculate/${customerAccountId}`, { method: "POST" }),
   },
 
+
+  // Phase 28: Enterprise Customer Experience Intelligence & Voice of Customer
+  customerExperience: {
+    // Overview
+    getOverview: (customerAccountId?: string) =>
+      request<{ data: any }>(`/customer-experience/overview${customerAccountId ? "?customerAccountId=" + customerAccountId : ""}`),
+
+    // Feedback
+    listFeedback: (params?: any) => {
+      const q = new URLSearchParams(params as any).toString();
+      return request<{ data: { total: number; records: any[] } }>(`/customer-feedback${q ? "?" + q : ""}`);
+    },
+    getFeedback: (id: string) =>
+      request<{ data: any }>(`/customer-feedback/${id}`),
+    createFeedback: (body: any) =>
+      request<{ data: any }>("/customer-feedback", { method: "POST", body: JSON.stringify(body) }),
+    updateFeedbackStatus: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-feedback/${id}/status`, { method: "PATCH", body: JSON.stringify(body) }),
+    resolveFeedback: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-feedback/${id}/resolve`, { method: "POST", body: JSON.stringify(body) }),
+    linkFeedbackDuplicate: (id: string, duplicateOfFeedbackId: string) =>
+      request<{ data: any }>(`/customer-feedback/${id}/duplicate`, { method: "POST", body: JSON.stringify({ duplicateOfFeedbackId }) }),
+    classifyFeedback: (id: string, body?: any) =>
+      request<{ data: any }>(`/customer-feedback/${id}/classify`, { method: "POST", body: JSON.stringify(body || {}) }),
+
+    // Surveys
+    listSurveys: () =>
+      request<{ data: any[] }>("/customer-surveys"),
+    getSurvey: (id: string) =>
+      request<{ data: any }>(`/customer-surveys/${id}`),
+    createSurvey: (body: any) =>
+      request<{ data: any }>("/customer-surveys", { method: "POST", body: JSON.stringify(body) }),
+    updateSurvey: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-surveys/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    createSurveyVersion: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-surveys/${id}/versions`, { method: "POST", body: JSON.stringify(body) }),
+    publishSurveyVersion: (id: string, versionNumber: number) =>
+      request<{ data: any }>(`/customer-surveys/${id}/versions/${versionNumber}/publish`, { method: "POST" }),
+    deliverSurvey: (body: any) =>
+      request<{ data: any }>("/customer-surveys/deliver", { method: "POST", body: JSON.stringify(body) }),
+    submitSurveyResponse: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-surveys/${id}/responses`, { method: "POST", body: JSON.stringify(body) }),
+    listSurveyResponses: (params?: any) => {
+      const q = new URLSearchParams(params as any).toString();
+      return request<{ data: any[] }>(`/customer-surveys/responses${q ? "?" + q : ""}`);
+    },
+
+    // Metrics
+    evaluateMetrics: (params: any) => {
+      const q = new URLSearchParams(params as any).toString();
+      return request<{ data: any }>(`/customer-experience/metrics/evaluate${q ? "?" + q : ""}`);
+    },
+    getMetricHistory: (metricType?: string) =>
+      request<{ data: any[] }>(`/customer-experience/metrics/history${metricType ? "?metricType=" + metricType : ""}`),
+
+    // Themes
+    listThemes: () =>
+      request<{ data: any[] }>("/customer-experience/themes"),
+    createTheme: (body: any) =>
+      request<{ data: any }>("/customer-experience/themes", { method: "POST", body: JSON.stringify(body) }),
+    getThemeAnalytics: (windowDays = 30) =>
+      request<{ data: any }>(`/customer-experience/themes/analytics?windowDays=${windowDays}`),
+    reviewClassification: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-experience/classifications/${id}/review`, { method: "POST", body: JSON.stringify(body) }),
+
+    // Experience Issues & Action Plans
+    listIssues: (params?: any) => {
+      const q = new URLSearchParams(params as any).toString();
+      return request<{ data: any[] }>(`/customer-experience/issues${q ? "?" + q : ""}`);
+    },
+    getIssue: (id: string) =>
+      request<{ data: any }>(`/customer-experience/issues/${id}`),
+    createIssue: (body: any) =>
+      request<{ data: any }>("/customer-experience/issues", { method: "POST", body: JSON.stringify(body) }),
+    updateIssue: (id: string, body: any) =>
+      request<{ data: any }>(`/customer-experience/issues/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    linkFeedbackToIssue: (id: string, feedbackId: string) =>
+      request<{ data: any }>(`/customer-experience/issues/${id}/feedback`, { method: "POST", body: JSON.stringify({ feedbackId }) }),
+    createActionPlan: (issueId: string, body: any) =>
+      request<{ data: any }>(`/customer-experience/issues/${issueId}/actions`, { method: "POST", body: JSON.stringify(body) }),
+    updateActionPlan: (actionPlanId: string, body: any) =>
+      request<{ data: any }>(`/customer-experience/actions/${actionPlanId}`, { method: "PATCH", body: JSON.stringify(body) }),
+  },
 };

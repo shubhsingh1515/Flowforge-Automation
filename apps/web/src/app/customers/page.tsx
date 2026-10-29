@@ -25,6 +25,7 @@ import {
   FileText,
   DollarSign,
   Target,
+  HeartHandshake,
 } from "lucide-react";
 
 export default function CustomerOperationsPage() {
@@ -87,6 +88,18 @@ export default function CustomerOperationsPage() {
   const { data: accountCoverageData } = useQuery({
     queryKey: ["accountPlanning", "coverage", selectedAccountId],
     queryFn: () => (selectedAccountId ? api.accountPlanning.getCoverage(selectedAccountId) : null),
+    enabled: !!selectedAccountId,
+  });
+
+    const { data: accountFeedbackData } = useQuery({
+    queryKey: ["customerExperience", "feedback", selectedAccountId],
+    queryFn: () => (selectedAccountId ? api.customerExperience.listFeedback({ customerAccountId: selectedAccountId }) : null),
+    enabled: !!selectedAccountId,
+  });
+
+  const { data: accountIssuesData } = useQuery({
+    queryKey: ["customerExperience", "issues", selectedAccountId],
+    queryFn: () => (selectedAccountId ? api.customerExperience.listIssues({ customerAccountId: selectedAccountId }) : null),
     enabled: !!selectedAccountId,
   });
 
@@ -522,6 +535,36 @@ export default function CustomerOperationsPage() {
                       External identity mapping links {profile.provenanceSummary?.externalSystemsLinked?.length || 0} upstream systems
                       with strict redaction applied to sensitive authorization credentials.
                     </p>
+                  </div>
+
+                                    {/* Customer Experience & VoC (Phase 28) */}
+                  <div className="p-5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-gray-900 dark:text-white text-sm flex items-center gap-2">
+                        <HeartHandshake className="w-4 h-4 text-indigo-500" />
+                        Customer Experience & VoC (Phase 28)
+                      </h3>
+                      <a
+                        href="/customer-experience"
+                        className="text-xs text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1"
+                      >
+                        VoC Console <ArrowRight className="w-3 h-3" />
+                      </a>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div className="p-2.5 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800">
+                        <span className="text-[11px] text-gray-400 uppercase font-semibold">Feedback Records</span>
+                        <div className="text-base font-bold text-gray-900 dark:text-white mt-0.5">
+                          {accountFeedbackData?.data?.records?.length ?? 0}
+                        </div>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800">
+                        <span className="text-[11px] text-gray-400 uppercase font-semibold">Open Experience Issues</span>
+                        <div className="text-base font-bold text-gray-900 dark:text-white mt-0.5">
+                          {accountIssuesData?.data?.filter((i: any) => i.status !== "CLOSED" && i.status !== "VERIFIED_RESOLVED")?.length ?? 0}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Strategic Account Planning & Business Objectives (Phase 27) */}

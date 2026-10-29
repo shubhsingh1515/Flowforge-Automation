@@ -23,6 +23,7 @@ import {
   Users,
   DollarSign,
   Target,
+  HeartHandshake,
   Layers,
   Sparkles,
   ArrowRight,
@@ -64,6 +65,7 @@ const COMMAND_ITEMS: CommandItem[] = [
   { id: "customers", title: "Customer Operations & 360", category: "Intelligence & Data", href: "/customers", icon: Users, badge: "P25", keywords: ["accounts", "health", "journey"] },
   { id: "revenue", title: "Revenue Intelligence & Retention", category: "Intelligence & Data", href: "/revenue", icon: DollarSign, badge: "P26", keywords: ["contracts", "renewals", "expansion", "arr", "risk"] },
   { id: "account-planning", title: "Strategic Account Planning & Portfolio", category: "Intelligence & Data", href: "/account-planning", icon: Target, badge: "P27", keywords: ["strategic", "portfolio", "objectives", "stakeholders", "ebr", "qbr", "plan"] },
+  { id: "customer-experience", title: "Customer Experience & Voice of Customer", category: "Intelligence & Data", href: "/customer-experience", icon: HeartHandshake, badge: "P28", keywords: ["voc", "feedback", "nps", "csat", "surveys", "sentiment", "experience", "issues"] },
 
   // Operations & Governance
   { id: "environments", title: "Environments & Digital Twin", category: "Platform & Reliability", href: "/environments", icon: GitBranch, keywords: ["simulation", "chaos", "staging"] },

@@ -1735,4 +1735,214 @@ describe("FlowForge TypeScript SDK Client Suite", () => {
     expect(queue.data[0].priorityScore).toBe(85);
   });
 
+
+  it("supports Phase 28 customer experience, voice of customer, surveys, feedback analytics, and issues", async () => {
+    const client = new FlowForgeClient({
+      apiKey: "ff_live_valid",
+      baseUrl: "https://api.flowforge.dev/api/v1",
+    });
+
+    global.fetch = vi.fn().mockImplementation(async (url: string, init: any) => {
+      const u = url.toString();
+
+      if (u.includes("/customer-experience/overview")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            data: {
+              totalFeedbackCount: 42,
+              unreviewedFeedbackCount: 5,
+              openHighSeverityIssuesCount: 2,
+              overdueActionPlansCount: 1,
+              nps: { score: 48, status: "VALID", sampleCount: 25 },
+              csat: { score: 88, status: "VALID", sampleCount: 30 },
+            },
+          }),
+        };
+      }
+
+      if (u.includes("/customer-feedback")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            data: {
+              id: "fb-101",
+              feedbackNumber: "FB-1001",
+              rawText: "The workflow builder canvas is very fast, but SSO docs need more details.",
+              category: "DOCUMENTATION",
+              source: "USER_MANUAL",
+              status: "RECEIVED",
+            },
+          }),
+        };
+      }
+
+      if (u.includes("/customer-surveys/deliver")) {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({
+            success: true,
+            data: {
+              delivery: { id: "del-101", status: "SENT", recipientEmail: "cto@acme.com" },
+              token: "sec_tok_abc123",
+            },
+          }),
+        };
+      }
+
+      if (u.includes("/customer-surveys")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            data: {
+              id: "surv-101",
+              name: "Q1 NPS Survey",
+              slug: "q1-nps",
+              surveyType: "NPS",
+              status: "ACTIVE",
+              currentVersionNumber: 1,
+            },
+          }),
+        };
+      }
+
+      if (u.includes("/customer-experience/metrics/evaluate")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            data: {
+              metricType: "NPS",
+              evaluationWindow: "LAST_30_DAYS",
+              status: "VALID",
+              sampleCount: 25,
+              score: 48,
+              breakdown: { promoters: 15, passives: 7, detractors: 3 },
+            },
+          }),
+        };
+      }
+
+      if (u.includes("/customer-experience/themes")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            data: [
+              { id: "thm-1", name: "Workflow Reliability", category: "WORKFLOW_RELIABILITY" },
+              { id: "thm-2", name: "Canvas Usability", category: "PRODUCT_USABILITY" },
+            ],
+          }),
+        };
+      }
+
+      if (u.includes("/customer-experience/issues/iss-1/actions")) {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({
+            success: true,
+            data: {
+              id: "act-1",
+              issueId: "iss-1",
+              title: "Update SSO SAML documentation guide",
+              status: "PLANNED",
+              materializedTaskId: "tsk-99",
+            },
+          }),
+        };
+      }
+
+      if (u.includes("/customer-experience/issues")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            data: {
+              id: "iss-1",
+              issueNumber: "EXP-1001",
+              title: "SSO Documentation gaps causing onboarding delays",
+              severity: "HIGH",
+              status: "OPEN",
+            },
+          }),
+        };
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, data: {} }),
+      };
+    });
+
+    // 1. Overview
+    const overview = await client.customerExperience.overview.get();
+    expect(overview.data.totalFeedbackCount).toBe(42);
+    expect(overview.data.nps.score).toBe(48);
+
+    // 2. Feedback create
+    const feedback = await client.customerExperience.feedback.create({
+      customerAccountId: "acc-1",
+      source: "USER_MANUAL",
+      rawText: "The workflow builder canvas is very fast, but SSO docs need more details.",
+    });
+    expect(feedback.data.feedbackNumber).toBe("FB-1001");
+
+    // 3. Survey create & deliver
+    const survey = await client.customerExperience.surveys.create({
+      name: "Q1 NPS Survey",
+      slug: "q1-nps",
+      surveyType: "NPS",
+      title: "How likely are you to recommend FlowForge?",
+      initialQuestions: [{ id: "q1", text: "Score 0-10", questionType: "NUMERIC_SCALE", isRequired: true }],
+    });
+    expect(survey.data.surveyType).toBe("NPS");
+
+    const delivery = await client.customerExperience.surveys.deliver({
+      surveyDefinitionId: "surv-101",
+      customerAccountId: "acc-1",
+      recipientEmail: "cto@acme.com",
+    });
+    expect(delivery.data.delivery.status).toBe("SENT");
+    expect(delivery.data.token).toBe("sec_tok_abc123");
+
+    // 4. Metrics evaluation
+    const metrics = await client.customerExperience.metrics.evaluate({
+      metricType: "NPS",
+      evaluationWindow: "LAST_30_DAYS",
+    });
+    expect(metrics.data.score).toBe(48);
+    expect(metrics.data.status).toBe("VALID");
+
+    // 5. Themes list
+    const themes = await client.customerExperience.themes.list();
+    expect(themes.data.length).toBe(2);
+
+    // 6. Experience issue & closed-loop action
+    const issue = await client.customerExperience.issues.create({
+      title: "SSO Documentation gaps causing onboarding delays",
+      description: "Multiple enterprise customers requested SAML 2.0 Azure AD setup guides.",
+      severity: "HIGH",
+    });
+    expect(issue.data.issueNumber).toBe("EXP-1001");
+
+    const action = await client.customerExperience.issues.createActionPlan("iss-1", {
+      title: "Update SSO SAML documentation guide",
+      description: "Write and publish step-by-step documentation for Azure AD SSO.",
+      materializeTask: true,
+    });
+    expect(action.data.materializedTaskId).toBe("tsk-99");
+  });
+
 });

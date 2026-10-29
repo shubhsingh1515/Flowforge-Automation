@@ -228,6 +228,17 @@ model Workspace {
   customerStrategicInitiatives CustomerStrategicInitiative[]
   customerExecutiveReviews     CustomerExecutiveReview[]
   customerPortfolioPriorities  CustomerPortfolioPriorityEvaluation[]
+  // Phase 28: Enterprise Customer Experience Intelligence & Voice of Customer
+  customerFeedbackRecords        CustomerFeedbackRecord[]
+  customerSurveyDefinitions      CustomerSurveyDefinition[]
+  customerSurveyDeliveries       CustomerSurveyDelivery[]
+  customerSurveyResponses        CustomerSurveyResponse[]
+  customerFeedbackThemes         CustomerFeedbackTheme[]
+  customerFeedbackClassifications CustomerFeedbackClassification[]
+  customerExperienceIssues       CustomerExperienceIssue[]
+  customerExperienceIssueFeedbacks CustomerExperienceIssueFeedback[]
+  customerExperienceActionPlans  CustomerExperienceActionPlan[]
+  customerExperienceMetricEvaluations CustomerExperienceMetricEvaluation[]
 
   @@map("workspaces")
 }
@@ -2899,6 +2910,11 @@ model CustomerAccount {
   strategicInitiatives         CustomerStrategicInitiative[]
   executiveReviews             CustomerExecutiveReview[]
   portfolioPriorities          CustomerPortfolioPriorityEvaluation[]
+  feedbackRecords              CustomerFeedbackRecord[]
+  surveyDeliveries             CustomerSurveyDelivery[]
+  surveyResponses              CustomerSurveyResponse[]
+  experienceIssues             CustomerExperienceIssue[]
+  experienceMetricEvaluations  CustomerExperienceMetricEvaluation[]
 
   @@unique([workspaceId, slug])
   @@index([workspaceId, lifecycleState])
@@ -2925,6 +2941,9 @@ model CustomerContact {
   customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
   stakeholderRelationships CustomerStakeholderRelationship[]
   reviewParticipations     CustomerExecutiveReviewParticipant[]
+  feedbackRecords          CustomerFeedbackRecord[]
+  surveyDeliveries         CustomerSurveyDelivery[]
+  surveyResponses          CustomerSurveyResponse[]
 
   @@unique([customerAccountId, email])
   @@index([workspaceId, email])
@@ -3787,4 +3806,303 @@ model CustomerPortfolioPriorityEvaluation {
   @@index([workspaceId, customerAccountId, isLatest])
   @@index([workspaceId, priorityLevel])
   @@map("customer_portfolio_priority_evaluations")
+}
+
+
+// ==========================================
+// Phase 28: Enterprise Customer Experience Intelligence & Voice of Customer
+// ==========================================
+
+model CustomerFeedbackRecord {
+  id                   String                             @id @default(uuid())
+  workspaceId          String
+  customerAccountId    String
+  contactId            String?
+  feedbackNumber       String                             // e.g. FB-1001
+  source               String                             // SURVEY, USER_MANUAL, CRM_INTEGRATION, SUPPORT_INTEGRATION, COMMUNICATION_REPLY, CUSTOMER_EVENT
+  category             String                             @default("PRODUCT_USABILITY") // PRODUCT_USABILITY, ONBOARDING, WORKFLOW_RELIABILITY, INTEGRATION_QUALITY, PERFORMANCE, DOCUMENTATION, SUPPORT_EXPERIENCE, BUSINESS_OUTCOMES, SECURITY_GOVERNANCE, PRICING_COMMERCIAL, FEATURE_REQUEST, OTHER
+  feedbackType         String                             @default("UNSOLICITED_FEEDBACK") // NPS_COMMENT, CSAT_COMMENT, CES_COMMENT, SUPPORT_FEEDBACK, UNSOLICITED_FEEDBACK, INTERVIEW_NOTE, FEATURE_WISH
+  rawText              String
+  redactedText         String?
+  submissionTimestamp  DateTime                           @default(now())
+  ingestionTimestamp   DateTime                           @default(now())
+  relatedWorkflowId    String?
+  relatedIntegrationId String?
+  relatedJourneyStage  String?
+  relatedObjectiveId   String?
+  relatedIncidentId    String?
+  relatedExecutionId   String?
+  sourceSystem         String                             @default("flowforge")
+  externalRecordId     String?
+  idempotencyKey       String?
+  consentContext       Json                               @default("{}")
+  dataClassification   String                             @default("INTERNAL") // INTERNAL, CONFIDENTIAL, RESTRICTED
+  status               String                             @default("RECEIVED") // RECEIVED, PROCESSING, REVIEW_REQUIRED, ACTION_REQUIRED, IN_PROGRESS, RESOLVED, CLOSED, DISMISSED
+  linkedDuplicateOfId  String?
+  resolutionSummary    String?
+  resolutionEvidence   Json                               @default("{}")
+  resolvedByUserId     String?
+  resolvedAt           DateTime?
+  surveyResponseId     String?
+  createdAt            DateTime                           @default(now())
+  updatedAt            DateTime                           @updatedAt
+
+  workspace            Workspace                          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerAccount      CustomerAccount                    @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+  contact              CustomerContact?                   @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  duplicateOf          CustomerFeedbackRecord?            @relation("FeedbackDuplicates", fields: [linkedDuplicateOfId], references: [id], onDelete: SetNull)
+  duplicates           CustomerFeedbackRecord[]           @relation("FeedbackDuplicates")
+  classifications      CustomerFeedbackClassification[]
+  issueLinks           CustomerExperienceIssueFeedback[]
+
+  @@unique([workspaceId, feedbackNumber])
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, customerAccountId, status])
+  @@index([workspaceId, category, status])
+  @@index([workspaceId, submissionTimestamp])
+  @@map("customer_feedback_records")
+}
+
+model CustomerSurveyDefinition {
+  id                   String                     @id @default(uuid())
+  workspaceId          String
+  name                 String
+  slug                 String
+  description          String?
+  surveyType           String                     // NPS, CSAT, CES, ONBOARDING, POST_SUPPORT, WORKFLOW_EXPERIENCE, CUSTOM
+  status               String                     @default("DRAFT") // DRAFT, ACTIVE, PAUSED, ARCHIVED
+  targetingRules       Json                       @default("{}")
+  consentRequirements  Json                       @default("{}")
+  cooldownDays         Int                        @default(30)
+  currentVersionNumber Int                        @default(1)
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+
+  workspace            Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  versions             CustomerSurveyVersion[]
+  deliveries           CustomerSurveyDelivery[]
+  responses            CustomerSurveyResponse[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, status])
+  @@map("customer_survey_definitions")
+}
+
+model CustomerSurveyVersion {
+  id                 String                     @id @default(uuid())
+  workspaceId        String
+  surveyDefinitionId String
+  versionNumber      Int
+  isPublished        Boolean                    @default(false)
+  publishedAt        DateTime?
+  publishedByUserId  String?
+  title              String
+  introText          String?
+  thankYouText       String?
+  questionsJson      Json                       // Array of { id, text, questionType, scaleMin, scaleMax, options, isRequired }
+  createdAt          DateTime                   @default(now())
+
+  surveyDefinition   CustomerSurveyDefinition   @relation(fields: [surveyDefinitionId], references: [id], onDelete: Cascade)
+  deliveries         CustomerSurveyDelivery[]
+  responses          CustomerSurveyResponse[]
+
+  @@unique([surveyDefinitionId, versionNumber])
+  @@map("customer_survey_versions")
+}
+
+model CustomerSurveyDelivery {
+  id                 String                     @id @default(uuid())
+  workspaceId        String
+  surveyDefinitionId String
+  surveyVersionId    String
+  customerAccountId  String
+  contactId          String?
+  channel            String                     @default("EMAIL") // EMAIL, IN_APP, MANUAL_LINK
+  recipientEmail     String?
+  status             String                     @default("SENT") // SCHEDULED, SENT, DELIVERED, OPENED, RESPONDED, EXPIRED, FAILED
+  secureTokenHash    String                     @unique
+  idempotencyKey     String?
+  expiresAt          DateTime
+  sentAt             DateTime                   @default(now())
+  respondedAt        DateTime?
+  deliveryError      String?
+  createdAt          DateTime                   @default(now())
+
+  workspace          Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  surveyDefinition   CustomerSurveyDefinition   @relation(fields: [surveyDefinitionId], references: [id], onDelete: Cascade)
+  surveyVersion      CustomerSurveyVersion      @relation(fields: [surveyVersionId], references: [id], onDelete: Cascade)
+  customerAccount    CustomerAccount            @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+  contact            CustomerContact?           @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  responses          CustomerSurveyResponse[]
+
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, customerAccountId, status])
+  @@map("customer_survey_deliveries")
+}
+
+model CustomerSurveyResponse {
+  id                  String                     @id @default(uuid())
+  workspaceId         String
+  surveyDefinitionId  String
+  surveyVersionId     String
+  surveyDeliveryId    String?
+  customerAccountId   String
+  contactId           String?
+  primaryScore        Float?
+  scoreClassification String?                    // PROMOTER, PASSIVE, DETRACTOR, SATISFIED, DISSATISFIED
+  freeTextFeedback    String?
+  answersJson         Json                       @default("{}")
+  submittedAt         DateTime                   @default(now())
+  isVerified          Boolean                    @default(true)
+  createdAt           DateTime                   @default(now())
+
+  workspace           Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  surveyDefinition    CustomerSurveyDefinition   @relation(fields: [surveyDefinitionId], references: [id], onDelete: Cascade)
+  surveyVersion       CustomerSurveyVersion      @relation(fields: [surveyVersionId], references: [id], onDelete: Cascade)
+  surveyDelivery      CustomerSurveyDelivery?    @relation(fields: [surveyDeliveryId], references: [id], onDelete: SetNull)
+  customerAccount     CustomerAccount            @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+  contact             CustomerContact?           @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, surveyDefinitionId, submittedAt])
+  @@index([workspaceId, customerAccountId, submittedAt])
+  @@map("customer_survey_responses")
+}
+
+model CustomerFeedbackTheme {
+  id              String                           @id @default(uuid())
+  workspaceId     String
+  name            String
+  slug            String
+  category        String
+  description     String?
+  status          String                           @default("ACTIVE") // ACTIVE, ARCHIVED
+  createdAt       DateTime                         @default(now())
+  updatedAt       DateTime                         @updatedAt
+
+  workspace       Workspace                        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  classifications CustomerFeedbackClassification[]
+
+  @@unique([workspaceId, slug])
+  @@map("customer_feedback_themes")
+}
+
+model CustomerFeedbackClassification {
+  id                   String                 @id @default(uuid())
+  workspaceId          String
+  feedbackId           String
+  themeId              String?
+  themeName            String
+  category             String
+  sentiment            String                 @default("NEUTRAL") // POSITIVE, NEUTRAL, NEGATIVE, MIXED
+  classificationMethod String                 @default("DETERMINISTIC_RULE") // DETERMINISTIC_RULE, AI_ASSISTED, HUMAN_CLASSIFIED
+  confidenceScore      Float?
+  reviewStatus         String                 @default("PROPOSED") // PROPOSED, CONFIRMED, CORRECTED, REJECTED
+  reviewedByUserId     String?
+  reviewedAt           DateTime?
+  correctionReason     String?
+  createdAt            DateTime               @default(now())
+
+  workspace            Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  feedback             CustomerFeedbackRecord @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  theme                CustomerFeedbackTheme? @relation(fields: [themeId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, feedbackId])
+  @@index([workspaceId, themeName])
+  @@index([workspaceId, reviewStatus])
+  @@map("customer_feedback_classifications")
+}
+
+model CustomerExperienceIssue {
+  id                  String                            @id @default(uuid())
+  workspaceId         String
+  customerAccountId   String?
+  issueNumber         String
+  title               String
+  description         String
+  category            String                            @default("PRODUCT_USABILITY")
+  severity            String                            @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  status              String                            @default("OPEN") // OPEN, TRIAGED, INVESTIGATING, ACTION_PLANNED, IN_PROGRESS, RESOLVED, CLOSED, WONT_FIX
+  ownerUserId         String?
+  targetDate          DateTime?
+  relatedIncidentId   String?
+  rootCauseStatus     String                            @default("HYPOTHESIS") // UNKNOWN, HYPOTHESIS, INVESTIGATING, CONFIRMED, NOT_REPRODUCIBLE
+  rootCauseDetails    String?
+  resolutionSummary   String?
+  resolutionEvidence  Json                              @default("{}")
+  closedAt            DateTime?
+  closeReason         String?
+  createdAt           DateTime                          @default(now())
+  updatedAt           DateTime                          @updatedAt
+
+  workspace           Workspace                         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerAccount     CustomerAccount?                  @relation(fields: [customerAccountId], references: [id], onDelete: SetNull)
+  feedbackLinks       CustomerExperienceIssueFeedback[]
+  actionPlans         CustomerExperienceActionPlan[]
+
+  @@unique([workspaceId, issueNumber])
+  @@index([workspaceId, status, severity])
+  @@map("customer_experience_issues")
+}
+
+model CustomerExperienceIssueFeedback {
+  id             String                  @id @default(uuid())
+  workspaceId    String
+  issueId        String
+  feedbackId     String
+  linkedAt       DateTime                @default(now())
+  linkedByUserId String?
+
+  workspace      Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  issue          CustomerExperienceIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  feedback       CustomerFeedbackRecord  @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+
+  @@unique([issueId, feedbackId])
+  @@index([workspaceId, issueId])
+  @@map("customer_experience_issue_feedbacks")
+}
+
+model CustomerExperienceActionPlan {
+  id                 String                  @id @default(uuid())
+  workspaceId        String
+  issueId            String
+  title              String
+  description        String
+  ownerUserId        String?
+  dueDate            DateTime?
+  expectedOutcome    String?
+  successMeasure     String?
+  status             String                  @default("PLANNED") // PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
+  materializedTaskId String?
+  completedAt        DateTime?
+  completionEvidence Json                    @default("{}")
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  workspace          Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  issue              CustomerExperienceIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, issueId, status])
+  @@map("customer_experience_action_plans")
+}
+
+model CustomerExperienceMetricEvaluation {
+  id                String           @id @default(uuid())
+  workspaceId       String
+  metricType        String           // NPS, CSAT, CES, GENERAL_FEEDBACK
+  evaluationWindow  String           // LAST_30_DAYS, LAST_90_DAYS, ALL_TIME
+  startDate         DateTime
+  endDate           DateTime
+  sampleCount       Int
+  score             Float?
+  status            String           @default("VALID") // VALID, INSUFFICIENT_DATA, NO_DATA
+  breakdownJson     Json             @default("{}")
+  customerAccountId String?
+  evaluatedAt       DateTime         @default(now())
+
+  workspace         Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerAccount   CustomerAccount? @relation(fields: [customerAccountId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, metricType, evaluationWindow])
+  @@index([workspaceId, customerAccountId])
+  @@map("customer_experience_metric_evaluations")
 }
